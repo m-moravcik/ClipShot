@@ -37,7 +37,7 @@ enum Fixtures {
     @discardableResult
     static func write(
         named name: String, contents: Data? = nil, in dir: URL,
-        marker: Marker = .true, captureType: Bool = true,
+        marker: Marker = .true, captureType: Bool = true, kind: String = "selection",
         quarantine: Bool = false, whereFroms: Bool = false,
         created: Date? = nil, modified: Date? = nil
     ) throws -> URL {
@@ -50,7 +50,7 @@ enum Fixtures {
         case .false: setxattr(CaptureMarker.captureFlag, bplist(false), on: temp)
         case .none: break
         }
-        if captureType { setxattr(CaptureMarker.captureType, bplist("selection"), on: temp) }
+        if captureType { setxattr(CaptureMarker.captureType, bplist(kind), on: temp) }
         if quarantine { setxattr(CaptureMarker.quarantine, Data("0083;00000000;Safari;".utf8), on: temp) }
         if whereFroms { setxattr(CaptureMarker.whereFroms, bplist(["https://example.com"]), on: temp) }
         var attrs: [FileAttributeKey: Any] = [:]
@@ -60,6 +60,12 @@ enum Fixtures {
         let target = dir.appendingPathComponent(name)
         precondition(rename(temp.path, target.path) == 0, "rename failed")
         return target
+    }
+
+    /// Sets the screenshot marker on a file already in place, as macOS does 0-54 ms after the rename.
+    static func mark(_ url: URL, kind: String = "selection") {
+        setxattr(CaptureMarker.captureFlag, bplist(true), on: url)
+        setxattr(CaptureMarker.captureType, bplist(kind), on: url)
     }
 
     static func image(type: UTType, size: Int = 16) -> Data {

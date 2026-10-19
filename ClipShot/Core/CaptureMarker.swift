@@ -13,6 +13,14 @@ enum CaptureMarker {
         return attribute(quarantine, of: url) == nil && attribute(whereFroms, of: url) == nil
     }
 
+    /// `kMDItemScreenCaptureType`: "display", "selection" or "window"; nil when absent or unreadable.
+    static func captureType(of url: URL) -> String? {
+        guard let data = attribute(captureType, of: url),
+              let value = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil)
+        else { return nil }
+        return value as? String
+    }
+
     private static func decodesToTrue(_ data: Data) -> Bool {
         guard let value = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil)
         else { return false }

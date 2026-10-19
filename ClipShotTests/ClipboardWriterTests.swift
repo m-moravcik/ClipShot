@@ -52,8 +52,11 @@ struct ClipboardWriterTests {
         pb.setString("old", forType: .string)
         let data = Fixtures.pngImage()
         #expect(SystemPasteboard(pasteboard: pb).writePNG(data))
-        #expect(pb.types?.contains(.png) == true)
-        #expect(pb.types?.contains(.string) == false)
+        let types = pb.types ?? []
+        #expect(types.contains(.png))
+        #expect(!types.contains(.string))
+        #expect(!types.contains(.fileURL))
+        #expect(!types.contains(.URL))
         #expect(pb.data(forType: .png) == data)
     }
 }

@@ -13,15 +13,22 @@ struct CopyDecider: Sendable {
         for file in files { copied[file.url.standardizedFileURL] = file.modified }
     }
 
+    /// Created and modified within the copy window, and not in the future.
+    static func isFresh(_ file: CaptureFile, now: Date) -> Bool {
+        now.timeIntervalSince(file.created) <= window
+            && now.timeIntervalSince(file.modified) <= window
+            && file.created <= now.addingTimeInterval(1)
+    }
+
+    /// `shouldCopy` without recording the copy.
+    func wouldCopy(_ file: CaptureFile, now: Date) -> Bool {
+        guard file.isScreenshot, Self.isFresh(file, now: now) else { return false }
+        return copied[file.url.standardizedFileURL] != file.modified
+    }
+
     mutating func shouldCopy(_ file: CaptureFile, now: Date) -> Bool {
-        guard file.isScreenshot,
-              now.timeIntervalSince(file.created) <= Self.window,
-              now.timeIntervalSince(file.modified) <= Self.window,
-              file.created <= now.addingTimeInterval(1)
-        else { return false }
-        let key = file.url.standardizedFileURL
-        if copied[key] == file.modified { return false }
-        copied[key] = file.modified
+        guard wouldCopy(file, now: now) else { return false }
+        copied[file.url.standardizedFileURL] = file.modified
         return true
     }
 

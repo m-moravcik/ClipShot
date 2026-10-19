@@ -21,6 +21,16 @@ struct CopyDeciderTests {
         let r2 = d.shouldCopy(f, now: now)
         #expect(!r2)
     }
+    @Test func wouldCopyDoesNotRecord() {
+        var d = CopyDecider()
+        let f = file(created: -1, modified: -1)
+        #expect(d.wouldCopy(f, now: now))
+        #expect(d.wouldCopy(f, now: now))
+        let first = d.shouldCopy(f, now: now)
+        #expect(first)
+        #expect(!d.wouldCopy(f, now: now))
+        #expect(!d.wouldCopy(file(created: -1, modified: -1, shot: false), now: now))
+    }
     @Test func copiesAgainWhenModifiedChangesInsideWindow() {
         var d = CopyDecider()
         let r3 = d.shouldCopy(file(created: -5, modified: -5), now: now)
