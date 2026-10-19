@@ -90,7 +90,7 @@ private struct GeneralSettings: View {
             // Only once the tour has been seen: on a fresh install the user is in it.
             if preferences.onboardingShown {
                 Section {
-                    Button { preferences.onboardingShown = false } label: { Text(Copy.General.replayTour) }
+                    Button { model.replayOnboarding() } label: { Text(Copy.General.replayTour) }
                 }
             }
         }
@@ -486,7 +486,12 @@ private struct RetentionSettings: View {
                     } label: {
                         Text(Copy.Retention.adoptButton(
                             scan.olderNotTracked, scan.olderNotTrackedBytes.formatted(.byteCount(style: .file))))
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
+                    // A link, as "Reset to macOS default": it wraps where a push button
+                    // would truncate a long translation.
+                    .buttonStyle(.link)
                     Spacer()
                 }
             }
@@ -513,8 +518,7 @@ private struct RetentionSettings: View {
 
     private func turnOn() {
         Task {
-            guard await model.confirmRetentionFolder() else { return }
-            model.preferences.retention.enabled = true
+            guard await model.turnOnRetention() else { return }
             pendingEnable = false
         }
     }

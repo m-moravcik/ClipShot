@@ -256,6 +256,50 @@ enum Copy {
         static let showTrash = LocalizedStringResource("Show Trash")
     }
 
+    // MARK: - Welcome tour
+
+    enum Onboarding {
+        static let skip = LocalizedStringResource("Skip", comment: "Welcome tour: ends the tour")
+        static let back = LocalizedStringResource("Back", comment: "Welcome tour: previous step")
+        static let next = LocalizedStringResource("Next", comment: "Welcome tour: next step")
+        static let done = LocalizedStringResource("Done", comment: "Welcome tour: last step's button")
+        /// "2 of 3". The numbers come formatted, so no plural is needed.
+        static func stepOf(_ step: Int, _ total: Int) -> LocalizedStringResource {
+            LocalizedStringResource(
+                "\(step.formatted()) of \(total.formatted())", comment: "Welcome tour step counter, such as 2 of 3")
+        }
+
+        static let welcomeTitle = LocalizedStringResource("Welcome to ClipShot")
+        static let welcomeBody = LocalizedStringResource(
+            "Every screenshot you take goes to the clipboard, ready to paste. macOS still saves the file and shows the thumbnail as usual.")
+
+        static let folderTitle = LocalizedStringResource(
+            "Your screenshot folder", comment: "Welcome tour step 2, before folder access")
+        static let folderBody = LocalizedStringResource(
+            "ClipShot watches the folder where macOS saves screenshots and copies each new one. If that folder is Desktop, Documents or Downloads, macOS asks you once to allow it.",
+            comment: "Welcome tour step 2: explains folder access before the button that asks for it")
+        static let startCopying = LocalizedStringResource(
+            "Start copying", comment: "Welcome tour step 2: starts watching the screenshot folder")
+
+        static let tryTitle = LocalizedStringResource(
+            "Try it: press ⇧⌘4", comment: "Welcome tour step 2, after folder access: take a screenshot")
+        static let tryBody = LocalizedStringResource(
+            "Paste works once the floating thumbnail disappears. Click the thumbnail to mark it up first: ClipShot copies the edited image.",
+            comment: "Welcome tour step 2: thumbnail timing and the Markup flow")
+        static let waiting = LocalizedStringResource(
+            "Waiting for a screenshot…", comment: "Welcome tour step 2: no screenshot copied yet")
+        static let copied = LocalizedStringResource(
+            "Copied. Paste it anywhere with ⌘V.", comment: "Welcome tour step 2: the first screenshot is on the clipboard")
+
+        static let tidyTitle = LocalizedStringResource(
+            "Keep the folder tidy", comment: "Welcome tour step 3: retention offer")
+        static func tidyBody(_ days: Int) -> LocalizedStringResource {
+            LocalizedStringResource(
+                "ClipShot can move the screenshots it saw being made to the Trash after \(days) days. Rename one to keep it.",
+                comment: "Welcome tour step 3: the retention period in days")
+        }
+    }
+
     enum About {
         static func version(_ short: String, _ build: String) -> LocalizedStringResource {
             "Version \(short) (\(build))"

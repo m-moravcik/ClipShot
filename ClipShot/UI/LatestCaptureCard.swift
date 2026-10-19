@@ -54,6 +54,7 @@ struct LatestCaptureSection: View {
                 Text(Copy.Latest.none)
                     .font(Design.Typography.note)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, Design.Spacing.l)
                     .padding(.vertical, Design.Spacing.m)
@@ -105,18 +106,11 @@ struct LatestCaptureCard: View {
                 age: capture.file.created.formatted(.relative(presentation: .named)), size: size)))
             .accessibilityAddTraits(.isImage)
 
-            HStack(spacing: Design.Spacing.s) {
-                Button { copyAgain() } label: {
-                    Label {
-                        Text(Copy.Action.copyAgain)
-                    } icon: {
-                        Image(systemName: showCheck ? "checkmark" : "doc.on.doc")
-                            .contentTransition(reduceMotion ? .opacity : .symbolEffect(.replace))
-                    }
-                }
-                Button { model.revealLast() } label: {
-                    Label { Text(Copy.Action.showInFinder) } icon: { Image(systemName: "folder") }
-                }
+            // A translation can make the two buttons wider than the card; then they stack
+            // rather than truncate. The symbols stay: Copy again shows its checkmark there.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: Design.Spacing.s) { actions }
+                VStack(alignment: .leading, spacing: Design.Spacing.s) { actions }
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
@@ -125,6 +119,23 @@ struct LatestCaptureCard: View {
         .padding(.vertical, Design.Spacing.m)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.cardFill))
+    }
+
+    @ViewBuilder
+    private var actions: some View {
+        Button { copyAgain() } label: {
+            Label {
+                Text(Copy.Action.copyAgain)
+            } icon: {
+                Image(systemName: showCheck ? "checkmark" : "doc.on.doc")
+                    .contentTransition(reduceMotion ? .opacity : .symbolEffect(.replace))
+            }
+        }
+        .fixedSize()
+        Button { model.revealLast() } label: {
+            Label { Text(Copy.Action.showInFinder) } icon: { Image(systemName: "folder") }
+        }
+        .fixedSize()
     }
 
     @ViewBuilder
@@ -165,12 +176,18 @@ struct LatestCaptureCard: View {
     }
 
     /// Copies the screenshot this card shows, never another one. A second click restarts the
-    /// checkmark's 1.2 s instead of letting the first click's timer cut it short.
+    /// checkmark's 1.2 s instead of letting the first click's timer cut it short. A click
+    /// that fails takes the checkmark away, so an earlier success never stays on show.
     private func copyAgain() {
         let file = capture.file
         checkTask?.cancel()
         checkTask = Task {
-            guard await model.copyAgain(file: file), !Task.isCancelled else { return }
+            let copied = await model.copyAgain(file: file)
+            guard !Task.isCancelled else { return }
+            guard copied else {
+                withAnimation(Design.Motion.quick) { showCheck = false }
+                return
+            }
             withAnimation(Design.Motion.quick) { showCheck = true }
             try? await Task.sleep(for: Self.checkDuration)
             guard !Task.isCancelled else { return }

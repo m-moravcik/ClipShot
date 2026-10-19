@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// Watches the screenshot folder, copies each fresh screenshot to the clipboard as PNG and
 /// records every fresh screenshot it observes in the retention ledger.
@@ -50,6 +51,9 @@ final class CopyCoordinator {
 
     private var running = false
     private var generation = 0
+    /// How many times `stop()` ran, readable on the `io` queue: a prefs read queued before a
+    /// `stop()` but reached after it is skipped there, not only discarded on the way back.
+    private let stops = StopCount()
     /// The folder the prefs named at the last re-target.
     private var configured: URL?
     /// Device and inode of the watched configured folder, to notice it being replaced.
@@ -103,6 +107,7 @@ final class CopyCoordinator {
         guard running else { return }
         running = false
         generation += 1
+        stops.increment()
         pollTask?.cancel()
         pollTask = nil
         cancelRescans()
@@ -144,14 +149,18 @@ final class CopyCoordinator {
         let gen = generation
         let settings = settings
         let desktop = desktop
-        let probe = await onIO { () -> Probe in
+        let stops = stops
+        let stopsNow = stops.value
+        let probe = await onIO { () -> Probe? in
+            // Stopped while this waited behind other IO: no prefs read after `stop()`.
+            guard stops.value == stopsNow else { return nil }
             let folder = settings.folder()
             let state = FolderState.of(folder)
             // ~/Desktop is only touched when it is needed as the fallback.
             guard case .missing = state else { return Probe(configured: folder, state: state, desktop: nil) }
             return Probe(configured: folder, state: state, desktop: .of(desktop))
         }
-        guard running, gen == generation else { return }
+        guard let probe, running, gen == generation else { return }
         if probe.configured != configured {
             await retarget(plan(probe, missing: .folderMissing(probe.configured)))
             return
@@ -516,4 +525,13 @@ private struct Observation: Sendable {
 private enum PassOutcome: Sendable {
     case listed([Observation])
     case unreadable
+}
+
+/// A counter the main actor bumps and the `io` queue reads.
+private final class StopCount: Sendable {
+    private let state = Mutex(0)
+
+    var value: Int { state.withLock { $0 } }
+
+    func increment() { state.withLock { $0 += 1 } }
 }

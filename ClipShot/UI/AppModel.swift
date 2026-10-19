@@ -193,6 +193,18 @@ final class AppModel {
         scheduler.start()
     }
 
+    /// Done or Skip in the welcome tour: the only place that records it as shown. Watching
+    /// starts too, as it would at the next launch.
+    func finishOnboarding() {
+        startWatching()
+        preferences.onboardingShown = true
+    }
+
+    /// Settings > General: shows the welcome tour again the next time the popover opens.
+    func replayOnboarding() {
+        preferences.onboardingShown = false
+    }
+
     func stopWatching() {
         guard isWatching else { return }
         isWatching = false
@@ -517,6 +529,15 @@ final class AppModel {
         }
         preferences.retention.confirmed = confirmed
         refreshStatus()
+        return true
+    }
+
+    /// Turns retention on for the folder the preview showed: confirms it, then enables.
+    /// False, and still off, when there is no preview or the folder changed since.
+    @discardableResult
+    func turnOnRetention() async -> Bool {
+        guard await confirmRetentionFolder() else { return false }
+        preferences.retention.enabled = true
         return true
     }
 

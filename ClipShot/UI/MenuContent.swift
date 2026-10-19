@@ -15,6 +15,25 @@ struct MenuContent: View {
     @State private var attentionsExpanded = false
 
     var body: some View {
+        // The welcome tour until Done or Skip; Settings > General can bring it back.
+        ZStack {
+            if model.preferences.onboardingShown {
+                main
+                    .transition(.opacity)
+            } else {
+                OnboardingView()
+                    .transition(.opacity)
+            }
+        }
+        .animation(Design.Motion.quick, value: model.preferences.onboardingShown)
+        .frame(width: Design.Layout.popoverWidth)
+        .frame(maxHeight: Design.Layout.popoverMaxHeight)
+        // Intrinsic height, not the tallest state the popover has shown.
+        .fixedSize(horizontal: false, vertical: true)
+        .background(.ultraThinMaterial)
+    }
+
+    private var main: some View {
         VStack(spacing: 0) {
             PopoverHeader()
 
@@ -41,11 +60,6 @@ struct MenuContent: View {
         .animation(reduceMotion ? nil : Design.Motion.layout, value: attentionsExpanded)
         .animation(reduceMotion ? nil : Design.Motion.layout, value: updateStatus.isUpdateReady)
         .animation(reduceMotion ? nil : Design.Motion.layout, value: model.showMarkupTip)
-        .frame(width: Design.Layout.popoverWidth)
-        .frame(maxHeight: Design.Layout.popoverMaxHeight)
-        // Intrinsic height, not the tallest state the popover has shown.
-        .fixedSize(horizontal: false, vertical: true)
-        .background(.ultraThinMaterial)
         .onChange(of: model.attentions.count) { _, count in
             if count <= 1 { attentionsExpanded = false }
         }
@@ -175,8 +189,9 @@ private struct CopyToggleRow: View {
                 .accessibilityHidden(true)
             Text(Copy.copyToClipboard)
                 .font(Design.Typography.row)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityHidden(true)
-            Spacer(minLength: Design.Spacing.m)
             // The label stays for VoiceOver; the visible one is the text on the left.
             Toggle(isOn: $preferences.copyEnabled) { Text(Copy.copyToClipboard) }
                 .labelsHidden()
@@ -294,10 +309,12 @@ private struct UpdateReadyCard: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(Copy.Update.ready)
                         .font(Design.Typography.cardTitle)
+                    // Wraps rather than truncates: "restart into the new version" runs long
+                    // in German, Spanish and French.
                     Text(Copy.Update.restart)
                         .font(Design.Typography.note)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "arrow.clockwise")

@@ -1,0 +1,216 @@
+{
+  "sourceLanguage" : "en",
+  "version" : "1.0",
+  "strings" : {
+    "NSDesktopFolderUsageDescription" : {
+      "comment" : "Folder access prompt",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot watches your screenshot folder to copy new screenshots to the clipboard and, if you turn it on, to move old screenshots to the Trash."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot sleduje tvoj priečinok so snímkami obrazovky, aby nové snímky kopíroval do schránky a, ak to zapneš, staré presúval do Koša."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot sleduje tvou složku se snímky obrazovky, aby nové snímky kopíroval do schránky a, pokud to zapneš, staré přesouval do Koše."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot beobachtet deinen Bildschirmfoto-Ordner, um neue Bildschirmfotos in die Zwischenablage zu kopieren und, wenn du es einschaltest, alte in den Papierkorb zu legen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot vigila tu carpeta de capturas para copiar las nuevas al portapapeles y, si lo activas, mover las antiguas a la Papelera."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot surveille votre dossier de captures d’écran pour copier les nouvelles dans le presse-papiers et, si vous l’activez, placer les anciennes dans la Corbeille."
+          }
+        }
+      }
+    },
+    "NSDocumentsFolderUsageDescription" : {
+      "comment" : "Folder access prompt",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot watches your screenshot folder to copy new screenshots to the clipboard and, if you turn it on, to move old screenshots to the Trash."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot sleduje tvoj priečinok so snímkami obrazovky, aby nové snímky kopíroval do schránky a, ak to zapneš, staré presúval do Koša."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot sleduje tvou složku se snímky obrazovky, aby nové snímky kopíroval do schránky a, pokud to zapneš, staré přesouval do Koše."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot beobachtet deinen Bildschirmfoto-Ordner, um neue Bildschirmfotos in die Zwischenablage zu kopieren und, wenn du es einschaltest, alte in den Papierkorb zu legen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot vigila tu carpeta de capturas para copiar las nuevas al portapapeles y, si lo activas, mover las antiguas a la Papelera."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot surveille votre dossier de captures d’écran pour copier les nouvelles dans le presse-papiers et, si vous l’activez, placer les anciennes dans la Corbeille."
+          }
+        }
+      }
+    },
+    "NSDownloadsFolderUsageDescription" : {
+      "comment" : "Folder access prompt",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot watches your screenshot folder to copy new screenshots to the clipboard and, if you turn it on, to move old screenshots to the Trash."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot sleduje tvoj priečinok so snímkami obrazovky, aby nové snímky kopíroval do schránky a, ak to zapneš, staré presúval do Koša."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot sleduje tvou složku se snímky obrazovky, aby nové snímky kopíroval do schránky a, pokud to zapneš, staré přesouval do Koše."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot beobachtet deinen Bildschirmfoto-Ordner, um neue Bildschirmfotos in die Zwischenablage zu kopieren und, wenn du es einschaltest, alte in den Papierkorb zu legen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot vigila tu carpeta de capturas para copiar las nuevas al portapapeles y, si lo activas, mover las antiguas a la Papelera."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot surveille votre dossier de captures d’écran pour copier les nouvelles dans le presse-papiers et, si vous l’activez, placer les anciennes dans la Corbeille."
+          }
+        }
+      }
+    },
+    "NSRemovableVolumesUsageDescription" : {
+      "comment" : "Folder access prompt",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot watches your screenshot folder to copy new screenshots to the clipboard and, if you turn it on, to move old screenshots to the Trash."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot sleduje tvoj priečinok so snímkami obrazovky, aby nové snímky kopíroval do schránky a, ak to zapneš, staré presúval do Koša."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot sleduje tvou složku se snímky obrazovky, aby nové snímky kopíroval do schránky a, pokud to zapneš, staré přesouval do Koše."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot beobachtet deinen Bildschirmfoto-Ordner, um neue Bildschirmfotos in die Zwischenablage zu kopieren und, wenn du es einschaltest, alte in den Papierkorb zu legen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot vigila tu carpeta de capturas para copiar las nuevas al portapapeles y, si lo activas, mover las antiguas a la Papelera."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot surveille votre dossier de captures d’écran pour copier les nouvelles dans le presse-papiers et, si vous l’activez, placer les anciennes dans la Corbeille."
+          }
+        }
+      }
+    },
+    "NSNetworkVolumesUsageDescription" : {
+      "comment" : "Folder access prompt",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot watches your screenshot folder to copy new screenshots to the clipboard and, if you turn it on, to move old screenshots to the Trash."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot sleduje tvoj priečinok so snímkami obrazovky, aby nové snímky kopíroval do schránky a, ak to zapneš, staré presúval do Koša."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot sleduje tvou složku se snímky obrazovky, aby nové snímky kopíroval do schránky a, pokud to zapneš, staré přesouval do Koše."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot beobachtet deinen Bildschirmfoto-Ordner, um neue Bildschirmfotos in die Zwischenablage zu kopieren und, wenn du es einschaltest, alte in den Papierkorb zu legen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot vigila tu carpeta de capturas para copiar las nuevas al portapapeles y, si lo activas, mover las antiguas a la Papelera."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot surveille votre dossier de captures d’écran pour copier les nouvelles dans le presse-papiers et, si vous l’activez, placer les anciennes dans la Corbeille."
+          }
+        }
+      }
+    }
+  }
+}
