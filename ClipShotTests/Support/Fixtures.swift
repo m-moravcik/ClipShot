@@ -13,6 +13,15 @@ enum Fixtures {
         return dir
     }
 
+    /// One staging directory per test process, on the same volume as `makeDir()` folders.
+    /// Left under the temporary directory for the OS to clean.
+    static let stagingDir: URL = {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("clipshot-staging-\(UUID().uuidString)", isDirectory: true)
+        try! FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }()
+
     static func bplist(_ value: Any) -> Data {
         try! PropertyListSerialization.data(fromPropertyList: value, format: .binary, options: 0)
     }
@@ -33,10 +42,8 @@ enum Fixtures {
         created: Date? = nil, modified: Date? = nil
     ) throws -> URL {
         let fm = FileManager.default
-        let staging = dir.appendingPathComponent(".staging-\(UUID().uuidString)", isDirectory: true)
-        try fm.createDirectory(at: staging, withIntermediateDirectories: true)
-        defer { try? fm.trashItem(at: staging, resultingItemURL: nil) }
-        let temp = staging.appendingPathComponent(name)
+        // The staged file is renamed away, so nothing is left behind and nothing goes to the real Trash.
+        let temp = stagingDir.appendingPathComponent("\(UUID().uuidString)-\(name)")
         try (contents ?? pngImage()).write(to: temp)
         switch marker {
         case .true: setxattr(CaptureMarker.captureFlag, bplist(true), on: temp)
