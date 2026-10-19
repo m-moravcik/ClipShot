@@ -38,6 +38,7 @@ the reviewer and the date here when that happens.
 ## Checks
 
 `make l10n` builds the app and fails when a language misses a key, when a plural (top level or
-in any substitution) misses a category, when a value uses an undefined `%#@name@`, or when the
-code uses a string the catalog lacks. It first runs a self-test on the broken catalogs in
+in any substitution) misses a category, when a value uses an undefined `%#@name@`, when any
+value or variant is empty or not in state `translated`, or when the code uses a string the
+catalog lacks. It first runs a self-test on the broken catalogs in
 `ClipShotTests/Fixtures/l10n/`, and `make test` runs the same fixtures through the script.

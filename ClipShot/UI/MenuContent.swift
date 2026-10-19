@@ -37,22 +37,13 @@ struct MenuContent: View {
         VStack(spacing: 0) {
             PopoverHeader()
 
-            VStack(spacing: Design.Spacing.m) {
-                attentionRows
-                LatestCaptureSection()
-                if model.showMarkupTip {
-                    MarkupTip()
-                        .transition(.opacity)
-                }
-                CopyToggleRow()
-                RetentionSummaryRow()
-                if updateStatus.isUpdateReady {
-                    UpdateReadyCard { updater?.installUpdate() }
-                        .transition(.opacity)
-                }
+            // Scrolls only when a long translation makes it taller than the popover may grow,
+            // so nothing in it is squeezed into a truncated line and the footer stays put.
+            ViewThatFits(in: .vertical) {
+                middle
+                ScrollView { middle }
+                    .scrollBounceBehavior(.basedOnSize)
             }
-            .padding(.horizontal, Design.Spacing.m)
-            .padding(.top, Design.Spacing.m)
 
             FooterBar()
         }
@@ -63,6 +54,25 @@ struct MenuContent: View {
         .onChange(of: model.attentions.count) { _, count in
             if count <= 1 { attentionsExpanded = false }
         }
+    }
+
+    private var middle: some View {
+        VStack(spacing: Design.Spacing.m) {
+            attentionRows
+            LatestCaptureSection()
+            if model.showMarkupTip {
+                MarkupTip()
+                    .transition(.opacity)
+            }
+            CopyToggleRow()
+            RetentionSummaryRow()
+            if updateStatus.isUpdateReady {
+                UpdateReadyCard { updater?.installUpdate() }
+                    .transition(.opacity)
+            }
+        }
+        .padding(.horizontal, Design.Spacing.m)
+        .padding(.top, Design.Spacing.m)
     }
 
     @ViewBuilder
@@ -181,25 +191,7 @@ private struct CopyToggleRow: View {
 
     var body: some View {
         @Bindable var preferences = model.preferences
-        HStack(spacing: Design.Spacing.m) {
-            Image(systemName: "doc.on.clipboard")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-                .frame(width: Design.Layout.iconColumn)
-                .accessibilityHidden(true)
-            Text(Copy.copyToClipboard)
-                .font(Design.Typography.row)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityHidden(true)
-            // The label stays for VoiceOver; the visible one is the text on the left.
-            Toggle(isOn: $preferences.copyEnabled) { Text(Copy.copyToClipboard) }
-                .labelsHidden()
-                .toggleStyle(.switch)
-                .controlSize(.mini)
-        }
-        .padding(.horizontal, Design.Spacing.l)
-        .padding(.vertical, Design.Spacing.s)
+        SwitchRow(title: Copy.copyToClipboard, isOn: $preferences.copyEnabled, icon: "doc.on.clipboard")
     }
 }
 
@@ -403,8 +395,11 @@ private struct MenuRow: View {
                     .font(.system(size: 12))
                     .frame(width: Design.Layout.iconColumn, alignment: .center)
                     .accessibilityHidden(true)
+                // Two lines rather than a truncated label in a long translation.
                 Text(label)
                     .font(Design.Typography.row)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: Design.Spacing.s)
                 if let shortcut {
                     Text(verbatim: shortcut)

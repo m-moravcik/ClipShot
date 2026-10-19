@@ -37,9 +37,31 @@ struct CatalogPluralTests {
     }
 
     @Test func positionalArgumentsSurviveTheSubstitution() {
-        #expect(text(Copy.Summary.lastCleanupToday("14:00", moved: 3), "sk") == "Posledné upratovanie dnes o 14:00, 3 snímky")
+        #expect(text(Copy.Summary.lastCleanupToday("14:00", moved: 1), "sk")
+            == "Posledné upratovanie dnes o 14:00, presunutá 1 snímka")
+        #expect(text(Copy.Summary.lastCleanupToday("14:00", moved: 3), "sk")
+            == "Posledné upratovanie dnes o 14:00, presunuté 3 snímky")
+        #expect(text(Copy.Summary.lastCleanup("19. 10. 2026 14:00", moved: 5), "sk")
+            == "Posledné upratovanie 19. 10. 2026 14:00, presunutých 5 snímok")
+        #expect(text(Copy.Summary.lastCleanupToday("14:00", moved: 1), "cs")
+            == "Poslední úklid dnes v 14:00, přesunut 1 snímek")
+        #expect(text(Copy.Summary.lastCleanupToday("14:00", moved: 3), "cs")
+            == "Poslední úklid dnes v 14:00, přesunuty 3 snímky")
+        #expect(text(Copy.Summary.lastCleanupToday("14:00", moved: 5), "cs")
+            == "Poslední úklid dnes v 14:00, přesunuto 5 snímků")
         #expect(text(Copy.Retention.moved(5, "2 MB"), "sk") == "Do Koša sa presunulo 5 snímok (2 MB).")
         #expect(text(Copy.Onboarding.stepOf(2, 3), "de") == "2 von 3")
+        #expect(text(Copy.About.freed("1 GB"), "de") == "1 GB durch Aufräumen freigegeben")
+    }
+
+    @Test func retentionOnSaysWhatTheNextCleanupMoves() {
+        #expect(text(Copy.Retention.willMove(1, "1 MB"), "en") == "1 screenshot (1 MB) will go to the Trash at the next cleanup")
+        #expect(text(Copy.Retention.willMove(3, "1 MB"), "sk") == "Pri ďalšom upratovaní pôjdu do Koša 3 snímky (1 MB)")
+        #expect(text(Copy.Retention.willMove(5, "1 MB"), "sk") == "Pri ďalšom upratovaní pôjde do Koša 5 snímok (1 MB)")
+        #expect(text(Copy.Retention.willMove(2, "1 MB"), "cs") == "Při dalším úklidu půjdou do Koše 2 snímky (1 MB)")
+        #expect(text(Copy.Retention.willMove(1, "1 MB"), "de") == "Beim nächsten Aufräumen kommt 1 Bildschirmfoto (1 MB) in den Papierkorb")
+        #expect(text(Copy.Retention.willMove(2, "1 MB"), "es") == "En la próxima limpieza irán a la Papelera 2 capturas (1 MB)")
+        #expect(text(Copy.Retention.willMove(2, "1 MB"), "fr") == "2 captures (1 MB) iront dans la Corbeille au prochain nettoyage")
     }
 
     @Test func slavicCountsAndOneLetterWordsDoNotEndALine() {
@@ -81,15 +103,18 @@ struct LocalisationGateTests {
     }
 
     @Test(arguments: [
-        "sk-missing-few-substitution-key.xcstrings",
-        "sk-missing-few-first-substitution.xcstrings",
-        "sk-missing-few-top-level.xcstrings",
+        ("sk-missing-few-substitution-key.xcstrings", "sk substitution 'count' plural categories ['few'] missing"),
+        ("sk-missing-few-first-substitution.xcstrings", "sk substitution 'verb' plural categories ['few'] missing"),
+        ("sk-missing-few-top-level.xcstrings", "sk plural categories ['few'] missing"),
+        ("bad-missing-language.xcstrings", "missing sk"),
+        ("bad-undefined-substitution.xcstrings", "sk uses %#@verb@ without a substitution"),
+        ("bad-empty-value.xcstrings", "sk plural.few has an empty value"),
+        ("bad-state-new.xcstrings", "sk is in state 'new', not 'translated'"),
     ])
-    func failsWithoutSlovakFew(_ fixture: String) throws {
+    func failsOnABrokenCatalog(_ fixture: String, _ expected: String) throws {
         let result = try check(fixture)
         #expect(result.status != 0, "\(fixture) passed: \(result.output)")
-        #expect(result.output.contains("sk"))
-        #expect(result.output.contains("['few'] missing"))
+        #expect(result.output.contains(expected), "\(result.output)")
     }
 
     @Test func passesACompleteCatalog() throws {

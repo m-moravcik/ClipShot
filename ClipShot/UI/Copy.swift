@@ -210,6 +210,14 @@ enum Copy {
                 "\(count) screenshots (\(size)) would go to the Trash now", comment: "Retention preview: count, then total size")
         }
         static let nothingWouldMove = LocalizedStringResource("No screenshots would go to the Trash now")
+        /// Once retention is on: what the next run moves.
+        static func willMove(_ count: Int, _ size: String) -> LocalizedStringResource {
+            LocalizedStringResource(
+                "\(count) screenshots (\(size)) will go to the Trash at the next cleanup",
+                comment: "Retention is on: count, then total size, of what the next cleanup moves")
+        }
+        static let nothingDue = LocalizedStringResource(
+            "No screenshots are old enough for the Trash yet", comment: "Retention is on and nothing has expired")
         static let turnOn = LocalizedStringResource("Turn on", comment: "Confirms turning retention on after the preview")
         static let cancel = LocalizedStringResource("Cancel")
         static func broad(_ name: String) -> LocalizedStringResource {
@@ -290,6 +298,12 @@ enum Copy {
             "Waiting for a screenshot…", comment: "Welcome tour step 2: no screenshot copied yet")
         static let copied = LocalizedStringResource(
             "Copied. Paste it anywhere with ⌘V.", comment: "Welcome tour step 2: the first screenshot is on the clipboard")
+
+        static let paused = LocalizedStringResource(
+            "Copying is off, so nothing reaches the clipboard.",
+            comment: "Welcome tour step 2: the Copy to clipboard switch is off")
+        static let turnOnCopying = LocalizedStringResource(
+            "Turn on copying", comment: "Welcome tour step 2: switches Copy to clipboard back on")
 
         static let tidyTitle = LocalizedStringResource(
             "Keep the folder tidy", comment: "Welcome tour step 3: retention offer")

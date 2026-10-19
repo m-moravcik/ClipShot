@@ -155,6 +155,9 @@ final class CopyCoordinator {
             // Stopped while this waited behind other IO: no prefs read after `stop()`.
             guard stops.value == stopsNow else { return nil }
             let folder = settings.folder()
+            // A stop() that landed during the read: drop it here too, so nothing derived from a
+            // read that straddled the stop (not even the folder probe) runs after it.
+            guard stops.value == stopsNow else { return nil }
             let state = FolderState.of(folder)
             // ~/Desktop is only touched when it is needed as the fallback.
             guard case .missing = state else { return Probe(configured: folder, state: state, desktop: nil) }

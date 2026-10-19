@@ -86,10 +86,14 @@ struct AttentionRow: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             if !presentation.actions.isEmpty {
-                // Wraps when a translation makes two buttons wider than the row.
+                // Side by side; stacked when a translation makes them wider than the row; and
+                // only if one title alone is still too wide, buttons whose titles wrap.
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: Design.Spacing.s) { buttons(presentation.actions) }
                     VStack(alignment: .leading, spacing: Design.Spacing.s) { buttons(presentation.actions) }
+                    VStack(alignment: .leading, spacing: Design.Spacing.s) {
+                        buttons(presentation.actions, wrapping: true)
+                    }
                 }
                 .padding(.leading, Design.Layout.iconColumn + Design.Spacing.m)
             }
@@ -102,11 +106,17 @@ struct AttentionRow: View {
     }
 
     @ViewBuilder
-    private func buttons(_ actions: [AttentionAction]) -> some View {
+    private func buttons(_ actions: [AttentionAction], wrapping: Bool = false) -> some View {
         ForEach(actions) { action in
-            Button { perform(action) } label: { Text(action.title) }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+            if wrapping {
+                Button { perform(action) } label: { Text(action.title) }
+                    .buttonStyle(WrappingButtonStyle())
+            } else {
+                Button { perform(action) } label: { Text(action.title) }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .fixedSize()
+            }
         }
     }
 

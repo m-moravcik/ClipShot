@@ -9,6 +9,8 @@
 #      substitution cannot hide an incomplete one. A key needs plurals when it has %lld,
 #      or when any of its localisations uses a substitution.
 #   3. Every `%#@name@` a value uses must be defined in that localisation's substitutions.
+#      Every value, plural variant and substitution variant must be non-empty and in state
+#      "translated".
 #   4. Every literal the compiler extracted (.stringsdata) must exist in Localizable.xcstrings.
 #
 # Usage:
@@ -55,6 +57,18 @@ def values(loc):
             out.extend(values(case))
     return out
 
+def units(loc, where=''):
+    """(where, stringUnit) for every unit: the value, variations and substitution variants."""
+    out = []
+    if 'stringUnit' in loc:
+        out.append((where, loc['stringUnit']))
+    for kind, variation in loc.get('variations', {}).items():
+        for case, sub in variation.items():
+            out.extend(units(sub, f"{where} {kind}.{case}"))
+    for name, sub in loc.get('substitutions', {}).items():
+        out.extend(units(sub, f"{where} substitution {name!r}"))
+    return out
+
 def plurals(loc):
     """(where, categories) for the top-level plural and for each substitution, separately."""
     found = []
@@ -79,6 +93,11 @@ for catalog in catalogs:
             if loc is None:
                 errors.append(f"{label}: {key!r}: missing {lang}")
                 continue
+            for where, unit in units(loc):
+                if not unit.get('value', '').strip():
+                    errors.append(f"{label}: {key!r}: {lang}{where} has an empty value")
+                if unit.get('state') != 'translated':
+                    errors.append(f"{label}: {key!r}: {lang}{where} is in state {unit.get('state')!r}, not 'translated'")
             subs = loc.get('substitutions', {})
             for value in values(loc):
                 for name in token.findall(value):
@@ -118,15 +137,29 @@ print("localisation: OK")
 PY
 }
 
-# The gate must fail on each broken fixture, naming the missing category, and pass the
-# valid one. Fixtures carry only en and sk.
+# What the gate must report for each broken fixture.
+expected_failure() {
+  case "$(basename "$1")" in
+    sk-missing-few-*) echo "sk.*\['few'\] missing" ;;
+    bad-missing-language*) echo "missing sk" ;;
+    bad-undefined-substitution*) echo "without a substitution" ;;
+    bad-empty-value*) echo "has an empty value" ;;
+    bad-state-new*) echo "in state 'new'" ;;
+    *) return 1 ;;
+  esac
+}
+
+# The gate must fail on each broken fixture with the expected message, and pass the valid
+# one. Fixtures carry only en and sk.
 self_test() {
-  local fixture out
-  for fixture in "$FIXTURES"/sk-missing-few-*.xcstrings; do
+  local fixture out pattern
+  for fixture in "$FIXTURES"/*.xcstrings; do
+    [ "$(basename "$fixture")" = "valid.xcstrings" ] && continue
+    pattern="$(expected_failure "$fixture")" || die "self-test: no expected failure for $fixture"
     if out="$(L10N_LANGS="en sk" check_catalogs "$fixture" 2>&1)"; then
-      die "self-test: $fixture passed, but it lacks the sk 'few' category"
+      die "self-test: $fixture passed, but it is broken"
     fi
-    grep -q "sk.*\['few'\] missing" <<<"$out" || die "self-test: $fixture failed for another reason:
+    grep -q "$pattern" <<<"$out" || die "self-test: $fixture failed for another reason:
 $out"
   done
   out="$(L10N_LANGS="en sk" check_catalogs "$FIXTURES/valid.xcstrings" 2>&1)" \

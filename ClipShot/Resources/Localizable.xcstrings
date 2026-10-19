@@ -25,7 +25,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ durch Aufräumen frei"
+            "value" : "%@ durch Aufräumen freigegeben"
           }
         },
         "es" : {
@@ -522,6 +522,351 @@
                 "stringUnit" : {
                   "state" : "translated",
                   "value" : "%lld autres attendent le prochain nettoyage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld screenshots (%@) will go to the Trash at the next cleanup" : {
+      "comment" : "Retention is on: count, then total size, of what the next cleanup moves",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@count@ (%2$@) will go to the Trash at the next cleanup"
+          },
+          "substitutions" : {
+            "count" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg screenshot"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg screenshots"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pri ďalšom upratovaní %#@verb@ do Koša %#@count@ (%2$@)"
+          },
+          "substitutions" : {
+            "verb" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "pôjde"
+                    }
+                  },
+                  "few" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "pôjdu"
+                    }
+                  },
+                  "many" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "pôjde"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "pôjde"
+                    }
+                  }
+                }
+              }
+            },
+            "count" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg snímka"
+                    }
+                  },
+                  "few" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg snímky"
+                    }
+                  },
+                  "many" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg snímky"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg snímok"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Při dalším úklidu %#@verb@ do Koše %#@count@ (%2$@)"
+          },
+          "substitutions" : {
+            "verb" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "půjde"
+                    }
+                  },
+                  "few" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "půjdou"
+                    }
+                  },
+                  "many" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "půjde"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "půjde"
+                    }
+                  }
+                }
+              }
+            },
+            "count" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg snímek"
+                    }
+                  },
+                  "few" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg snímky"
+                    }
+                  },
+                  "many" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg snímku"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg snímků"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beim nächsten Aufräumen %#@verb@ %#@count@ (%2$@) in den Papierkorb"
+          },
+          "substitutions" : {
+            "verb" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "kommt"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "kommen"
+                    }
+                  }
+                }
+              }
+            },
+            "count" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg Bildschirmfoto"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg Bildschirmfotos"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En la próxima limpieza %#@verb@ a la Papelera %#@count@ (%2$@)"
+          },
+          "substitutions" : {
+            "verb" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "irá"
+                    }
+                  },
+                  "many" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "irán"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "irán"
+                    }
+                  }
+                }
+              }
+            },
+            "count" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg captura"
+                    }
+                  },
+                  "many" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg capturas"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg capturas"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@count@ (%2$@) %#@verb@ dans la Corbeille au prochain nettoyage"
+          },
+          "substitutions" : {
+            "verb" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "ira"
+                    }
+                  },
+                  "many" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "iront"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "iront"
+                    }
+                  }
+                }
+              }
+            },
+            "count" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg capture"
+                    }
+                  },
+                  "many" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg captures"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg captures"
+                    }
+                  }
                 }
               }
             }
@@ -2676,7 +3021,7 @@
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ClipShot sleduje priečinok, kam macOS ukladá snímky obrazovky, a každú novú skopíruje. Ak je to Plocha, Dokumenty alebo Stiahnuté, macOS sa ťa raz opýta na povolenie."
+            "value" : "ClipShot sleduje priečinok, kam macOS ukladá snímky obrazovky, a každú novú skopíruje. Ak je to Plocha, Dokumenty alebo Stiahnuté súbory, macOS sa ťa raz opýta na povolenie."
           }
         },
         "cs" : {
@@ -3067,6 +3412,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Copier dans le presse-papiers"
+          }
+        }
+      }
+    },
+    "Copying is off, so nothing reaches the clipboard." : {
+      "comment" : "Welcome tour step 2: the Copy to clipboard switch is off",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copying is off, so nothing reaches the clipboard."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopírovanie je vypnuté, do schránky nič nepríde."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopírování je vypnuté, do schránky nic nepřijde."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopieren ist aus, also kommt nichts in der Zwischenablage an."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La copia está desactivada, así que nada llega al portapapeles."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La copie est désactivée : rien n’arrive dans le presse-papiers."
           }
         }
       }
@@ -3791,25 +4177,25 @@
                   "one" : {
                     "stringUnit" : {
                       "state" : "translated",
-                      "value" : "%arg snímka"
+                      "value" : "presunutá %arg snímka"
                     }
                   },
                   "few" : {
                     "stringUnit" : {
                       "state" : "translated",
-                      "value" : "%arg snímky"
+                      "value" : "presunuté %arg snímky"
                     }
                   },
                   "many" : {
                     "stringUnit" : {
                       "state" : "translated",
-                      "value" : "%arg snímky"
+                      "value" : "presunutej %arg snímky"
                     }
                   },
                   "other" : {
                     "stringUnit" : {
                       "state" : "translated",
-                      "value" : "%arg snímok"
+                      "value" : "presunutých %arg snímok"
                     }
                   }
                 }
@@ -3831,25 +4217,25 @@
                   "one" : {
                     "stringUnit" : {
                       "state" : "translated",
-                      "value" : "%arg snímek"
+                      "value" : "přesunut %arg snímek"
                     }
                   },
                   "few" : {
                     "stringUnit" : {
                       "state" : "translated",
-                      "value" : "%arg snímky"
+                      "value" : "přesunuty %arg snímky"
                     }
                   },
                   "many" : {
                     "stringUnit" : {
                       "state" : "translated",
-                      "value" : "%arg snímku"
+                      "value" : "přesunuto %arg snímku"
                     }
                   },
                   "other" : {
                     "stringUnit" : {
                       "state" : "translated",
-                      "value" : "%arg snímků"
+                      "value" : "přesunuto %arg snímků"
                     }
                   }
                 }
@@ -4000,25 +4386,25 @@
                   "one" : {
                     "stringUnit" : {
                       "state" : "translated",
-                      "value" : "%arg snímka"
+                      "value" : "presunutá %arg snímka"
                     }
                   },
                   "few" : {
                     "stringUnit" : {
                       "state" : "translated",
-                      "value" : "%arg snímky"
+                      "value" : "presunuté %arg snímky"
                     }
                   },
                   "many" : {
                     "stringUnit" : {
                       "state" : "translated",
-                      "value" : "%arg snímky"
+                      "value" : "presunutej %arg snímky"
                     }
                   },
                   "other" : {
                     "stringUnit" : {
                       "state" : "translated",
-                      "value" : "%arg snímok"
+                      "value" : "presunutých %arg snímok"
                     }
                   }
                 }
@@ -4040,25 +4426,25 @@
                   "one" : {
                     "stringUnit" : {
                       "state" : "translated",
-                      "value" : "%arg snímek"
+                      "value" : "přesunut %arg snímek"
                     }
                   },
                   "few" : {
                     "stringUnit" : {
                       "state" : "translated",
-                      "value" : "%arg snímky"
+                      "value" : "přesunuty %arg snímky"
                     }
                   },
                   "many" : {
                     "stringUnit" : {
                       "state" : "translated",
-                      "value" : "%arg snímku"
+                      "value" : "přesunuto %arg snímku"
                     }
                   },
                   "other" : {
                     "stringUnit" : {
                       "state" : "translated",
-                      "value" : "%arg snímků"
+                      "value" : "přesunuto %arg snímků"
                     }
                   }
                 }
@@ -5056,6 +5442,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aucune capture copiée pour l’instant"
+          }
+        }
+      }
+    },
+    "No screenshots are old enough for the Trash yet" : {
+      "comment" : "Retention is on and nothing has expired",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No screenshots are old enough for the Trash yet"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zatiaľ žiadna snímka nie je dosť stará na Kôš"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zatím žádný snímek není dost starý na Koš"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch ist kein Bildschirmfoto alt genug für den Papierkorb"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no hay capturas lo bastante antiguas para la Papelera"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune capture n’est encore assez ancienne pour la Corbeille"
           }
         }
       }
@@ -7078,6 +7505,47 @@
         }
       }
     },
+    "Turn on copying" : {
+      "comment" : "Welcome tour step 2: switches Copy to clipboard back on",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on copying"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zapnúť kopírovanie"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zapnout kopírování"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopieren einschalten"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activar la copia"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activer la copie"
+          }
+        }
+      }
+    },
     "Update ready" : {
       "localizations" : {
         "en" : {
@@ -7210,13 +7678,13 @@
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vitaj v ClipShot"
+            "value" : "Vitaj v aplikácii ClipShot"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vítej v ClipShot"
+            "value" : "Vítej v aplikaci ClipShot"
           }
         },
         "de" : {

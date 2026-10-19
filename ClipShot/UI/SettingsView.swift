@@ -192,30 +192,55 @@ private struct CaptureSettingsPane: View {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
                 }
             } else {
-                HStack(alignment: .firstTextBaseline) {
-                    Note(
-                        text: AttentionPresentation.of(.destinationNotFile, destination: model.destination).message,
-                        systemImage: "exclamationmark.triangle.fill", tint: .orange)
-                    Spacer(minLength: Design.Spacing.m)
-                    Button {
-                        changed = .destination
-                        Task { await model.fixDestination() }
-                    } label: { Text(Copy.Action.saveToFile) }
+                // The note and its button side by side, or the button under the note when a
+                // translation makes the button too wide to share the row.
+                let note = Note(
+                    text: AttentionPresentation.of(.destinationNotFile, destination: model.destination).message,
+                    systemImage: "exclamationmark.triangle.fill", tint: .orange)
+                let fix = Button {
+                    changed = .destination
+                    Task { await model.fixDestination() }
+                } label: { Text(Copy.Action.saveToFile) }
+                    .fixedSize()
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .firstTextBaseline) {
+                        // Measured at 180 pt, so the row stacks only when the button
+                        // leaves the note less than that.
+                        note.frame(minWidth: 180, idealWidth: 180, maxWidth: .infinity, alignment: .leading)
+                        Spacer(minLength: Design.Spacing.m)
+                        fix
+                    }
+                    VStack(alignment: .leading, spacing: Design.Spacing.s) {
+                        note
+                        fix
+                    }
                 }
             }
             appliesNote(.destination)
 
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(Copy.Capture.restore)
-                    Text(restoreOutcome.map { $0 ? Copy.Capture.restored : Copy.Capture.nothingToRestore }
-                        ?? Copy.Capture.restoreNote)
-                        .font(Design.Typography.note)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+            let restoreText = VStack(alignment: .leading, spacing: 2) {
+                Text(Copy.Capture.restore)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(restoreOutcome.map { $0 ? Copy.Capture.restored : Copy.Capture.nothingToRestore }
+                    ?? Copy.Capture.restoreNote)
+                    .font(Design.Typography.note)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            let restoreButton = Button { restore() } label: { Text(Copy.Capture.restoreButton) }
+                .fixedSize()
+            // Side by side, or the button under the text when a translation leaves the text
+            // less than 180 pt.
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    restoreText.frame(minWidth: 180, idealWidth: 180, maxWidth: .infinity, alignment: .leading)
+                    Spacer(minLength: Design.Spacing.m)
+                    restoreButton
                 }
-                Spacer(minLength: Design.Spacing.m)
-                Button { restore() } label: { Text(Copy.Capture.restoreButton) }
+                VStack(alignment: .leading, spacing: Design.Spacing.s) {
+                    restoreText
+                    restoreButton
+                }
             }
             appliesNote(.restore)
         }

@@ -23,9 +23,27 @@ struct WelcomeTour: Equatable {
         case done
     }
 
+    /// Which way the last step change went, so the new step slides in from that side.
+    enum Direction: Equatable {
+        case forward, backward
+    }
+
+    /// What step 2's Try it shows below its text.
+    enum TryState: Equatable {
+        /// Folder access asked for, nothing copied since.
+        case waiting
+        /// The screenshot copied since Try it began.
+        case copied(CaptureFile)
+        /// Something stops copying (access denied, clipboard destination…): its row says what.
+        case attention(Attention)
+        /// The Copy to clipboard switch is off, so a screenshot would never arrive.
+        case paused
+    }
+
     static let stepCount = Step.allCases.count
 
     private(set) var step: Step
+    private(set) var direction = Direction.forward
     /// Whether "Try it" has begun, and `lastCopied` at that moment. Only a different
     /// screenshot counts as the try, so a replayed tour does not show an old one.
     private(set) var trying = false
@@ -56,6 +74,7 @@ struct WelcomeTour: Equatable {
             model.startWatching()
             beginTry(model)
         case .next:
+            direction = .forward
             step = Step(rawValue: step.rawValue + 1) ?? .tidy
             // A replayed tour already watches: "Try it" starts as soon as step 2 shows.
             if step == .folder, model.isWatching { beginTry(model) }
@@ -65,6 +84,8 @@ struct WelcomeTour: Equatable {
     }
 
     mutating func back() {
+        guard canGoBack else { return }
+        direction = .backward
         step = Step(rawValue: step.rawValue - 1) ?? .welcome
     }
 
@@ -87,13 +108,29 @@ struct WelcomeTour: Equatable {
         guard trying, let last = model.lastCopied, last != tryBaseline else { return nil }
         return last
     }
+
+    /// A copy wins; then what blocks copying (an attention, then the paused switch); else
+    /// it waits.
+    @MainActor
+    func tryState(_ model: AppModel) -> TryState {
+        if let file = tried(model) { return .copied(file) }
+        if let attention = model.attentions.first { return .attention(attention) }
+        if !model.preferences.copyEnabled { return .paused }
+        return .waiting
+    }
 }
 
 /// Three steps in the popover, as in VibeRes and Eject Guard: Skip and the step counter on
 /// top, the step in the middle, dots and Back / Next at the bottom.
 ///
-/// Steps change with `.id(step)` and a transition that slides in from the trailing edge,
-/// or only crossfades under Reduce Motion, at `Design.Motion.quick`.
+/// Steps change with `.id(step)` inside a `ZStack`, so the outgoing and the incoming step
+/// overlap instead of stacking for the length of the transition. The new step slides in from
+/// the side the user moved towards (Next: trailing, Back: leading) while the old one fades
+/// out in place; Reduce Motion keeps only the crossfade. All at `Design.Motion.quick`.
+///
+/// The removal is a fade rather than a slide on purpose: SwiftUI removes a view with the
+/// transition it had when it was last drawn, which after a change of direction is the old
+/// direction's, so a sliding removal would go the wrong way on the first Back after Next.
 struct OnboardingView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -104,22 +141,31 @@ struct OnboardingView: View {
         _tour = State(initialValue: tour)
     }
 
+    private var stepTransition: AnyTransition {
+        guard !reduceMotion else { return .opacity }
+        let edge: Edge = tour.direction == .forward ? .trailing : .leading
+        return .asymmetric(insertion: .opacity.combined(with: .move(edge: edge)), removal: .opacity)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             topBar
 
-            Group {
-                switch tour.step {
-                case .welcome: WelcomeStep()
-                case .folder: FolderStep(tried: tour.tried(model))
-                case .tidy: TidyStep()
+            ZStack(alignment: .top) {
+                Group {
+                    switch tour.step {
+                    case .welcome: WelcomeStep()
+                    case .folder: FolderStep(state: tour.tryState(model))
+                    case .tidy: TidyStep()
+                    }
                 }
+                .id(tour.step)
+                .transition(stepTransition)
             }
-            .id(tour.step)
-            .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .trailing)))
             .padding(.horizontal, Design.Spacing.l + Design.Spacing.s)
             .padding(.top, Design.Spacing.m)
             .padding(.bottom, Design.Spacing.l)
+            .clipped()
 
             dots
                 .padding(.bottom, Design.Spacing.m)
@@ -156,31 +202,53 @@ struct OnboardingView: View {
         .accessibilityHidden(true)
     }
 
+    /// Back and the primary button side by side, or stacked at full width (primary first)
+    /// when a translation makes them wider than the popover.
     private var bottomBar: some View {
-        HStack {
-            Button {
-                withAnimation(Design.Motion.quick) { tour.back() }
-            } label: { Text(Copy.Onboarding.back) }
-                .buttonStyle(.bordered)
-                .disabled(!tour.canGoBack)
+        ViewThatFits(in: .horizontal) {
+            HStack {
+                backButton(stretched: false)
+                Spacer(minLength: Design.Spacing.m)
+                primaryButton(stretched: false)
+            }
+            VStack(spacing: Design.Spacing.s) {
+                primaryButton(stretched: true)
+                backButton(stretched: true)
+            }
+        }
+        .controlSize(.small)
+        .padding(.horizontal, Design.Spacing.l)
+        .padding(.bottom, Design.Spacing.l)
+    }
 
-            Spacer(minLength: Design.Spacing.m)
+    private func backButton(stretched: Bool) -> some View {
+        Button {
+            withAnimation(Design.Motion.quick) { tour.back() }
+        } label: {
+            Text(Copy.Onboarding.back)
+                .frame(maxWidth: stretched ? .infinity : nil)
+        }
+        .buttonStyle(.bordered)
+        .disabled(!tour.canGoBack)
+        .fixedSize(horizontal: !stretched, vertical: true)
+    }
 
-            Button {
-                withAnimation(Design.Motion.quick) { tour.advance(model) }
-            } label: {
+    private func primaryButton(stretched: Bool) -> some View {
+        Button {
+            withAnimation(Design.Motion.quick) { tour.advance(model) }
+        } label: {
+            Group {
                 switch tour.primary(model) {
                 case .next: Text(Copy.Onboarding.next)
                 case .startCopying: Text(Copy.Onboarding.startCopying)
                 case .done: Text(Copy.Onboarding.done)
                 }
             }
-            .buttonStyle(.borderedProminent)
-            .keyboardShortcut(.defaultAction)
+            .frame(maxWidth: stretched ? .infinity : nil)
         }
-        .controlSize(.small)
-        .padding(.horizontal, Design.Spacing.l)
-        .padding(.bottom, Design.Spacing.l)
+        .buttonStyle(.borderedProminent)
+        .keyboardShortcut(.defaultAction)
+        .fixedSize(horizontal: !stretched, vertical: true)
     }
 }
 
@@ -236,7 +304,7 @@ private struct WelcomeStep: View {
 /// Explains folder access first; the bottom bar's "Start copying" asks for it. Then
 /// "Try it" waits for the first copy and shows it.
 private struct FolderStep: View {
-    let tried: CaptureFile?
+    let state: WelcomeTour.TryState
 
     @Environment(AppModel.self) private var model
 
@@ -259,15 +327,19 @@ private struct FolderStep: View {
     @ViewBuilder
     private var tryResult: some View {
         ZStack {
-            if let tried {
-                CopiedResult(file: tried, thumbnail: model.latest?.file == tried ? model.latest?.thumbnail : nil)
+            switch state {
+            case .copied(let file):
+                CopiedResult(thumbnail: model.latest?.file == file ? model.latest?.thumbnail : nil)
                     .transition(.opacity)
-            } else if let attention = model.attentions.first {
-                // Folder access denied, the clipboard destination and the like: the try can
-                // not work until it is fixed, so say why here, with the row's own buttons.
+            case .attention(let attention):
+                // The try can not work until this is fixed, so say why here, with the row's
+                // own buttons.
                 AttentionRow(attention: attention)
                     .transition(.opacity)
-            } else {
+            case .paused:
+                PausedResult()
+                    .transition(.opacity)
+            case .waiting:
                 HStack(spacing: Design.Spacing.m) {
                     ProgressView().controlSize(.small)
                     Text(Copy.Onboarding.waiting)
@@ -281,37 +353,18 @@ private struct FolderStep: View {
                 .transition(.opacity)
             }
         }
-        .animation(Design.Motion.quick, value: tried)
-        .animation(Design.Motion.quick, value: model.attentions.first)
+        .animation(Design.Motion.quick, value: state)
     }
 }
 
 /// The try's result: the thumbnail and "Copied", as the latest card shows it.
 private struct CopiedResult: View {
-    let file: CaptureFile
     let thumbnail: CGImage?
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: Design.Radius.chip, style: .continuous)
         HStack(spacing: Design.Spacing.m) {
-            Group {
-                if let thumbnail {
-                    Image(decorative: thumbnail, scale: 2)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } else {
-                    Image(systemName: "photo")
-                        .font(.system(size: 18))
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Design.Palette.chipFill)
-                }
-            }
-            .frame(width: Design.Layout.thumbnailSize.width, height: Design.Layout.thumbnailSize.height)
-            .clipShape(shape)
-            .overlay(shape.strokeBorder(Design.Palette.separator))
-            .accessibilityHidden(true)
-
+            CaptureThumbnail(image: thumbnail)
+                .accessibilityHidden(true)
             Label {
                 Text(Copy.Onboarding.copied)
                     .font(Design.Typography.body)
@@ -326,6 +379,44 @@ private struct CopiedResult: View {
         .padding(.vertical, Design.Spacing.m)
         .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.cardFill))
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// Copying is switched off: say so, with the way back on, instead of waiting forever.
+private struct PausedResult: View {
+    @Environment(AppModel.self) private var model
+
+    private var turnOn: some View {
+        Button { model.preferences.copyEnabled = true } label: { Text(Copy.Onboarding.turnOnCopying) }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Design.Spacing.m) {
+            HStack(alignment: .firstTextBaseline, spacing: Design.Spacing.m) {
+                Image(systemName: "pause.circle.fill")
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+                Text(Copy.Onboarding.paused)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .font(Design.Typography.body)
+            // A native button, or one whose title wraps when a translation is too long.
+            ViewThatFits(in: .horizontal) {
+                turnOn
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .fixedSize()
+                turnOn
+                    .buttonStyle(WrappingButtonStyle())
+            }
+            .padding(.leading, Design.Layout.iconColumn + Design.Spacing.s)
+        }
+        .padding(.horizontal, Design.Spacing.l)
+        .padding(.vertical, Design.Spacing.m)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.cardFill))
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -344,12 +435,13 @@ private struct TidyStep: View {
         VStack(spacing: Design.Spacing.l) {
             StepHeader(symbol: "trash", title: Copy.Onboarding.tidyTitle, text: Copy.Onboarding.tidyBody(retention.days))
 
-            VStack(alignment: .leading, spacing: Design.Spacing.s) {
+            VStack(alignment: .leading, spacing: Design.Spacing.xs) {
                 previewLine
                     .padding(.horizontal, Design.Spacing.l)
                     .padding(.vertical, Design.Spacing.m)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.cardFill))
+                    .padding(.bottom, Design.Spacing.xs)
 
                 SwitchRow(
                     title: Copy.Retention.enable,
@@ -363,27 +455,39 @@ private struct TidyStep: View {
                             }
                         }),
                     // On only for a folder the user has just seen a preview for.
-                    isEnabled: retention.enabled || scan != nil)
+                    isEnabled: retention.enabled || scan != nil,
+                    font: Design.Typography.body)
                 SwitchRow(
                     title: Copy.General.launchAtLogin,
-                    isOn: Binding(get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
+                    isOn: Binding(get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }),
+                    font: Design.Typography.body)
             }
         }
         .onAppear { model.refreshPreview() }
+    }
+
+    /// Before the switch: what would go now. After it: what goes at the next cleanup.
+    private func previewText(_ scan: RetentionScan, on: Bool) -> LocalizedStringResource {
+        let size = scan.expiredBytes.formatted(.byteCount(style: .file))
+        switch (on, scan.expired.isEmpty) {
+        case (false, true): return Copy.Retention.nothingWouldMove
+        case (false, false): return Copy.Retention.wouldMove(scan.expired.count, size)
+        case (true, true): return Copy.Retention.nothingDue
+        case (true, false): return Copy.Retention.willMove(scan.expired.count, size)
+        }
     }
 
     @ViewBuilder
     private var previewLine: some View {
         switch model.retentionPreview {
         case .success(let scan):
-            Text(scan.expired.isEmpty
-                ? Copy.Retention.nothingWouldMove
-                : Copy.Retention.wouldMove(scan.expired.count, scan.expiredBytes.formatted(.byteCount(style: .file))))
+            Text(previewText(scan, on: model.preferences.retention.enabled))
                 .font(Design.Typography.body)
                 .monospacedDigit()
                 .fixedSize(horizontal: false, vertical: true)
                 .contentTransition(reduceMotion ? .opacity : .numericText(value: Double(scan.expired.count)))
                 .animation(Design.Motion.number, value: scan.expired.count)
+                .animation(Design.Motion.quick, value: model.preferences.retention.enabled)
         case .failure(.systemOrBroad):
             warning(Copy.Retention.broad(folderName))
         case .failure(.noTrash):
@@ -411,30 +515,5 @@ private struct TidyStep: View {
 
     private var folderName: String {
         model.screenshotFolder.map(AttentionPresentation.displayName) ?? ""
-    }
-}
-
-/// A label that may wrap, with a small switch on the right, like the popover's copy row.
-private struct SwitchRow: View {
-    let title: LocalizedStringResource
-    let isOn: Binding<Bool>
-    var isEnabled = true
-
-    var body: some View {
-        HStack(spacing: Design.Spacing.m) {
-            Text(title)
-                .font(Design.Typography.body)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityHidden(true)
-            // The label stays for VoiceOver; the visible one is the text on the left.
-            Toggle(isOn: isOn) { Text(title) }
-                .labelsHidden()
-                .toggleStyle(.switch)
-                .controlSize(.mini)
-                .disabled(!isEnabled)
-        }
-        .padding(.horizontal, Design.Spacing.l)
-        .padding(.vertical, Design.Spacing.xs)
     }
 }

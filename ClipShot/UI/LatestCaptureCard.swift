@@ -84,7 +84,7 @@ struct LatestCaptureCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Design.Spacing.m) {
             HStack(spacing: Design.Spacing.m) {
-                thumbnail
+                CaptureThumbnail(image: capture.thumbnail)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(verbatim: capture.file.url.lastPathComponent)
                         .font(Design.Typography.cardTitle)
@@ -106,11 +106,12 @@ struct LatestCaptureCard: View {
                 age: capture.file.created.formatted(.relative(presentation: .named)), size: size)))
             .accessibilityAddTraits(.isImage)
 
-            // A translation can make the two buttons wider than the card; then they stack
-            // rather than truncate. The symbols stay: Copy again shows its checkmark there.
+            // A translation can make the two buttons wider than the card; then they stack, at
+            // the same full width, rather than truncate. The symbols stay: Copy again shows
+            // its checkmark there.
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: Design.Spacing.s) { actions }
-                VStack(alignment: .leading, spacing: Design.Spacing.s) { actions }
+                HStack(spacing: Design.Spacing.s) { actions(stacked: false) }
+                VStack(alignment: .leading, spacing: Design.Spacing.s) { actions(stacked: true) }
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
@@ -121,8 +122,10 @@ struct LatestCaptureCard: View {
         .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.cardFill))
     }
 
+    /// Side by side at their own width, or stacked at the full card width with the labels
+    /// leading.
     @ViewBuilder
-    private var actions: some View {
+    private func actions(stacked: Bool) -> some View {
         Button { copyAgain() } label: {
             Label {
                 Text(Copy.Action.copyAgain)
@@ -130,33 +133,14 @@ struct LatestCaptureCard: View {
                 Image(systemName: showCheck ? "checkmark" : "doc.on.doc")
                     .contentTransition(reduceMotion ? .opacity : .symbolEffect(.replace))
             }
+            .frame(maxWidth: stacked ? .infinity : nil, alignment: .leading)
         }
-        .fixedSize()
+        .fixedSize(horizontal: !stacked, vertical: true)
         Button { model.revealLast() } label: {
             Label { Text(Copy.Action.showInFinder) } icon: { Image(systemName: "folder") }
+                .frame(maxWidth: stacked ? .infinity : nil, alignment: .leading)
         }
-        .fixedSize()
-    }
-
-    @ViewBuilder
-    private var thumbnail: some View {
-        let shape = RoundedRectangle(cornerRadius: Design.Radius.chip, style: .continuous)
-        Group {
-            if let image = capture.thumbnail {
-                Image(decorative: image, scale: 2)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } else {
-                Image(systemName: "photo")
-                    .font(.system(size: 18))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Design.Palette.chipFill)
-            }
-        }
-        .frame(width: Design.Layout.thumbnailSize.width, height: Design.Layout.thumbnailSize.height)
-        .clipShape(shape)
-        .overlay(shape.strokeBorder(Design.Palette.separator))
+        .fixedSize(horizontal: !stacked, vertical: true)
     }
 
     /// "Just now" for the first minute, then the live relative age. The timeline wakes once,

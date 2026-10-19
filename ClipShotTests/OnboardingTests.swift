@@ -26,6 +26,55 @@ struct OnboardingTests {
         #expect(WelcomeTour.stepCount == 3)
     }
 
+    @Test func directionFollowsNavigation() throws {
+        let h = try ModelHarness(onboardingShown: false)
+        defer { h.tearDown() }
+        var tour = WelcomeTour()
+        #expect(tour.direction == .forward)
+        tour.advance(h.model)
+        #expect(tour.direction == .forward)
+        tour.back()
+        #expect(tour.direction == .backward)
+        tour.back()
+        #expect(tour.step == .welcome)
+        tour.advance(h.model)
+        #expect(tour.direction == .forward, "Next after Back slides forward again")
+    }
+
+    @Test func tryItSaysCopyingIsOffInsteadOfWaiting() async throws {
+        let h = try ModelHarness(onboardingShown: false)
+        defer { h.tearDown() }
+        h.preferences.copyEnabled = false
+        var tour = WelcomeTour(step: .folder)
+        tour.advance(h.model)
+        #expect(await eventually { await h.model.watchedFolder?.path == h.folder.path })
+        #expect(tour.tryState(h.model) == .paused)
+
+        // The note's button turns copying back on; then Try it waits, and gets the copy.
+        h.preferences.copyEnabled = true
+        #expect(tour.tryState(h.model) == .waiting)
+        try await Task.sleep(for: .milliseconds(200))
+        try h.shoot("Screenshot 1.png")
+        let trying = tour
+        #expect(await eventually {
+            if case .copied(let file) = await trying.tryState(h.model) {
+                return file.url.lastPathComponent == "Screenshot 1.png"
+            }
+            return false
+        })
+    }
+
+    @Test func tryItShowsWhatBlocksCopyingBeforeThePausedNote() async throws {
+        let h = try ModelHarness(onboardingShown: false)
+        defer { h.tearDown() }
+        h.prefs["target"] = "clipboard"
+        h.preferences.copyEnabled = false
+        var tour = WelcomeTour(step: .folder)
+        tour.advance(h.model)
+        #expect(await eventually { await !h.model.attentions.isEmpty })
+        #expect(tour.tryState(h.model) == .attention(.destinationNotFile))
+    }
+
     @Test func step2StartCopyingIsTheFirstFolderAccess() async throws {
         let h = try ModelHarness(onboardingShown: false)
         defer { h.tearDown() }
