@@ -191,23 +191,32 @@ private struct CopyToggleRow: View {
 /// What retention keeps and did, as one line each. Pure, so it can be tested.
 enum RetentionSummary: Equatable {
     case off
+    /// On, but this folder can never be cleaned: no Trash, or a system or broad folder.
+    case offForFolder
+    /// On, but waiting for the user to confirm a new folder.
     case paused
     case keeps(days: Int)
 
     static func of(policy: RetentionPolicy, refusal: Refusal?) -> RetentionSummary {
         guard policy.enabled else { return .off }
-        return refusal == nil ? .keeps(days: policy.days) : .paused
+        switch refusal {
+        case nil: return .keeps(days: policy.days)
+        case .notConfirmed: return .paused
+        case .noTrash, .systemOrBroad: return .offForFolder
+        }
     }
 
     var title: LocalizedStringResource {
         switch self {
         case .off: Copy.Summary.off
+        case .offForFolder: Copy.Summary.offForFolder
         case .paused: Copy.Summary.paused
         case .keeps(let days): Copy.Summary.keeps(days)
         }
     }
 
-    /// "Last cleanup today at 14:00, 3 moved", or the date when it was not today.
+    /// "Last cleanup today at 14:00, 3 moved", or the date when it was not today. Only runs
+    /// that moved or failed something are recorded, so nil means none has been needed yet.
     static func lastCleanup(_ result: RetentionResult?, now: Date, calendar: Calendar = .current) -> LocalizedStringResource {
         guard let result else { return Copy.Summary.noCleanupYet }
         if calendar.isDate(result.at, inSameDayAs: now) {
@@ -240,7 +249,7 @@ private struct RetentionSummaryRow: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(summary.title)
                         .font(Design.Typography.row)
-                    if summary != .off {
+                    if case .keeps = summary {
                         Text(RetentionSummary.lastCleanup(model.preferences.lastRetention, now: Date()))
                             .font(Design.Typography.cardSubtitle)
                             .foregroundStyle(.secondary)

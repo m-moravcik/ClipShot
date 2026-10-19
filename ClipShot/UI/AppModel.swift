@@ -103,6 +103,9 @@ final class AppModel {
     @ObservationIgnored private var copyFailure: Date?
     /// The screenshot that could not be copied; "Copy again" retries it.
     @ObservationIgnored private var failedCapture: CaptureFile?
+    /// The latest retention run, also when it moved nothing, for "Clean up now".
+    @ObservationIgnored private var lastRun: RetentionResult?
+    @ObservationIgnored private var runCount = 0
     /// The capture whose thumbnail is being decoded for `latest`.
     @ObservationIgnored private var thumbnailFor: CaptureFile?
     @ObservationIgnored private var flash = CopiedFlash()
@@ -290,6 +293,13 @@ final class AppModel {
     @discardableResult
     func copyAgain() async -> Bool {
         guard let file = failedCapture ?? lastCopied else { return false }
+        return await copyAgain(file: file)
+    }
+
+    /// Copies `file` again: the latest card passes the screenshot it shows. Clears the
+    /// could-not-copy attention only when `file` is the one that failed.
+    @discardableResult
+    func copyAgain(file: CaptureFile) async -> Bool {
         let png = await Task.detached(priority: .userInitiated) { PNGConverter.pngData(from: file.url) }.value
         let ext = file.url.pathExtension.lowercased()
         let log = log
@@ -298,7 +308,7 @@ final class AppModel {
             return false
         }
         Task { await log.info("copied again ext=\(ext)") }
-        clearCopyFailure()
+        if file == failedCapture { clearCopyFailure() }
         announce(Copy.screenshotCopied)
         return true
     }
@@ -412,10 +422,9 @@ final class AppModel {
     @discardableResult
     func cleanUpNow() async -> RetentionResult? {
         guard isWatching else { return nil }
-        let before = preferences.lastRetention
+        let before = runCount
         await scheduler.runNow()
-        let after = preferences.lastRetention
-        return after != before ? after : nil
+        return runCount != before ? lastRun : nil
     }
 
     /// Adds the older screenshots the preview counted (expired, never seen by ClipShot) to the
@@ -453,7 +462,11 @@ final class AppModel {
             self?.preferences.retention == $0
         }
         if case .ran(_, let result) = outcome {
-            preferences.lastRetention = result
+            lastRun = result
+            runCount += 1
+            // The summary names the last cleanup that did something; an hourly run that
+            // found nothing to move does not replace it.
+            if result.moved > 0 || result.failed > 0 { preferences.lastRetention = result }
             preferences.totals.trashed += result.moved
             preferences.totals.freedBytes += result.movedBytes
             if retentionPreview != nil { refreshPreview() }

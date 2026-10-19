@@ -73,6 +73,8 @@ enum Copy {
 
     enum Latest {
         static let none = LocalizedStringResource("No screenshot copied yet")
+        static let justNow = LocalizedStringResource(
+            "Just now", comment: "Age of the latest screenshot when it is under a minute old")
         /// "Latest screenshot, 2 minutes ago, 1.2 MB".
         static func accessibility(age: String, size: String) -> LocalizedStringResource {
             LocalizedStringResource(
@@ -93,7 +95,10 @@ enum Copy {
         static func keeps(_ days: Int) -> LocalizedStringResource {
             LocalizedStringResource("Keeps \(days) days", comment: "Retention keeps screenshots this many days")
         }
-        static let noCleanupYet = LocalizedStringResource("No cleanup yet")
+        static let offForFolder = LocalizedStringResource(
+            "Retention is off for this folder", comment: "The folder has no Trash, or is a system or home-level folder")
+        static let noCleanupYet = LocalizedStringResource(
+            "No cleanup needed yet", comment: "Retention is on but has not moved anything so far")
         static func lastCleanupToday(_ time: String, moved: Int) -> LocalizedStringResource {
             LocalizedStringResource(
                 "Last cleanup today at \(time), \(moved) moved", comment: "Time of day, then how many screenshots went to the Trash")

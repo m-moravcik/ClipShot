@@ -12,6 +12,13 @@ struct LatestCapture: Identifiable, Equatable, @unchecked Sendable {
 
     var id: CaptureFile { file }
 
+    /// Under a minute the card says "Just now" rather than counting seconds.
+    static let justNowInterval: TimeInterval = 60
+
+    static func isJustNow(_ created: Date, now: Date) -> Bool {
+        now.timeIntervalSince(created) < justNowInterval
+    }
+
     static func == (a: LatestCapture, b: LatestCapture) -> Bool {
         a.file == b.file && a.thumbnail === b.thumbnail
     }
@@ -65,6 +72,7 @@ struct LatestCaptureCard: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showCheck = false
+    @State private var checkTask: Task<Void, Never>?
 
     private static let checkDuration: Duration = .milliseconds(1_200)
 
@@ -82,7 +90,7 @@ struct LatestCaptureCard: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                     HStack(spacing: Design.Spacing.s) {
-                        Text(capture.file.created, style: .relative)
+                        age
                         Text(verbatim: "·")
                         Text(verbatim: size)
                     }
@@ -140,11 +148,32 @@ struct LatestCaptureCard: View {
         .overlay(shape.strokeBorder(Design.Palette.separator))
     }
 
+    /// "Just now" for the first minute, then the live relative age. The timeline wakes once,
+    /// when the minute is up.
+    private var age: some View {
+        let created = capture.file.created
+        let now = Date()
+        let switchAt = created.addingTimeInterval(LatestCapture.justNowInterval)
+        // The first entry is what renders now; the view gets the entry's date, not the clock.
+        return TimelineView(.explicit(switchAt > now ? [now, switchAt] : [now])) { context in
+            if LatestCapture.isJustNow(created, now: context.date) {
+                Text(Copy.Latest.justNow)
+            } else {
+                Text(created, style: .relative)
+            }
+        }
+    }
+
+    /// Copies the screenshot this card shows, never another one. A second click restarts the
+    /// checkmark's 1.2 s instead of letting the first click's timer cut it short.
     private func copyAgain() {
-        Task {
-            guard await model.copyAgain() else { return }
+        let file = capture.file
+        checkTask?.cancel()
+        checkTask = Task {
+            guard await model.copyAgain(file: file), !Task.isCancelled else { return }
             withAnimation(Design.Motion.quick) { showCheck = true }
             try? await Task.sleep(for: Self.checkDuration)
+            guard !Task.isCancelled else { return }
             withAnimation(Design.Motion.quick) { showCheck = false }
         }
     }

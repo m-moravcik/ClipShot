@@ -85,7 +85,10 @@ struct RetentionSummaryTests {
         policy.enabled = true
         #expect(RetentionSummary.of(policy: policy, refusal: nil) == .keeps(days: 30))
         #expect(RetentionSummary.of(policy: policy, refusal: .notConfirmed) == .paused)
-        #expect(RetentionSummary.of(policy: policy, refusal: .noTrash) == .paused)
+        #expect(RetentionSummary.of(policy: policy, refusal: .noTrash) == .offForFolder)
+        #expect(RetentionSummary.of(policy: policy, refusal: .systemOrBroad) == .offForFolder)
+        #expect(en(RetentionSummary.offForFolder.title) == "Retention is off for this folder")
+        #expect(en(RetentionSummary.paused.title) == "Retention is paused")
         #expect(en(RetentionSummary.keeps(days: 30).title) == "Keeps 30 days")
         #expect(en(RetentionSummary.keeps(days: 1).title) == "Keeps 1 day")
     }
@@ -97,7 +100,7 @@ struct RetentionSummaryTests {
         let today = try #require(calendar.date(from: DateComponents(year: 2026, month: 10, day: 19, hour: 14)))
         let earlier = try #require(calendar.date(from: DateComponents(year: 2026, month: 10, day: 12, hour: 14)))
 
-        #expect(en(RetentionSummary.lastCleanup(nil, now: now, calendar: calendar)) == "No cleanup yet")
+        #expect(en(RetentionSummary.lastCleanup(nil, now: now, calendar: calendar)) == "No cleanup needed yet")
         let todayText = en(RetentionSummary.lastCleanup(
             RetentionResult(moved: 3, movedBytes: 10, failed: 0, at: today), now: now, calendar: calendar))
         #expect(todayText.hasPrefix("Last cleanup today at "))
@@ -128,7 +131,22 @@ struct RetentionModeTests {
         #expect(mode(enabled: true, refusal: .noTrash) == .refused)
         #expect(mode(enabled: true, refusal: .systemOrBroad) == .refused)
         #expect(!RetentionMode.off.showsDetails)
+        #expect(RetentionMode.on.offersAdoption(olderNotTracked: 2))
+        #expect(!RetentionMode.on.offersAdoption(olderNotTracked: 0))
+        for mode in [RetentionMode.off, .confirming, .folderChanged, .refused, .notWatching] {
+            #expect(!mode.offersAdoption(olderNotTracked: 2), "only while on and confirmed")
+        }
         #expect(RetentionMode.confirming.showsDetails)
+    }
+}
+
+struct LatestCaptureAgeTests {
+    @Test func justNowForTheFirstMinute() {
+        let created = Date(timeIntervalSince1970: 1_000_000)
+        #expect(LatestCapture.isJustNow(created, now: created))
+        #expect(LatestCapture.isJustNow(created, now: created.addingTimeInterval(59.9)))
+        #expect(!LatestCapture.isJustNow(created, now: created.addingTimeInterval(60)))
+        #expect(en(Copy.Latest.justNow) == "Just now")
     }
 }
 

@@ -617,6 +617,17 @@
         }
       }
     },
+    "Just now" : {
+      "comment" : "Age of the latest screenshot when it is under a minute old",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Just now"
+          }
+        }
+      }
+    },
     "Keep screenshots for" : {
       "localizations" : {
         "en" : {
@@ -842,12 +853,13 @@
         }
       }
     },
-    "No cleanup yet" : {
+    "No cleanup needed yet" : {
+      "comment" : "Retention is on but has not moved anything so far",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No cleanup yet"
+            "value" : "No cleanup needed yet"
           }
         }
       }
@@ -1074,6 +1086,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Retention is off"
+          }
+        }
+      }
+    },
+    "Retention is off for this folder" : {
+      "comment" : "The folder has no Trash, or is a system or home-level folder",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retention is off for this folder"
           }
         }
       }

@@ -221,15 +221,29 @@ private struct CaptureSettingsPane: View {
         }
     }
 
+    /// "Applies from the next screenshot" only after a folder change that was accepted,
+    /// never next to a folder error.
     private func choose() {
         guard let url = FolderPicker.choose(startingAt: model.configuredFolder) else { return }
-        changed = .folder
-        Task { try? await model.setFolder(url) }
+        Task {
+            do {
+                try await model.setFolder(url)
+                changed = .folder
+            } catch {
+                if changed == .folder { changed = nil }
+            }
+        }
     }
 
     private func reset() {
-        changed = .folder
-        Task { try? await model.resetFolder() }
+        Task {
+            do {
+                try await model.resetFolder()
+                changed = .folder
+            } catch {
+                if changed == .folder { changed = nil }
+            }
+        }
     }
 
     private func restore() {
@@ -265,6 +279,12 @@ enum RetentionMode: Equatable {
 
     /// The period, preview and notes are shown while it is on or about to be.
     var showsDetails: Bool { self != .off && self != .notWatching }
+
+    /// "Also clean up N older screenshots" only while retention is on and confirmed for
+    /// this folder: adopting them is only meaningful when a run will move them.
+    func offersAdoption(olderNotTracked: Int) -> Bool {
+        self == .on && olderNotTracked > 0
+    }
 }
 
 private struct RetentionSettings: View {
@@ -459,7 +479,7 @@ private struct RetentionSettings: View {
                     .disabled(scan == nil)
             }
         case .on:
-            if let scan, scan.olderNotTracked > 0 {
+            if let scan, mode.offersAdoption(olderNotTracked: scan.olderNotTracked) {
                 HStack {
                     Button {
                         adoptOffer = Offer(count: scan.olderNotTracked, bytes: scan.olderNotTrackedBytes)

@@ -55,6 +55,50 @@ struct AppModelUITests {
         #expect(await h.ledger.entries().isEmpty)
     }
 
+    @Test func latestCardCopiesTheShownScreenshotNotTheFailedOne() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        #expect(await h.start())
+        let first = try h.shoot("Screenshot 1.png", size: 20)
+        #expect(await eventually { await h.model.latest?.file.url.lastPathComponent == "Screenshot 1.png" })
+        h.pasteboard.failing = true
+        let second = try h.shoot("Screenshot 2.png", size: 21)
+        #expect(await eventually { await h.model.attentions.map(\.id) == [Attention.couldNotCopy.id] })
+        let shown = try #require(h.model.latest)
+        #expect(shown.file.url.lastPathComponent == "Screenshot 1.png", "the card keeps the last good copy")
+
+        // The card's Copy again: the screenshot it shows, and the failure stays reported.
+        h.pasteboard.failing = false
+        #expect(await h.model.copyAgain(file: shown.file))
+        #expect(h.pasteboard.writes.last == (try Data(contentsOf: first)))
+        #expect(h.model.attentions.map(\.id) == [Attention.couldNotCopy.id])
+
+        // The attention row's Copy again: the failed one, which clears it.
+        #expect(await h.model.copyAgain())
+        #expect(h.pasteboard.writes.last == (try Data(contentsOf: second)))
+        #expect(h.model.attentions.isEmpty)
+    }
+
+    @Test func runThatMovesNothingKeepsTheLastCleanup() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        let url = try RT.shot("old.png", in: h.folder, age: 40 * RT.day, now: Date())
+        await h.ledger.record(RT.file(url))
+        #expect(await h.start())
+        try? await Task.sleep(for: .milliseconds(300))
+        #expect(h.preferences.lastRetention == nil, "off at launch: nothing recorded")
+        h.preferences.retention = RT.policy(h.folder)
+
+        let moved = try #require(await h.model.cleanUpNow())
+        #expect(moved.moved == 1)
+        #expect(h.preferences.lastRetention == moved)
+
+        let empty = try #require(await h.model.cleanUpNow(), "the run happened")
+        #expect(empty.moved == 0)
+        #expect(h.preferences.lastRetention == moved, "a no-op run does not replace the summary")
+        #expect(h.preferences.totals.trashed == 1)
+    }
+
     @Test func cleanUpNowReturnsNilWhenNothingRan() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }
