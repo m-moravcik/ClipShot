@@ -3,120 +3,6 @@ import AppKit
 import Combine
 import Observation
 
-/// The repeating timer that drives the copied flash.
-@MainActor
-protocol FlashTimer: AnyObject {
-    func invalidate()
-}
-
-/// A main-run-loop `Timer`, in the common modes so it also ticks while a menu is tracking.
-@MainActor
-final class SystemFlashTimer: FlashTimer {
-    private var timer: Timer?
-
-    init(interval: TimeInterval, tolerance: TimeInterval, tick: @escaping @MainActor @Sendable () -> Void) {
-        let timer = Timer(timeInterval: interval, repeats: true) { _ in
-            MainActor.assumeIsolated { tick() }
-        }
-        timer.tolerance = tolerance
-        RunLoop.main.add(timer, forMode: .common)
-        self.timer = timer
-    }
-
-    func invalidate() {
-        timer?.invalidate()
-        timer = nil
-    }
-
-    /// A timer released without `invalidate()` must not keep ticking on the run loop.
-    isolated deinit {
-        timer?.invalidate()
-    }
-}
-
-/// Finder and the default apps.
-@MainActor
-protocol WorkspaceActions: AnyObject {
-    func reveal(_ url: URL)
-    func open(_ url: URL)
-}
-
-@MainActor
-final class SystemWorkspace: WorkspaceActions {
-    func reveal(_ url: URL) { NSWorkspace.shared.activateFileViewerSelecting([url]) }
-    func open(_ url: URL) { NSWorkspace.shared.open(url) }
-}
-
-/// Everything the model reaches outside the process through. `live()` for the app; tests
-/// pass fakes. Building one has no side effects.
-struct AppDependencies {
-    typealias MakeFlashTimer = @MainActor (
-        _ interval: TimeInterval, _ tolerance: TimeInterval, _ tick: @escaping @MainActor @Sendable () -> Void
-    ) -> any FlashTimer
-
-    var preferences: Preferences
-    var screencapturePrefs: any ScreencapturePreferences
-    var backup: PrefsBackup
-    var home: URL
-    var events: any FolderEventSource
-    var pasteboard: any PasteboardWriting
-    var ledger: ScreenshotLedger
-    var trasher: any Trashing
-    var hasTrash: FolderGuard.TrashLookup
-    var clock: @Sendable () -> Date
-    var pollInterval: Duration
-    /// How often the destination, the folder pref and the retention status are re-read.
-    var statusInterval: Duration
-    var hourly: AnyPublisher<Void, Never>
-    var wake: AnyPublisher<Void, Never>
-    var makeFlashTimer: MakeFlashTimer
-    var reduceMotion: @MainActor () -> Bool
-    var playSound: @MainActor () -> Void
-    var announce: @MainActor (LocalizedStringResource) -> Void
-    var workspace: any WorkspaceActions
-    /// `LoginItem.reconcile`: takes the stored intent, returns the intent to store.
-    var reconcileLoginItem: @MainActor (Bool?) -> Bool
-    var setLoginItem: @MainActor (Bool) -> Bool
-    var log: Log
-    var logFile: URL
-    var appVersion: String
-    var osVersion: String
-
-    @MainActor
-    static func live() -> AppDependencies {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        let support = home.appendingPathComponent("Library/Application Support/ClipShot", isDirectory: true)
-        let info = Bundle.main.infoDictionary ?? [:]
-        let version = "\(info["CFBundleShortVersionString"] as? String ?? "?") (\(info["CFBundleVersion"] as? String ?? "?"))"
-        return AppDependencies(
-            preferences: Preferences(),
-            screencapturePrefs: SystemScreencapturePreferences(),
-            backup: PrefsBackup(fileURL: support.appendingPathComponent("prefs-backup.plist")),
-            home: home,
-            events: DirectoryEventSource(),
-            pasteboard: SystemPasteboard(),
-            ledger: .default,
-            trasher: FileManagerTrasher(),
-            hasTrash: FolderGuard.systemTrashLookup,
-            clock: { Date() },
-            pollInterval: .seconds(1),
-            statusInterval: .seconds(5),
-            hourly: RetentionScheduler.hourlyTimer(),
-            wake: RetentionScheduler.wakeNotifications(),
-            makeFlashTimer: { SystemFlashTimer(interval: $0, tolerance: $1, tick: $2) },
-            reduceMotion: { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion },
-            playSound: { _ = NSSound(named: "Pop")?.play() },
-            announce: { AccessibilityNotification.Announcement(String(localized: $0)).post() },
-            workspace: SystemWorkspace(),
-            reconcileLoginItem: { LoginItem.reconcile(storedIntent: $0) },
-            setLoginItem: { LoginItem.setEnabled($0) },
-            log: .shared,
-            logFile: Log.defaultFileURL,
-            appVersion: version,
-            osVersion: ProcessInfo.processInfo.operatingSystemVersionString)
-    }
-}
-
 /// What the popover, Settings and onboarding bind to.
 ///
 /// Inert until `startWatching()`: creating it reads no screenshot prefs, touches no folder,
@@ -144,10 +30,35 @@ final class AppModel {
     private(set) var destination: CaptureDestination = .file
     /// What retention would move now if it were on for the current folder.
     private(set) var retentionPreview: Result<RetentionScan, Refusal>?
+    /// Why retention, while on, does not run on the current folder; nil when it runs or is off.
+    private(set) var retentionRefusal: Refusal?
+    /// `show-thumbnail`, as last read.
+    private(set) var showThumbnail = true
+    /// The `type` key, lowercased, as last read.
+    private(set) var captureFormat = "png"
+    /// A native setting was written while `screencaptureui` was running, so it applies from
+    /// the next screenshot (spike F10). Cleared once that process has exited.
+    private(set) var appliesFromNextScreenshot = false
+    /// Why the last folder change was refused; nil after a successful one.
+    private(set) var folderError: FolderValidation?
+    /// `lastCopied` with its decoded thumbnail. Follows `lastCopied` once the thumbnail is
+    /// decoded (or failed to), so the card swaps in one step.
+    private(set) var latest: LatestCapture?
 
     var iconState: StatusIconState {
         .resolve(copyEnabled: preferences.copyEnabled, attentions: attentions, flashing: flashPhase > 0)
     }
+
+    /// The popover header: copying on, paused or needs attention. Never the brief copied state.
+    var headerState: StatusIconState {
+        .resolve(copyEnabled: preferences.copyEnabled, attentions: attentions, flashing: false)
+    }
+
+    /// macOS saves no file for a PDF capture while the floating thumbnail is on (spike F2).
+    var pdfSavesNoFile: Bool { showThumbnail && captureFormat == "pdf" }
+
+    /// Where screenshots are going right now: the watched folder, else the configured one.
+    var screenshotFolder: URL? { watchedFolder ?? configuredFolder }
 
     /// "Paste works once the thumbnail disappears", until the first copy.
     var showFirstCopyHint: Bool { !preferences.firstCopyDone }
@@ -175,6 +86,7 @@ final class AppModel {
     @ObservationIgnored private let playSound: @MainActor () -> Void
     @ObservationIgnored private let announce: @MainActor (LocalizedStringResource) -> Void
     @ObservationIgnored private let workspace: any WorkspaceActions
+    @ObservationIgnored private let screencaptureUIRunning: @MainActor () -> Bool
     @ObservationIgnored private let reconcileLoginItem: @MainActor (Bool?) -> Bool
     @ObservationIgnored private let setLoginItem: @MainActor (Bool) -> Bool
     @ObservationIgnored private let log: Log
@@ -191,7 +103,8 @@ final class AppModel {
     @ObservationIgnored private var copyFailure: Date?
     /// The screenshot that could not be copied; "Copy again" retries it.
     @ObservationIgnored private var failedCapture: CaptureFile?
-    @ObservationIgnored private var retentionRefusal: Refusal?
+    /// The capture whose thumbnail is being decoded for `latest`.
+    @ObservationIgnored private var thumbnailFor: CaptureFile?
     @ObservationIgnored private var flash = CopiedFlash()
     @ObservationIgnored private var flashTimer: (any FlashTimer)?
     @ObservationIgnored private var statusTask: Task<Void, Never>?
@@ -217,6 +130,7 @@ final class AppModel {
         playSound = d.playSound
         announce = d.announce
         workspace = d.workspace
+        screencaptureUIRunning = d.screencaptureUIRunning
         reconcileLoginItem = d.reconcileLoginItem
         setLoginItem = d.setLoginItem
         log = d.log
@@ -298,6 +212,7 @@ final class AppModel {
 
     private func coordinatorChanged() {
         lastCopied = coordinator.lastCopied
+        updateLatest()
         watchError = coordinator.watchError
         let folderChanged = watchedFolder != coordinator.watchedFolder
         watchedFolder = coordinator.watchedFolder
@@ -310,12 +225,32 @@ final class AppModel {
 
     private func copied(_ file: CaptureFile) {
         lastCopied = file
+        updateLatest()
         preferences.totals.copied += 1
         preferences.firstCopyDone = true
         clearCopyFailure()
         startFlash()
         if preferences.copySound { playSound() }
-        announce("Screenshot copied")
+        announce(Copy.screenshotCopied)
+    }
+
+    /// Decodes the thumbnail off the main actor, then moves `latest` to `lastCopied`.
+    private func updateLatest() {
+        guard let file = lastCopied else {
+            thumbnailFor = nil
+            latest = nil
+            return
+        }
+        guard latest?.file != file, thumbnailFor != file else { return }
+        thumbnailFor = file
+        Task { [weak self] in
+            let thumbnail = await Task.detached(priority: .utility) {
+                Thumbnailer.decode(file.url, maxPixelSize: LatestCapture.thumbnailPixels)
+            }.value
+            guard let self, self.thumbnailFor == file else { return }
+            self.thumbnailFor = nil
+            self.latest = LatestCapture(file: file, thumbnail: thumbnail)
+        }
     }
 
     private func copyFailed(_ file: CaptureFile) {
@@ -364,8 +299,25 @@ final class AppModel {
         }
         Task { await log.info("copied again ext=\(ext)") }
         clearCopyFailure()
-        announce("Screenshot copied")
+        announce(Copy.screenshotCopied)
         return true
+    }
+
+    /// The page in System Settings where folder access is granted (spike F15).
+    static let privacySettingsURL = URL(
+        string: "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders")!
+
+    func openPrivacySettings() {
+        workspace.open(Self.privacySettingsURL)
+    }
+
+    /// Opens the Trash of the screenshot folder's volume.
+    func showTrash() async {
+        let folder = screenshotFolder ?? home
+        let trash = await Task.detached(priority: .userInitiated) {
+            try? FileManager.default.url(for: .trashDirectory, in: .userDomainMask, appropriateFor: folder, create: false)
+        }.value
+        if let trash { workspace.open(trash) }
     }
 
     func revealLast() {
@@ -373,9 +325,8 @@ final class AppModel {
         workspace.reveal(file.url)
     }
 
-    /// Where screenshots are going right now: the watched folder, else the configured one.
     func openFolder() {
-        guard let folder = watchedFolder ?? configuredFolder else { return }
+        guard let folder = screenshotFolder else { return }
         workspace.open(folder)
     }
 
@@ -388,6 +339,26 @@ final class AppModel {
     func fixDestination() async {
         let settings = settings
         await Task.detached { settings.fixDestination() }.value
+        nativeSettingChanged()
+    }
+
+    func setShowThumbnail(_ on: Bool) async {
+        let settings = settings
+        await Task.detached { settings.showThumbnail = on }.value
+        // At once, so the toggle does not flip back until the next read; that read corrects
+        // it if the write was refused.
+        showThumbnail = on
+        nativeSettingChanged()
+    }
+
+    func clearFolderError() {
+        folderError = nil
+    }
+
+    /// After a write to `com.apple.screencapture`: a running `screencaptureui` keeps the old
+    /// values until it exits, and ClipShot never kills it (spike F10).
+    private func nativeSettingChanged() {
+        if screencaptureUIRunning() { appliesFromNextScreenshot = true }
         refreshStatus()
     }
 
@@ -409,8 +380,14 @@ final class AppModel {
                 return .failure(error)
             }
         }.value
-        try result.get()
-        refreshStatus()
+        do throws(FolderValidation) {
+            try result.get()
+        } catch {
+            folderError = error
+            throw error
+        }
+        folderError = nil
+        nativeSettingChanged()
     }
 
     @discardableResult
@@ -418,7 +395,7 @@ final class AppModel {
         let backup = backup
         let prefs = screencapturePrefs
         let restored = await Task.detached { backup.restore(into: prefs) }.value
-        refreshStatus()
+        if restored { nativeSettingChanged() }
         return restored
     }
 
@@ -430,10 +407,43 @@ final class AppModel {
 
     // MARK: - Retention
 
-    /// Runs retention now (Settings "Clean up now"), after any run in flight.
-    func cleanUpNow() async {
-        guard isWatching else { return }
+    /// Runs retention now (Settings "Clean up now"), after any run in flight. Returns what
+    /// that run moved, or nil when nothing ran.
+    @discardableResult
+    func cleanUpNow() async -> RetentionResult? {
+        guard isWatching else { return nil }
+        let before = preferences.lastRetention
         await scheduler.runNow()
+        let after = preferences.lastRetention
+        return after != before ? after : nil
+    }
+
+    /// Adds the older screenshots the preview counted (expired, never seen by ClipShot) to the
+    /// ledger, after the user confirmed "Also clean up N older screenshots". They then go with
+    /// the next run. Returns how many were adopted; 0 when there is no preview or the folder
+    /// is no longer the one it showed.
+    @discardableResult
+    func adoptOlderScreenshots() async -> Int {
+        guard isWatching, case .success(let scan) = retentionPreview, scan.olderNotTracked > 0 else { return 0 }
+        let entries = await ledger.entries()
+        let settings = settings
+        let now = clock()
+        // The age limit the user saw in the preview.
+        let policy = RetentionPolicy(enabled: true, days: scan.days, confirmed: nil)
+        let files = await Task.detached(priority: .userInitiated) { () -> [CaptureFile]? in
+            guard CaptureSettings.realPath(settings.folder()) == scan.folder.path else { return nil }
+            return RetentionScanner.adoptable(folder: scan.folder, ledger: entries, now: now, policy: policy)
+        }.value
+        guard isWatching, let files else {
+            refreshPreview()
+            return 0
+        }
+        await ledger.adopt(files)
+        let log = log
+        let count = files.count
+        Task { await log.info("adopted \(count) older screenshots") }
+        refreshPreview()
+        return count
     }
 
     private func runRetention() async {
@@ -516,6 +526,8 @@ final class AppModel {
         let folder: URL
         let destination: CaptureDestination
         let refusal: Refusal?
+        let showThumbnail: Bool
+        let format: String
     }
 
     /// Re-reads the destination, the folder pref and the retention status off the main actor.
@@ -536,13 +548,17 @@ final class AppModel {
                 let folder = settings.folder()
                 return Status(
                     folder: folder, destination: settings.destination(),
-                    refusal: Self.retentionRefusal(folder: folder, policy: policy, home: home, hasTrash: hasTrash))
+                    refusal: Self.retentionRefusal(folder: folder, policy: policy, home: home, hasTrash: hasTrash),
+                    showThumbnail: settings.showThumbnail, format: settings.captureFormat())
             }.value
             statusInFlight = false
             if isWatching {
                 configuredFolder = status.folder
                 destination = status.destination
                 retentionRefusal = status.refusal
+                if showThumbnail != status.showThumbnail { showThumbnail = status.showThumbnail }
+                if captureFormat != status.format { captureFormat = status.format }
+                if appliesFromNextScreenshot, !screencaptureUIRunning() { appliesFromNextScreenshot = false }
                 recomputeAttentions()
             }
             if statusQueued {

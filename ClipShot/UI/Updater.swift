@@ -11,7 +11,6 @@ import SwiftUI
 /// a menu-bar app that runs for weeks still gets updates. Two things are
 /// deliberately *not* copied - see `UpdaterGate` for its Homebrew check, and the
 /// note on preferences below.
-///
 @MainActor
 protocol UpdaterProviding: AnyObject, Sendable {
     var automaticallyChecksForUpdates: Bool { get set }

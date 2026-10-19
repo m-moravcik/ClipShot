@@ -78,6 +78,13 @@ struct CaptureSettings: Sendable {
         }
     }
 
+    /// The `type` key, lowercased: png unless the user picked another format.
+    func captureFormat() -> String {
+        prefs.synchronize()
+        guard let raw = prefs.value(forKey: "type") as? String, !raw.isEmpty else { return "png" }
+        return raw.lowercased()
+    }
+
     func destination() -> CaptureDestination {
         prefs.synchronize()
         let raw = (prefs.value(forKey: "target-screenshot") as? String)

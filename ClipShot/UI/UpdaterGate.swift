@@ -21,17 +21,9 @@ enum UpdaterGate {
                 // Deliberately the same wording: to a user these are both "this
                 // copy of the app isn't a real install", and distinguishing them
                 // would only invite guessing at the difference.
-                return String(localized: LocalizedStringResource(
-                    "updates.unavailableInThisBuild",
-                    defaultValue: "Updates unavailable in this build.",
-                    comment: "Shown in Settings when the running copy cannot self-update"
-                ))
+                return String(localized: Copy.Update.unavailableInThisBuild)
             case .managedByHomebrew:
-                return String(localized: LocalizedStringResource(
-                    "updates.managedByHomebrew",
-                    defaultValue: "Updates managed by Homebrew. Run: brew upgrade --cask clipshot",
-                    comment: "Shown when ClipShot was installed by a Homebrew cask, which owns updates"
-                ))
+                return String(localized: Copy.Update.managedByHomebrew)
             }
         }
     }

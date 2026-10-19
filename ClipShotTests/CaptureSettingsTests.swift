@@ -85,6 +85,15 @@ struct CaptureSettingsTests {
         #expect(settings.validate(dir) == .ok)
     }
 
+    @Test func captureFormatDefaultsToPNGAndIsLowercased() {
+        let (prefs, settings, _) = make()
+        #expect(settings.captureFormat() == "png")
+        prefs["type"] = "PDF"
+        #expect(settings.captureFormat() == "pdf")
+        prefs["type"] = ""
+        #expect(settings.captureFormat() == "png")
+    }
+
     @Test func showThumbnailDefaultsTrueWhenKeyMissing() {
         let (prefs, settings, _) = make()
         #expect(settings.showThumbnail)

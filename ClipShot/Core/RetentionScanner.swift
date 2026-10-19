@@ -13,6 +13,7 @@ struct RetentionScan: Equatable, Sendable {
     let skippedUnmarkedImages: Int
     /// Expired screenshots that are not in the ledger (taken before ClipShot, or renamed).
     let olderNotTracked: Int
+    let olderNotTrackedBytes: Int64
     /// Expired ledger screenshots left for the next run because of the cap.
     let pending: Int
 }
@@ -41,6 +42,7 @@ enum RetentionScanner {
         let index = Dictionary(grouping: ledger, by: \.path)
         var tracked: [CaptureFile] = []
         var untracked = 0
+        var untrackedBytes: Int64 = 0
         var skipped = 0
         for file in contents(of: resolved) {
             guard file.isScreenshot else {
@@ -52,12 +54,14 @@ enum RetentionScanner {
                 tracked.append(file)
             } else {
                 untracked += 1
+                untrackedBytes += file.size
             }
         }
         guard policy.enabled else {
             return .success(RetentionScan(
                 folder: resolved, days: policy.days, expired: [], expiredBytes: 0,
-                skippedUnmarkedImages: skipped, olderNotTracked: untracked, pending: 0))
+                skippedUnmarkedImages: skipped, olderNotTracked: untracked, olderNotTrackedBytes: untrackedBytes,
+                pending: 0))
         }
         guard let confirmed = policy.confirmed, confirmed.path == resolved.path,
               confirmed == ConfirmedFolder.of(resolved)
@@ -68,7 +72,7 @@ enum RetentionScanner {
         return .success(RetentionScan(
             folder: resolved, days: policy.days, expired: batch,
             expiredBytes: batch.reduce(0) { $0 + $1.size },
-            skippedUnmarkedImages: skipped, olderNotTracked: untracked,
+            skippedUnmarkedImages: skipped, olderNotTracked: untracked, olderNotTrackedBytes: untrackedBytes,
             pending: tracked.count - batch.count))
     }
 

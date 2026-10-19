@@ -77,6 +77,7 @@ final class ModelHarness {
     private(set) var announcements = 0
     private(set) var loginReconciles = 0
     var reduceMotion = false
+    var screencaptureUIRunning = false
     let model: AppModel
 
     init(onboardingShown: Bool = true) throws {
@@ -107,6 +108,7 @@ final class ModelHarness {
             playSound: { box.harness?.sounds += 1 },
             announce: { _ in box.harness?.announcements += 1 },
             workspace: workspace,
+            screencaptureUIRunning: { box.harness?.screencaptureUIRunning ?? false },
             reconcileLoginItem: { intent in
                 box.harness?.loginReconciles += 1
                 return intent ?? false

@@ -1,7 +1,1402 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-
+    "%@ freed by cleanup" : {
+      "comment" : "Total size moved to the Trash",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ freed by cleanup"
+          }
+        }
+      }
+    },
+    "%lld days" : {
+      "comment" : "Retention period",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld day"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld days"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld files here are not screenshots and are never touched" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld file here is not a screenshot and is never touched"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld files here are not screenshots and are never touched"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld more wait for the next cleanup" : {
+      "comment" : "One cleanup moves at most 500 screenshots",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld more waits for the next cleanup"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld more wait for the next cleanup"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld screenshots (%@) would go to the Trash now" : {
+      "comment" : "Retention preview: count, then total size",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%#@count@ (%2$@) would go to the Trash now"
+          },
+          "substitutions" : {
+            "count" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg screenshot"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg screenshots"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld screenshots copied" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld screenshot copied"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld screenshots copied"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "+%lld more" : {
+      "comment" : "Under the top attention row: how many more there are",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "+%lld more"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "+%lld more"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "About" : {
+      "comment" : "Settings tab with updates, version and links",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About"
+          }
+        }
+      }
+    },
+    "About ClipShot" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About ClipShot"
+          }
+        }
+      }
+    },
+    "Add to cleanup" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add to cleanup"
+          }
+        }
+      }
+    },
+    "Also clean up %lld older screenshots (%@)" : {
+      "comment" : "Screenshots from before ClipShot ran, count then total size",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Also clean up %#@count@ (%2$@)"
+          },
+          "substitutions" : {
+            "count" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg older screenshot"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg older screenshots"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Also clean up %lld older screenshots (%@)?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Also clean up %#@count@ (%2$@)?"
+          },
+          "substitutions" : {
+            "count" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg older screenshot"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg older screenshots"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Applies from the next screenshot" : {
+      "comment" : "A macOS screenshot setting changed while a screenshot was still being saved",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Applies from the next screenshot"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        }
+      }
+    },
+    "Capture" : {
+      "comment" : "Settings tab",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capture"
+          }
+        }
+      }
+    },
+    "Check automatically" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check automatically"
+          }
+        }
+      }
+    },
+    "Check for Updates…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check for Updates…"
+          }
+        }
+      }
+    },
+    "Checking…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking…"
+          }
+        }
+      }
+    },
+    "Choose" : {
+      "comment" : "Default button of the folder picker",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose"
+          }
+        }
+      }
+    },
+    "Choose a folder outside system locations and apps." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a folder outside system locations and apps."
+          }
+        }
+      }
+    },
+    "Choose folder…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose folder…"
+          }
+        }
+      }
+    },
+    "Choose where macOS saves screenshots." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose where macOS saves screenshots."
+          }
+        }
+      }
+    },
+    "Choose…" : {
+      "comment" : "Picks a folder",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose…"
+          }
+        }
+      }
+    },
+    "Clean up now" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clean up now"
+          }
+        }
+      }
+    },
+    "Click the thumbnail to annotate with Markup; ClipShot copies the edited image." : {
+      "comment" : "One-time tip: the floating thumbnail macOS shows after a screenshot",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Click the thumbnail to annotate with Markup; ClipShot copies the edited image."
+          }
+        }
+      }
+    },
+    "Click to restart into the new version" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Click to restart into the new version"
+          }
+        }
+      }
+    },
+    "ClipShot cannot write to that folder." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot cannot write to that folder."
+          }
+        }
+      }
+    },
+    "ClipShot did not see these being taken. They go to the Trash with the next cleanup." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot did not see these being taken. They go to the Trash with the next cleanup."
+          }
+        }
+      }
+    },
+    "ClipShot does not clean up “%@”: it is a system or home-level folder." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot does not clean up “%@”: it is a system or home-level folder."
+          }
+        }
+      }
+    },
+    "ClipShot reads the screenshot settings once the welcome tour is done." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot reads the screenshot settings once the welcome tour is done."
+          }
+        }
+      }
+    },
+    "ClipShot saw a screenshot but could not copy it." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot saw a screenshot but could not copy it."
+          }
+        }
+      }
+    },
+    "ClipShot, copying on" : {
+      "comment" : "VoiceOver label of the menu bar icon",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot, copying on"
+          }
+        }
+      }
+    },
+    "ClipShot, copying paused" : {
+      "comment" : "VoiceOver label of the menu bar icon",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot, copying paused"
+          }
+        }
+      }
+    },
+    "ClipShot, needs attention" : {
+      "comment" : "VoiceOver label of the menu bar icon",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot, needs attention"
+          }
+        }
+      }
+    },
+    "ClipShot, screenshot copied" : {
+      "comment" : "VoiceOver label of the menu bar icon",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot, screenshot copied"
+          }
+        }
+      }
+    },
+    "Clipboard" : {
+      "comment" : "Settings section header",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clipboard"
+          }
+        }
+      }
+    },
+    "Copies every screenshot to the clipboard and keeps the file and the thumbnail. Can move old screenshots to the Trash." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copies every screenshot to the clipboard and keeps the file and the thumbnail. Can move old screenshots to the Trash."
+          }
+        }
+      }
+    },
+    "Copy again" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy again"
+          }
+        }
+      }
+    },
+    "Copy to clipboard" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy to clipboard"
+          }
+        }
+      }
+    },
+    "Copying on" : {
+      "comment" : "Popover header state",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copying on"
+          }
+        }
+      }
+    },
+    "Custom" : {
+      "comment" : "Retention period: any number of days",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom"
+          }
+        }
+      }
+    },
+    "Dismiss" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dismiss"
+          }
+        }
+      }
+    },
+    "Downloads updates in the background and offers to restart when one is ready. ClipShot never restarts on its own." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloads updates in the background and offers to restart when one is ready. ClipShot never restarts on its own."
+          }
+        }
+      }
+    },
+    "Every new screenshot goes to the clipboard as an image. The file stays where macOS saves it." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every new screenshot goes to the clipboard as an image. The file stays where macOS saves it."
+          }
+        }
+      }
+    },
+    "Freed %@ since install" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Freed %@ since install"
+          }
+        }
+      }
+    },
+    "General" : {
+      "comment" : "Settings tab",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "General"
+          }
+        }
+      }
+    },
+    "Installs the downloaded update and relaunches ClipShot." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installs the downloaded update and relaunches ClipShot."
+          }
+        }
+      }
+    },
+    "Keep screenshots for" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep screenshots for"
+          }
+        }
+      }
+    },
+    "Keeps %lld days" : {
+      "comment" : "Retention keeps screenshots this many days",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Keeps %lld day"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Keeps %lld days"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Last cleanup %@, %lld moved" : {
+      "comment" : "Date and time, then how many screenshots went to the Trash",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last cleanup %1$@, %#@moved@"
+          },
+          "substitutions" : {
+            "moved" : {
+              "argNum" : 2,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg moved"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg moved"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Last cleanup today at %@, %lld moved" : {
+      "comment" : "Time of day, then how many screenshots went to the Trash",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last cleanup today at %1$@, %#@moved@"
+          },
+          "substitutions" : {
+            "moved" : {
+              "argNum" : 2,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg moved"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg moved"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Latest screenshot, %@, %@" : {
+      "comment" : "VoiceOver label of the thumbnail: age, then file size",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Latest screenshot, %@, %@"
+          }
+        }
+      }
+    },
+    "Launch at login" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Launch at login"
+          }
+        }
+      }
+    },
+    "More apps" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More apps"
+          }
+        }
+      }
+    },
+    "Move %lld screenshots (%@) to the Trash?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move %#@count@ (%2$@) to the Trash?"
+          },
+          "substitutions" : {
+            "count" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg screenshot"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg screenshots"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Move old screenshots to the Trash" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move old screenshots to the Trash"
+          }
+        }
+      }
+    },
+    "Move to Trash" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move to Trash"
+          }
+        }
+      }
+    },
+    "Moved %lld screenshots (%@) to the Trash." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Moved %#@count@ (%2$@) to the Trash."
+          },
+          "substitutions" : {
+            "count" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg screenshot"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg screenshots"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Needs attention" : {
+      "comment" : "Popover header state",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Needs attention"
+          }
+        }
+      }
+    },
+    "No cleanup yet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No cleanup yet"
+          }
+        }
+      }
+    },
+    "No screenshot copied yet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No screenshot copied yet"
+          }
+        }
+      }
+    },
+    "No screenshots would go to the Trash now" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No screenshots would go to the Trash now"
+          }
+        }
+      }
+    },
+    "Nothing to move." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing to move."
+          }
+        }
+      }
+    },
+    "Nothing to restore: ClipShot has not changed any macOS screenshot setting." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing to restore: ClipShot has not changed any macOS screenshot setting."
+          }
+        }
+      }
+    },
+    "Off: the file, and so the clipboard, is ready at once. On: macOS saves the file when the thumbnail disappears, a few seconds later." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off: the file, and so the clipboard, is ready at once. On: macOS saves the file when the thumbnail disappears, a few seconds later."
+          }
+        }
+      }
+    },
+    "Only screenshots taken while ClipShot runs are cleaned up. Rename a screenshot to keep it." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only screenshots taken while ClipShot runs are cleaned up. Rename a screenshot to keep it."
+          }
+        }
+      }
+    },
+    "Open Privacy Settings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Privacy Settings"
+          }
+        }
+      }
+    },
+    "Open Screenshots Folder" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Screenshots Folder"
+          }
+        }
+      }
+    },
+    "Paste works once the thumbnail disappears" : {
+      "comment" : "Popover hint until the first copy: macOS saves the file when its floating thumbnail goes away",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste works once the thumbnail disappears"
+          }
+        }
+      }
+    },
+    "Paused" : {
+      "comment" : "Popover header state: the Copy to clipboard toggle is off",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused"
+          }
+        }
+      }
+    },
+    "Play a sound when copied" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Play a sound when copied"
+          }
+        }
+      }
+    },
+    "Puts back the macOS screenshot settings from before ClipShot first changed them." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puts back the macOS screenshot settings from before ClipShot first changed them."
+          }
+        }
+      }
+    },
+    "Quit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quit"
+          }
+        }
+      }
+    },
+    "Replay welcome tour" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Replay welcome tour"
+          }
+        }
+      }
+    },
+    "Report" : {
+      "comment" : "Opens a pre-filled GitHub issue",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Report"
+          }
+        }
+      }
+    },
+    "Reset to macOS default" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset to macOS default"
+          }
+        }
+      }
+    },
+    "Restore" : {
+      "comment" : "Puts back the macOS screenshot settings",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore"
+          }
+        }
+      }
+    },
+    "Restore previous settings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore previous settings"
+          }
+        }
+      }
+    },
+    "Restored." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restored."
+          }
+        }
+      }
+    },
+    "Resume for this folder" : {
+      "comment" : "Confirms retention for the new screenshot folder",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume for this folder"
+          }
+        }
+      }
+    },
+    "Retention" : {
+      "comment" : "Settings tab",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retention"
+          }
+        }
+      }
+    },
+    "Retention is off" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retention is off"
+          }
+        }
+      }
+    },
+    "Retention is paused" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retention is paused"
+          }
+        }
+      }
+    },
+    "Review" : {
+      "comment" : "Opens the Retention settings to check the new folder",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review"
+          }
+        }
+      }
+    },
+    "Save folder" : {
+      "comment" : "Settings section header",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save folder"
+          }
+        }
+      }
+    },
+    "Save screenshots to a file" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save screenshots to a file"
+          }
+        }
+      }
+    },
+    "Screen recordings are not touched." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Screen recordings are not touched."
+          }
+        }
+      }
+    },
+    "Screen recordings go to the same folder." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Screen recordings go to the same folder."
+          }
+        }
+      }
+    },
+    "Screenshot copied" : {
+      "comment" : "VoiceOver announcement after a screenshot went to the clipboard",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Screenshot copied"
+          }
+        }
+      }
+    },
+    "Screenshots are saved as files." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Screenshots are saved as files."
+          }
+        }
+      }
+    },
+    "Screenshots are set to PDF. While the thumbnail is on, macOS saves no PDF file, so there is nothing to copy." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Screenshots are set to PDF. While the thumbnail is on, macOS saves no PDF file, so there is nothing to copy."
+          }
+        }
+      }
+    },
+    "Screenshots go to another app instead of a file, so ClipShot has nothing to copy." : {
+      "comment" : "The macOS screenshot destination is an app such as Preview or Mail",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Screenshots go to another app instead of a file, so ClipShot has nothing to copy."
+          }
+        }
+      }
+    },
+    "Screenshots go to the clipboard only, so macOS saves no file and ClipShot has nothing to copy." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Screenshots go to the clipboard only, so macOS saves no file and ClipShot has nothing to copy."
+          }
+        }
+      }
+    },
+    "Screenshots now go to “%@”. Retention is paused until you check what it would move." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Screenshots now go to “%@”. Retention is paused until you check what it would move."
+          }
+        }
+      }
+    },
+    "Settings…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings…"
+          }
+        }
+      }
+    },
+    "Show Trash" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Trash"
+          }
+        }
+      }
+    },
+    "Show floating thumbnail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show floating thumbnail"
+          }
+        }
+      }
+    },
+    "Show in Finder" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show in Finder"
+          }
+        }
+      }
+    },
+    "Show less" : {
+      "comment" : "Collapses the list of attention rows",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show less"
+          }
+        }
+      }
+    },
+    "Source code" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Source code"
+          }
+        }
+      }
+    },
+    "Startup" : {
+      "comment" : "Settings section header",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Startup"
+          }
+        }
+      }
+    },
+    "That folder does not exist." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That folder does not exist."
+          }
+        }
+      }
+    },
+    "That is not a folder." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That is not a folder."
+          }
+        }
+      }
+    },
+    "The menu bar icon shows every copy, with or without the sound." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The menu bar icon shows every copy, with or without the sound."
+          }
+        }
+      }
+    },
+    "The screenshot folder “%@” was not found." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The screenshot folder “%@” was not found."
+          }
+        }
+      }
+    },
+    "Turn on" : {
+      "comment" : "Confirms turning retention on after the preview",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on"
+          }
+        }
+      }
+    },
+    "Update ready" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update ready"
+          }
+        }
+      }
+    },
+    "Version %@ (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version %@ (%@)"
+          }
+        }
+      }
+    },
+    "You can put them back from the Trash." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can put them back from the Trash."
+          }
+        }
+      }
+    },
+    "macOS blocked access to “%@”." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS blocked access to “%@”."
+          }
+        }
+      }
+    },
+    "updates.managedByHomebrew" : {
+      "comment" : "Shown when ClipShot was installed by a Homebrew cask, which owns updates",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updates managed by Homebrew. Run: brew upgrade --cask clipshot"
+          }
+        }
+      }
+    },
+    "updates.unavailableInThisBuild" : {
+      "comment" : "Shown in Settings when the running copy cannot self-update",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updates unavailable in this build."
+          }
+        }
+      }
+    },
+    "“%@” has no Trash, so retention is off for it." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” has no Trash, so retention is off for it."
+          }
+        }
+      }
+    }
   },
   "version" : "1.0"
 }

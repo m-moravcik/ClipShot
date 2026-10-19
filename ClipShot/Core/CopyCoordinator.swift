@@ -139,6 +139,8 @@ final class CopyCoordinator {
     /// Re-reads the folder pref and re-targets when the folder changed, went away, was replaced,
     /// or while an error is shown and the probe now looks different.
     private func refresh() async {
+        // A refresh enqueued just before `stop()` must not read the prefs afterwards.
+        guard running else { return }
         let gen = generation
         let settings = settings
         let desktop = desktop

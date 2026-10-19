@@ -10,13 +10,14 @@ struct RetentionScannerTests {
         let scan = try #require(RT.scan(dir, policy: RT.policy(dir), ledger: [], now: now).success)
         #expect(scan.expired.isEmpty)
         #expect(scan.olderNotTracked == 1)
+        #expect(scan.olderNotTrackedBytes == RT.file(a).size)
         #expect(scan.pending == 0)
 
         // A forged scan naming a file that is not in the ledger is still refused by the runner.
         let canonical = RT.file(scan.folder.appendingPathComponent("a.png"))
         let forged = RetentionScan(
             folder: scan.folder, days: 30, expired: [canonical], expiredBytes: 0,
-            skippedUnmarkedImages: 0, olderNotTracked: 0, pending: 0)
+            skippedUnmarkedImages: 0, olderNotTracked: 0, olderNotTrackedBytes: 0, pending: 0)
         let trasher = try FakeTrasher()
         let result = try await RT.runner(trasher, try RT.ledger()).run(forged, now: now)
         #expect(result.moved == 0)

@@ -13,10 +13,10 @@ enum StatusIconState: Equatable, CaseIterable, Sendable {
 
     var accessibilityLabel: LocalizedStringResource {
         switch self {
-        case .idle: "ClipShot, copying on"
-        case .copied: "ClipShot, screenshot copied"
-        case .paused: "ClipShot, copying paused"
-        case .attention: "ClipShot, needs attention"
+        case .idle: Copy.StatusItem.idle
+        case .copied: Copy.StatusItem.copied
+        case .paused: Copy.StatusItem.paused
+        case .attention: Copy.StatusItem.attention
         }
     }
 }

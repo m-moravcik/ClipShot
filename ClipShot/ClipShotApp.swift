@@ -4,15 +4,20 @@ import SwiftUI
 struct ClipShotApp: App {
     /// Nil under XCTest so the test host stays inert (no watcher, no pasteboard writes).
     @State private var model: AppModel?
+    @State private var router = SettingsRouter()
     /// Nil under XCTest, like the model: no Sparkle, no network.
     private let updater: (any UpdaterProviding)?
+    /// The updater's, or a status that never turns on when there is no updater.
+    private let updateStatus: UpdateStatus
 
     init() {
         let model = Self.makeModel(environment: ProcessInfo.processInfo.environment)
         // Resumes watching only when onboarding was already shown; otherwise step 2 starts it.
         model?.launch()
         _model = State(initialValue: model)
-        updater = Self.makeUpdater(environment: ProcessInfo.processInfo.environment)
+        let updater = Self.makeUpdater(environment: ProcessInfo.processInfo.environment)
+        self.updater = updater
+        updateStatus = MainActor.assumeIsolated { updater?.updateStatus ?? UpdateStatus() }
     }
 
     static func makeUpdater(environment: [String: String]) -> (any UpdaterProviding)? {
@@ -28,9 +33,13 @@ struct ClipShotApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            Text(verbatim: "ClipShot")
-                .padding(Design.Spacing.l)
-                .environment(\.updater, updater)
+            if let model {
+                MenuContent()
+                    .environment(model)
+                    .environment(router)
+                    .environment(updateStatus)
+                    .environment(\.updater, updater)
+            }
         } label: {
             if let model {
                 StatusIcon(state: model.iconState, phase: model.flashPhase, reduceMotion: model.flashReduceMotion)
@@ -39,5 +48,15 @@ struct ClipShotApp: App {
             }
         }
         .menuBarExtraStyle(.window)
+
+        Settings {
+            if let model {
+                SettingsView()
+                    .environment(model)
+                    .environment(router)
+                    .environment(updateStatus)
+                    .environment(\.updater, updater)
+            }
+        }
     }
 }

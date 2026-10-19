@@ -27,6 +27,11 @@ enum Design {
         static let footerRowVerticalPadding: CGFloat = 4
         /// Space a native menu keeps around a separator and at its edges.
         static let menuInset: CGFloat = 5
+        /// The leading symbol column of footer rows and attention rows, as in Eject Guard.
+        static let iconColumn: CGFloat = 16
+        static let thumbnailSize = CGSize(width: 64, height: 44)
+        /// The Settings window, the same size as VibeRes and Eject Guard.
+        static let settingsSize = CGSize(width: 470, height: 400)
     }
 
     enum Typography {
@@ -45,6 +50,11 @@ enum Design {
         static let sectionHeader: Font = .system(size: 10, weight: .semibold, design: .rounded)
         /// Inline buttons and pickers inside the popover.
         static let control: Font = .system(size: 12, weight: .medium)
+        /// Sentences in popover rows, such as attention messages: a size down from menu rows
+        /// so a two-clause message fits the 300 pt popover in three lines.
+        static let body: Font = .system(size: 12)
+        /// Footer menu rows and the toggle label, the size of a native menu item.
+        static let row: Font = .system(size: 13)
     }
 
     enum Palette {
@@ -55,6 +65,11 @@ enum Design {
         static let rowSelectedFill = Color.accentColor.opacity(0.12)
         static let rowSelectedTint = Color.accentColor
         static let separator = Color.secondary.opacity(0.15)
+        /// The update-ready card, the same green wash as VibeRes and Eject Guard.
+        static let updateFill = Color.green.opacity(0.10)
+        static let updateFillHover = Color.green.opacity(0.18)
+        /// Attention rows: a warm wash behind the warning triangle.
+        static let attentionFill = Color.orange.opacity(0.12)
     }
 
     enum Motion {
