@@ -1,0 +1,5 @@
+# F11: host-scoped domain check, re-run read-only on 2026-10-19 17:14 +0200 after the spike.
+# The same command printed the same error before the spike (session console, 16:33).
+$ defaults -currentHost read com.apple.screencapture
+Error: Domain 'com.apple.screencapture' not found.
+exit=1

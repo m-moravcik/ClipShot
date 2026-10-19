@@ -1,0 +1,158 @@
+# Generated: scripts/spike/placement.py steps-timeline.log steps-extra-keys.log --watch raw-watch-1-thumbnail-on-first.log raw-watch-2-all.log --final captured-files-final-location.txt
+# One block per capture: event, last logged pref/kill line, where the file(s) first appeared (or NO FILE).
+1792420517.672 KEY P1 cmd-shift-3 (prefs r1 via CFPreferences, screencaptureui not running, no refresher) [console]
+    state: 
+    -> r1/Screenshot 2026-10-19 at 16.35.17 (2).png; r1/Screenshot 2026-10-19 at 16.35.17.png
+1792420571.684 KEY P2 cmd-shift-3 (prefs r2 via CFPreferences, screencaptureui not running, no refresher) [console]
+    state: 
+    -> r2/Screenshot 2026-10-19 at 16.36.11 (2).png; r2/Screenshot 2026-10-19 at 16.36.11.png
+1792420678.447 KEY A cmd-shift-3
+    state: prefs->r3 (no refresher)
+    -> r3/Screenshot 2026-10-19 at 16.37.58 (2).png; r3/Screenshot 2026-10-19 at 16.37.58.png
+1792420681.626 KEY B cmd-shift-3 scui: 14871 screencaptureui
+    state: prefs->r4 during A thumbnail (no refresher)
+    -> r3/Screenshot 2026-10-19 at 16.38.01 (2).png; r3/Screenshot 2026-10-19 at 16.38.01.png
+1792420700.111 KEY C cmd-shift-3 (prefs r4, scui alive, no refresher) scui: 
+    state: prefs->r4 during A thumbnail (no refresher)
+    -> r4/Screenshot 2026-10-19 at 16.38.20 (2).png; r4/Screenshot 2026-10-19 at 16.38.20.png
+1792420710.234 KEY D cmd-shift-3
+    state: prefs->r4 during A thumbnail (no refresher) | killall screencaptureui
+    -> r4/Screenshot 2026-10-19 at 16.38.30 (2).png; r4/Screenshot 2026-10-19 at 16.38.30.png
+1792420728.373 KEY E cmd-shift-3
+    state: prefs->r1 | killall screencaptureui rc=1
+    -> r1/Screenshot 2026-10-19 at 16.38.48 (2).png; r1/Screenshot 2026-10-19 at 16.38.48.png
+1792420755.703 KEY X cmd-shift-3 (prefs r1)
+    state: prefs->r1
+    -> r1/Screenshot 2026-10-19 at 16.39.15 (2).png; r1/Screenshot 2026-10-19 at 16.39.15.png
+1792420763.863 KEY Y cmd-shift-3
+    state: prefs->r2 | killall screencaptureui rc=0
+    -> r2/Screenshot 2026-10-19 at 16.39.24 (2).png; r2/Screenshot 2026-10-19 at 16.39.24.png
+1792420773.071 KEY Z cmd-shift-3
+    state: prefs->r3 | killall SystemUIServer rc=0
+    -> r2/Screenshot 2026-10-19 at 16.39.33 (2).png; r2/Screenshot 2026-10-19 at 16.39.33.png
+1792420797.757 KEY T1 cmd-shift-3
+    state: prefs->r4 show-thumbnail=false, NO refresher, scui alive?: 
+    -> r4/Screenshot 2026-10-19 at 16.39.57 (2).png; r4/Screenshot 2026-10-19 at 16.39.57.png
+1792420806.901 KEY T2 cmd-shift-3
+    state: prefs->r4 show-thumbnail=false, NO refresher, scui alive?:  | killall screencaptureui rc=1
+    -> r4/Screenshot 2026-10-19 at 16.40.06 (2).png; r4/Screenshot 2026-10-19 at 16.40.06.png
+1792420842.955 KEY F cmd-shift-3 (then killall scui during thumbnail)
+    state: prefs->r3 show-thumbnail=true
+    -> NO FILE
+1792420949.333 KEY G cmd-shift-3 (lifetime probe, prefs r3)
+    state: prefs->r3 show-thumbnail=true | killall screencaptureui during thumbnail rc=0
+    -> r3/Screenshot 2026-10-19 at 16.42.29 (2).png; r3/Screenshot 2026-10-19 at 16.42.29.png
+1792420986.000 KEY H cmd-shift-3 (window-owner probe, prefs r3) [name]
+    state: prefs->r3 show-thumbnail=true
+    -> r3/Screenshot 2026-10-19 at 16.43.06 (2).png; r3/Screenshot 2026-10-19 at 16.43.06.png
+1792421012.631 KEY I cmd-shift-3 (lifetime probe 2)
+    state: prefs->r3 show-thumbnail=true
+    -> r3/Screenshot 2026-10-19 at 16.43.32 (2).png; r3/Screenshot 2026-10-19 at 16.43.32.png
+1792421045.470 KEY J cmd-shift-3
+    state: target,target-screenshot=clipboard (no refresher)
+    -> NO FILE
+1792421072.384 KEY cmd-shift-5
+    state: target back to file
+    -> NO FILE
+1792421213.038 CAP display png
+    state: type=png
+    -> caps/Screenshot 2026-10-19 at 16.46.53 (2).png; caps/Screenshot 2026-10-19 at 16.46.53.png
+1792421224.593 CAP selection png
+    state: type=png
+    -> caps/Screenshot 2026-10-19 at 16.47.05.png
+1792421236.903 CAP window png
+    state: type=png
+    -> NO FILE
+1792421269.000 CAP window png (retry with pointer moves, prefs caps) [name]
+    state: type=png
+    -> caps/Screenshot 2026-10-19 at 16.47.49.png
+1792421287.956 CAP display png
+    state: type=png
+    -> caps/Screenshot 2026-10-19 at 16.48.08 (2).png; caps/Screenshot 2026-10-19 at 16.48.08.png
+1792421299.590 CAP selection png
+    state: type=png
+    -> caps/Screenshot 2026-10-19 at 16.48.20.png
+1792421312.140 CAP window png
+    state: type=png
+    -> caps/Screenshot 2026-10-19 at 16.48.34.png
+1792421326.022 CAP display jpg
+    state: type=jpg
+    -> caps/Screenshot 2026-10-19 at 16.48.46 (2).jpg; caps/Screenshot 2026-10-19 at 16.48.46.jpg
+1792421337.573 CAP selection jpg
+    state: type=jpg
+    -> caps/Screenshot 2026-10-19 at 16.48.58.jpg
+1792421350.146 CAP window jpg
+    state: type=jpg
+    -> caps/Screenshot 2026-10-19 at 16.49.12.jpg
+1792421359.612 CAP display heic
+    state: type=heic
+    -> caps/Screenshot 2026-10-19 at 16.49.19 (2).heic; caps/Screenshot 2026-10-19 at 16.49.19.heic
+1792421371.459 CAP selection heic
+    state: type=heic
+    -> caps/Screenshot 2026-10-19 at 16.49.32.heic
+1792421384.203 CAP window heic
+    state: type=heic
+    -> NO FILE
+1792421393.593 CAP display tiff
+    state: type=tiff
+    -> caps/Screenshot 2026-10-19 at 16.49.53 (2).tiff; caps/Screenshot 2026-10-19 at 16.49.53.tiff
+1792421405.127 CAP selection tiff
+    state: type=tiff
+    -> caps/Screenshot 2026-10-19 at 16.50.06.tiff
+1792421417.591 CAP window tiff
+    state: type=tiff
+    -> caps/Screenshot 2026-10-19 at 16.50.19.tiff
+1792421431.040 CAP display pdf
+    state: type=pdf
+    -> NO FILE
+1792421438.148 CAP selection pdf
+    state: type=pdf
+    -> NO FILE
+1792421446.430 CAP window pdf
+    state: type=pdf
+    -> NO FILE
+1792421476.561 CAP display pdf retry
+    state: type=pdf
+    -> NO FILE
+1792421573.052 CAP display pdf thumbnail-off
+    state: type=pdf
+    -> caps/Screenshot 2026-10-19 at 16.52.53 (2).pdf; caps/Screenshot 2026-10-19 at 16.52.53.pdf
+1792421577.147 CAP selection pdf thumbnail-off
+    state: type=pdf
+    -> caps/Screenshot 2026-10-19 at 16.52.57.pdf
+1792421590.821 CAP window pdf thumbnail-off
+    state: type=pdf
+    -> NO FILE
+1792421597.128 CAP window heic retry
+    state: type=heic thumbnail-on
+    -> caps/Screenshot 2026-10-19 at 16.53.19.heic
+1792421614.493 CAP window pdf thumbnail-off retry
+    state: type=heic thumbnail-on
+    -> NO FILE
+1792421621.789 CAP window png thumbnail-off control
+    state: type=heic thumbnail-on
+    -> caps/Screenshot 2026-10-19 at 16.53.41.png
+1792421672.630 FLOW probe: selection, then CLI grab of thumbnail area
+    state: type=heic thumbnail-on
+    -> flow/Screenshot 2026-10-19 at 16.54.33.png
+1792421696.779 FLOW hover40: KEY selection
+    state: type=heic thumbnail-on
+    -> flow/Screenshot 2026-10-19 at 16.54.58.png
+1792421760.638 FLOW probe2
+    state: type=heic thumbnail-on
+    -> flow/Screenshot 2026-10-19 at 16.56.02.png
+1792421785.447 FLOW hover40b: KEY selection
+    state: type=heic thumbnail-on
+    -> flow/Screenshot 2026-10-19 at 16.56.26.png
+1792421819.363 FLOW hover40c: KEY selection
+    state: type=heic thumbnail-on
+    -> flow/Screenshot 2026-10-19 at 16.57.00.png
+1792421898.590 FLOW markup: KEY selection
+    state: type=heic thumbnail-on
+    -> flow/Screenshot 2026-10-19 at 16.58.19.png
+1792422039.430 REC: clicked Record
+    state: prefs->rec
+    -> rec/Screen Recording 2026-10-19 at 17.00.38.mov
+1792422070.646 MISSING: KEY selection
+    state: MISSING: prefs->gone/missing-target
+    -> ~/Desktop/Screenshot 2026-10-19 at 17.01.12.png

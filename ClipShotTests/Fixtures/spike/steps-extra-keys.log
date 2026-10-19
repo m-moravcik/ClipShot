@@ -1,0 +1,7 @@
+# Captures driven before steps-timeline.log existed or outside its log() helper.
+# Timestamps marked "console" were printed by the driving shell; "name" = derived from the file
+# name (capture time, 1 s resolution) because no timestamp was printed.
+1792420517.671778000 KEY P1 cmd-shift-3 (prefs r1 via CFPreferences, screencaptureui not running, no refresher) [console]
+1792420571.684434000 KEY P2 cmd-shift-3 (prefs r2 via CFPreferences, screencaptureui not running, no refresher) [console]
+1792420986.000000000 KEY H cmd-shift-3 (window-owner probe, prefs r3) [name]
+1792421269.000000000 CAP window png (retry with pointer moves, prefs caps) [name]

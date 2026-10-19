@@ -1,7 +1,10 @@
 #!/bin/zsh
 # build-tccprobe.sh <dest-dir> - builds an ad-hoc signed TCCProbe.app (bundle id
-# sk.moravcik.clipshot.tccprobe) with a Desktop usage string. Throwaway; trash it afterwards and
-# run `tccutil reset SystemPolicyDesktopFolder sk.moravcik.clipshot.tccprobe`.
+# sk.moravcik.clipshot.tccprobe) with a Desktop usage string. Throwaway: unregister it
+# (lsregister -u) and move it to the Trash afterwards. Note: on 27.0.1
+# `tccutil reset SystemPolicyDesktopFolder sk.moravcik.clipshot.tccprobe` failed with
+# OSStatus -10814 (app not found, also after lsregister -f on a temporary copy), so the grant
+# stays in the user TCC database.
 set -e
 dest=$1; app=$dest/TCCProbe.app
 mkdir -p $app/Contents/MacOS
