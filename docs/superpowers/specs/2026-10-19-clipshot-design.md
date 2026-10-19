@@ -1,6 +1,6 @@
 # ClipShot - design
 
-**Status:** approved 2026-10-19, revised the same day after plan verification, AI audit and motion review (safety and UX additions, no scope change); not implemented
+**Status:** approved 2026-10-19, revised the same day after plan verification, AI audit and motion review; amended 2026-10-19 evening after Michal used the build (see Addendum A: instant copy with ClipShot's own preview, recent screenshots, delete). The addendum overrides earlier sections where they conflict.
 **Date:** 2026-10-19
 **Owner:** Michal Moravčík (`m-moravcik`)
 
@@ -328,3 +328,128 @@ before release.
 - Final SF Symbols, icon artwork details, exact gradient values.
 - Copy text and translations within the house tone.
 - Test layout and which state types to extract for testing.
+
+## Addendum A (2026-10-19 evening): instant copy, own preview, recents
+
+Michal used the first build and gave this feedback: "it takes a very long time
+from the screenshot until the app gets it to the clipboard; this is the main
+point of the app, it must be there immediately". Measured on his Mac: with the
+macOS floating thumbnail on, the file appears 6 s after the shortcut (two
+captures, 23:45:47 -> 23:45:53.4 and 23:46:08 -> 23:46:14.3). While the
+thumbnail is visible, macOS keeps the image in memory only; no temporary file
+exists anywhere under the user's temp, cache or container folders. With the
+thumbnail off, the file appears in about 150 ms (spike F-latency). Instant copy
+and the macOS thumbnail therefore exclude each other.
+
+Michal's decision: "ok tak vlastny a cez polish animacie skill to prezen nech
+je to fun a hrave" - ClipShot shows its own floating preview, and its motion is
+designed with the `motion-polish` skill to be fun and playful.
+
+This overrides: Goal 1 ("while macOS still ... shows the thumbnail"), the
+Constraint "the clipboard copy therefore lands at that moment ... don't try to
+work around it", and the onboarding/README copy that says paste works once the
+thumbnail disappears.
+
+### A1. Preview mode
+
+- New setting **Preview** with three values: **ClipShot** (default), **macOS**,
+  **None**.
+  - ClipShot: ClipShot writes `show-thumbnail = false` (through the existing
+    backup-once path), copies the file the moment it appears, and shows its own
+    floating preview.
+  - macOS: `show-thumbnail = true`; behaviour as before (copy after the
+    thumbnail). The popover hint says copying waits for the thumbnail and
+    offers switching to ClipShot.
+  - None: `show-thumbnail = false`, instant copy, no preview.
+- The setting mirrors the system pref: if the user turns "Show Floating
+  Thumbnail" on in `Cmd+Shift+5` > Options, ClipShot reads it as mode macOS
+  (no attention row, no fight); it never flips the pref back on its own.
+- Restore (Settings > Capture) still restores the original backup, including
+  the original thumbnail value.
+- Onboarding step 2 and the README explain the trade-off in one sentence.
+
+### A2. ClipShot's floating preview
+
+- A non-activating floating panel at the bottom-right of the screen the
+  capture came from (`kMDItemScreenCaptureGlobalRect` xattr; fall back to the
+  screen with the mouse, then the main screen), inset like the macOS
+  thumbnail. Never steals focus, joins all Spaces, works over full-screen apps.
+- Shows the image (aspect-fit, rounded, shadow) and a small "Copied" badge.
+- Stays about 5 s; the timer pauses while the pointer is over it.
+- Interactions, matching the macOS thumbnail where one exists:
+  - click: open the image for annotation in macOS Markup (A4);
+  - drag: drag the file out into any app (file URL + image);
+  - swipe/drag towards the screen edge: dismiss;
+  - hover buttons: Copy again (if the clipboard changed), Move to Trash, Close;
+  - right-click menu: Copy, Edit with Markup, Show in Finder, Move to Trash,
+    Close.
+- Several captures in a row stack: the newest at the bottom, older ones move
+  up; at most 3 visible, the oldest leaves first.
+- Multi-display captures (two files, F3) show one preview for the main-display
+  file and a "+1" chip.
+- Accessibility: the panel is reachable with VoiceOver while visible, every
+  action has a label; Reduce Motion replaces movement with fades.
+
+### A3. Motion (playful, still in the family)
+
+Designed and reviewed with the `motion-polish` skill. Every animation has a
+job (confirm the copy, show where the screenshot went, connect states), uses
+springs, and finishes within about 0.45 s. Starting points for the skill, not
+a mandate:
+
+- Arrival: the preview springs in from the screen edge with a little
+  overshoot and settles; the image "lands" with a slight scale-up.
+- Copied: the badge pops in with a bounce symbol effect, timed with the menu
+  bar flash.
+- Swipe away: follows the finger with rubber-banding and flings out with the
+  release velocity.
+- Stack: older previews slide up with a spring when a new one arrives.
+- Move to Trash: the preview shrinks and drops with a fade (a nod to the
+  Trash); neighbours close the gap with a spring.
+- Recents strip (A5): a new screenshot slides into the strip; deleting one
+  collapses the gap.
+- Reduce Motion: opacity crossfades only; no bounce, no scale.
+
+### A4. Editing with Markup
+
+- Click on the floating preview or on any screenshot image in the popover
+  opens it for annotation in native Markup. The builder picks the most native
+  path that works on macOS 26 in this order, and records the choice: Quick
+  Look panel with Markup, the system Markup extension, then Preview.app.
+- When the user saves the edit, ClipShot copies the edited image. A file that
+  ClipShot opened for editing is exempt from the 30 s copy window until the
+  editor closes or 30 minutes pass, so a long edit still lands on the
+  clipboard. Any other old file still never copies.
+- The popover hint changes from "Click the thumbnail..." to wording that
+  matches what is clickable (fixes Michal's "the hint said click the
+  screenshot to edit, but nothing happened").
+
+### A5. Recent screenshots in the popover
+
+- The latest capture card stays. Under it a strip of the previous 4
+  screenshots (from the ledger, newest first, existing files only).
+- Each item: click = Markup (A4); hover/right-click actions: Copy, Show in
+  Finder, Move to Trash; drag out to other apps.
+- Empty state: the strip is hidden.
+
+### A6. Delete
+
+- "Move to Trash" in the preview, the latest card and the recents strip. Only
+  through `FileManager.trashItem`, only for files in the ledger, with the same
+  realpath folder guard as retention. No confirmation dialog (it is reversible
+  from the Trash); the latest card shows an "Undo" for 5 s that puts the file
+  back from the Trash.
+- The ledger drops the entry; the recents strip and the card update.
+
+### A7. Retention visibility
+
+Retention is already optional (off by default, period presets or custom days
+in Settings > Retention). The popover gets one quiet row with its state ("Off"
+/ "Older than 30 days go to the Trash") that opens Settings > Retention.
+
+Michal: "on the welcome screen it said retention 30 days, that confused me, so
+I didn't turn it on". Tour step 3 therefore shows the period as a choice, not
+a fact: one sentence with an inline picker ("Move screenshots older than
+[30 days v] to the Trash", same presets and custom value as Settings), the
+switch next to it, and the live preview below it updates with the chosen
+period. The popover row (above) uses the same sentence shape.
