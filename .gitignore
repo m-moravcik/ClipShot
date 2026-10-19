@@ -21,3 +21,11 @@ notarization-*.json
 *.cer
 sparkle_ed25519.key
 __pycache__/
+
+# Local agent / audit artefacts
+.claude/
+icon-build/
+.env*
+*.pem
+*audit*.md
+!README.md
