@@ -34,9 +34,17 @@ struct StatusIconArt: View {
     var reduceMotion = false
 
     static let glyphSize: CGFloat = 15
+    /// The tallest label the menu bar draws at its own size. MenuBarExtra rasterises a label
+    /// that is more than a plain `Image` and scales it down proportionally to this height:
+    /// a 22 x 18 pt label came out at 16/18 of its size, with the viewfinder 25 px tall at
+    /// 2x instead of 29, next to VibeRes's and Eject Guard's 24-27 px (measured on a real
+    /// menu bar capture, macOS 27, 2026-10-19).
+    static let menuBarHeight: CGFloat = 16
     /// Wide enough for the widest symbol (`pause.rectangle`, 21.5 pt at 15 pt), so the
-    /// status item never changes width between states and nothing beside it shifts.
-    static let frame = CGSize(width: 22, height: 18)
+    /// status item never changes width between states and nothing beside it shifts. No
+    /// taller than `menuBarHeight`, so nothing scales the glyph down; the tallest symbol
+    /// (`checkmark.circle`, 15 pt at 15 pt) still fits.
+    static let frame = CGSize(width: 22, height: menuBarHeight)
 
     nonisolated static func symbol(for state: StatusIconState) -> String {
         switch state {

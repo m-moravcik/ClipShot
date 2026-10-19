@@ -58,4 +58,43 @@ struct StatusIconStateTests {
         }
         #expect(sizes == ["\(StatusIconArt.frame)"])
     }
+
+    /// The menu bar scales a taller label down, which made ClipShot look smaller than its
+    /// siblings. The label stays within the height drawn at its own size, and every state's
+    /// symbol fits the label at the glyph size, so none is clipped either.
+    @MainActor
+    @Test func labelIsNeverScaledAndEverySymbolFitsIt() throws {
+        #expect(StatusIconArt.frame.height <= StatusIconArt.menuBarHeight)
+        for state in StatusIconState.allCases {
+            let renderer = ImageRenderer(content: Image(systemName: StatusIconArt.symbol(for: state))
+                .font(.system(size: StatusIconArt.glyphSize)))
+            renderer.scale = 2
+            let image = try #require(renderer.cgImage)
+            let ink = Self.inkSize(image)
+            #expect(CGFloat(ink.width) <= StatusIconArt.frame.width * 2, "\(state) is \(ink.width) px wide")
+            #expect(CGFloat(ink.height) <= StatusIconArt.frame.height * 2, "\(state) is \(ink.height) px tall")
+            // The idle viewfinder drew 25 px tall in the menu bar before; siblings draw 24-27.
+            if state == .idle { #expect(ink.height >= 28) }
+        }
+    }
+
+    /// The bounding box of the drawn pixels.
+    static func inkSize(_ image: CGImage) -> (width: Int, height: Int) {
+        let width = image.width, height = image.height
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        pixels.withUnsafeMutableBytes { buffer in
+            let context = CGContext(
+                data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            context?.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        }
+        var minX = width, minY = height, maxX = -1, maxY = -1
+        for y in 0..<height {
+            for x in 0..<width where pixels[(y * width + x) * 4 + 3] > 40 {
+                minX = min(minX, x); maxX = max(maxX, x)
+                minY = min(minY, y); maxY = max(maxY, y)
+            }
+        }
+        return maxX < 0 ? (0, 0) : (maxX - minX + 1, maxY - minY + 1)
+    }
 }
