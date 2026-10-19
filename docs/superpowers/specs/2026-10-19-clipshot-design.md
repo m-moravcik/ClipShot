@@ -167,8 +167,10 @@ UI. It does not capture anything itself.
 - **Destination guard:** if the native destination (`target` /
   `target-screenshot`) is anything other than file, show a warning row in the
   popover and Settings with a "Fix" button that sets it back to file.
-- Changes apply without logout. The builder finds the minimal reliable way
-  (we needed `killall SystemUIServer` on 27.0.1).
+- Changes apply without logout: written with CFPreferences, honoured by the
+  next screenshot once the per-capture `screencaptureui` process has exited
+  (it does within seconds). ClipShot never kills a system process: the
+  spike showed `killall screencaptureui` can lose a pending screenshot.
 - The folder picker accepts only an existing, writable directory that is not
   inside an app bundle or a system location.
 - Before its first write ClipShot backs up the `com.apple.screencapture` keys
