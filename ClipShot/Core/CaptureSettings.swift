@@ -36,7 +36,7 @@ struct CaptureSettings: Sendable {
     }
 
     func validate(_ url: URL) -> FolderValidation {
-        let path = url.standardizedFileURL.resolvingSymlinksInPath().path
+        let path = Self.realPath(url)
         let components = path.split(separator: "/")
         if components.contains(where: { $0.hasSuffix(".app") }) { return .forbidden }
         let underAllowed = Self.allowedUnderPrivate.contains { path == $0 || path.hasPrefix($0 + "/") }
@@ -59,7 +59,7 @@ struct CaptureSettings: Sendable {
             guard result == .ok else { throw result }
             value = url.standardizedFileURL.path
         }
-        saveBackup()
+        guard saveBackup() else { throw .notWritable }
         for key in Self.locationKeys {
             prefs.set(value, forKey: key)
         }
@@ -71,7 +71,7 @@ struct CaptureSettings: Sendable {
             return prefs.value(forKey: "show-thumbnail") as? Bool ?? true
         }
         nonmutating set {
-            saveBackup()
+            guard saveBackup() else { return }
             prefs.set(newValue, forKey: "show-thumbnail")
         }
     }
@@ -88,18 +88,40 @@ struct CaptureSettings: Sendable {
     }
 
     func fixDestination() {
-        saveBackup()
+        guard saveBackup() else { return }
         prefs.set("file", forKey: "target")
         prefs.set("file", forKey: "target-screenshot")
     }
 
-    private func saveBackup() {
+    /// False when the first-time backup failed; the caller must then not write.
+    private func saveBackup() -> Bool {
         prefs.synchronize()
         var current: [String: Any] = [:]
         for key in PrefsBackup.touchedKeys {
             if let value = prefs.value(forKey: key) { current[key] = value }
         }
-        backup.saveOnce(current)
+        guard backup.saveOnce(current) else {
+            Task { await Log.shared.error("prefs backup failed; settings left unchanged") }
+            return false
+        }
+        return true
+    }
+
+    /// realpath(3) keeps /private (resolvingSymlinksInPath strips it). For a path
+    /// that does not exist, resolves the deepest existing ancestor and appends the rest.
+    static func realPath(_ url: URL) -> String {
+        var rest: [String] = []
+        var current = url.standardizedFileURL.path
+        while true {
+            if let resolved = realpath(current, nil) {
+                defer { free(resolved) }
+                return ([String(cString: resolved)] + rest.reversed())
+                    .joined(separator: "/").replacingOccurrences(of: "//", with: "/")
+            }
+            guard current != "/", !current.isEmpty else { return url.standardizedFileURL.path }
+            rest.append((current as NSString).lastPathComponent)
+            current = (current as NSString).deletingLastPathComponent
+        }
     }
 
     private func expand(_ raw: String) -> URL {

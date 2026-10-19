@@ -15,16 +15,23 @@ struct PrefsBackup: Sendable {
         self.fileURL = fileURL
     }
 
-    /// Writes `keys` unless a backup already exists.
-    func saveOnce(_ keys: [String: Any]) {
-        guard !FileManager.default.fileExists(atPath: fileURL.path) else { return }
-        guard let data = try? PropertyListSerialization.data(
-            fromPropertyList: keys, format: .xml, options: 0
-        ) else { return }
-        try? FileManager.default.createDirectory(
-            at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true
-        )
-        try? data.write(to: fileURL, options: .atomic)
+    /// Writes `keys` unless a backup already exists. Returns true when a backup
+    /// is in place afterwards; callers must not write prefs on false.
+    @discardableResult
+    func saveOnce(_ keys: [String: Any]) -> Bool {
+        if FileManager.default.fileExists(atPath: fileURL.path) { return true }
+        do {
+            let data = try PropertyListSerialization.data(
+                fromPropertyList: keys, format: .xml, options: 0
+            )
+            try FileManager.default.createDirectory(
+                at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true
+            )
+            try data.write(to: fileURL, options: .atomic)
+            return true
+        } catch {
+            return false
+        }
     }
 
     /// Returns false when there is no readable backup.

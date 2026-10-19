@@ -36,11 +36,10 @@ actor Log {
     }
 
     private func roll() {
-        let fm = FileManager.default
         let rolled = fileURL.appendingPathExtension("1")
         // rename(2) replaces an existing destination atomically.
         if rename(fileURL.path, rolled.path) != 0 {
-            _ = try? fm.replaceItemAt(rolled, withItemAt: fileURL)
+            FileHandle.standardError.write(Data("clipshot log roll failed (errno \(errno))\n".utf8))
         }
     }
 }

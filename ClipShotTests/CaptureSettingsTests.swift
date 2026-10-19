@@ -101,4 +101,32 @@ struct CaptureSettingsTests {
         _ = settings.folder()
         #expect(prefs.synchronizeCount == before + 2)
     }
+
+    @Test func privateAndSymlinkedSystemPathsAreForbidden() {
+        let (_, settings, dir) = make()
+        for path in ["/etc", "/private/etc", "/private/var/db"] {
+            #expect(settings.validate(URL(fileURLWithPath: path)) == .forbidden, "\(path)")
+        }
+        #expect(settings.validate(dir) == .ok)
+    }
+
+    @Test func failedBackupLeavesPrefsUntouched() throws {
+        let prefs = FakeScreencapturePreferences(["location": "/orig", "target": "clipboard"])
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("clipshot-tests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let blocker = dir.appendingPathComponent("file")
+        try Data("x".utf8).write(to: blocker)
+        let backup = PrefsBackup(fileURL: blocker.appendingPathComponent("sub/backup.plist"))
+        let settings = CaptureSettings(prefs: prefs, home: home, backup: backup)
+
+        #expect(throws: FolderValidation.notWritable) { try settings.setFolder(dir) }
+        settings.showThumbnail = false
+        settings.fixDestination()
+        #expect(prefs["location"] as? String == "/orig")
+        #expect(prefs["location-screenshot"] == nil)
+        #expect(prefs["show-thumbnail"] == nil)
+        #expect(prefs["target"] as? String == "clipboard")
+        #expect(prefs["target-screenshot"] == nil)
+    }
 }
