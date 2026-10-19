@@ -37,24 +37,55 @@ struct SettingsView: View {
     }
 }
 
-/// An explanation under a control, as in Eject Guard.
-private struct Note: View {
+/// An explanation under a control, as in Eject Guard. With an action, the button sits beside
+/// the text, or under it in the text's column when it would take too much of the row.
+private struct Note<Action: View>: View {
     let text: LocalizedStringResource
     var systemImage: String?
     var tint: Color?
+    @ViewBuilder var action: Action
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Design.Spacing.s) {
-            if let systemImage {
-                Image(systemName: systemImage)
-                    .foregroundStyle(tint ?? .secondary)
-                    .accessibilityHidden(true)
+        if Action.self == EmptyView.self {
+            HStack(alignment: .firstTextBaseline, spacing: Design.Spacing.s) {
+                icon
+                message
             }
-            Text(text)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+        } else if systemImage != nil {
+            TrailingActionLayout(hasIcon: true, iconSpacing: Design.Spacing.s, alignToFirstLine: true) {
+                icon
+                message
+                action
+            }
+        } else {
+            TrailingActionLayout(alignToFirstLine: true) {
+                message
+                action
+            }
         }
-        .font(Design.Typography.note)
+    }
+
+    @ViewBuilder
+    private var icon: some View {
+        if let systemImage {
+            Image(systemName: systemImage)
+                .font(Design.Typography.note)
+                .foregroundStyle(tint ?? .secondary)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private var message: some View {
+        Text(text)
+            .font(Design.Typography.note)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+extension Note where Action == EmptyView {
+    init(text: LocalizedStringResource, systemImage: String? = nil, tint: Color? = nil) {
+        self.init(text: text, systemImage: systemImage, tint: tint) { EmptyView() }
     }
 }
 
@@ -62,6 +93,13 @@ private struct Note: View {
 
 struct GeneralSettings: View {
     @Environment(AppModel.self) private var model
+    /// Replay was clicked while this pane was open: the button gives way to where the tour is.
+    @State private var replayRequested: Bool
+
+    /// A replayed tour exists for the render harness, which shows the note.
+    init(replayRequested: Bool = false) {
+        _replayRequested = State(initialValue: replayRequested)
+    }
 
     var body: some View {
         @Bindable var preferences = model.preferences
@@ -88,14 +126,23 @@ struct GeneralSettings: View {
                 Text(Copy.General.clipboard)
             }
 
-            // Only once the tour has been seen: on a fresh install the user is in it.
+            // Only once the tour has been seen: on a fresh install the user is in it. After a
+            // click the tour waits in the popover, which Settings cannot open, so say so.
             if preferences.onboardingShown {
                 Section {
-                    Button { model.replayOnboarding() } label: { Text(Copy.General.replayTour) }
+                    Button {
+                        model.replayOnboarding()
+                        replayRequested = true
+                    } label: { Text(Copy.General.replayTour) }
                 }
+            } else if replayRequested {
+                Section { Note(text: Copy.General.replayNote, systemImage: "menubar.arrow.up.rectangle") }
             }
         }
         .formStyle(.grouped)
+        .onChange(of: preferences.onboardingShown) { _, shown in
+            if shown { replayRequested = false }
+        }
     }
 }
 
@@ -193,28 +240,14 @@ struct CaptureSettingsPane: View {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
                 }
             } else {
-                // The note and its button side by side, or the button under the note when a
-                // translation makes the button too wide to share the row.
-                let note = Note(
+                Note(
                     text: AttentionPresentation.of(.destinationNotFile, destination: model.destination).message,
-                    systemImage: "exclamationmark.triangle.fill", tint: .orange)
-                let fix = Button {
-                    changed = .destination
-                    Task { await model.fixDestination() }
-                } label: { Text(Copy.Action.saveToFile) }
-                    .fixedSize()
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .firstTextBaseline) {
-                        // Measured at 180 pt, so the row stacks only when the button
-                        // leaves the note less than that.
-                        note.frame(minWidth: 180, idealWidth: 180, maxWidth: .infinity, alignment: .leading)
-                        Spacer(minLength: Design.Spacing.m)
-                        fix
-                    }
-                    VStack(alignment: .leading, spacing: Design.Spacing.s) {
-                        note
-                        fix
-                    }
+                    systemImage: "exclamationmark.triangle.fill", tint: .orange
+                ) {
+                    Button {
+                        changed = .destination
+                        Task { await model.fixDestination() }
+                    } label: { Text(Copy.Action.saveToFile) }
                 }
             }
             appliesNote(.destination)
@@ -228,20 +261,9 @@ struct CaptureSettingsPane: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            let restoreButton = Button { restore() } label: { Text(Copy.Capture.restoreButton) }
-                .fixedSize()
-            // Side by side, or the button under the text when a translation leaves the text
-            // less than 180 pt.
-            ViewThatFits(in: .horizontal) {
-                HStack {
-                    restoreText.frame(minWidth: 180, idealWidth: 180, maxWidth: .infinity, alignment: .leading)
-                    Spacer(minLength: Design.Spacing.m)
-                    restoreButton
-                }
-                VStack(alignment: .leading, spacing: Design.Spacing.s) {
-                    restoreText
-                    restoreButton
-                }
+            TrailingActionLayout {
+                restoreText.frame(maxWidth: .infinity, alignment: .leading)
+                Button { restore() } label: { Text(Copy.Capture.restoreButton) }
             }
             appliesNote(.restore)
         }

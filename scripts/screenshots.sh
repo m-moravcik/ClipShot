@@ -5,10 +5,14 @@
 #   scripts/screenshots.sh        # English, into build/screenshots/en
 #   scripts/screenshots.sh sk     # Slovak, for the web.pexelo portfolio
 #
-# Writes, in -light and -dark: popover, popover-paused, popover-attention, attention-*
-# (one per attention row), settings-{general,capture,retention,about}, onboarding-*
-# (every tour step), hero (popover under the menu bar, README) and banner (1920x1080).
-# Plus icon.png and menubar-states.png. Copy what you need into docs/screenshots.
+# Writes, in -light and -dark: popover, popover-paused, popover-attention, popover-full
+# (every row at once, so long translations reach the height cap), attention-* (one per
+# attention row), settings-{general,capture,retention,about}, settings-general-replayed,
+# settings-capture-attention (the destination guard), onboarding-* (every tour step, and
+# Try it blocked by an attention), hero (popover under the menu bar, README) and banner
+# (1920x1080). Plus icon.png, menubar-states.png and menubar-optical-size.png (the states
+# beside VibeRes and Eject Guard, sized as the menu bar draws them).
+# Copy what you need into docs/screenshots.
 #
 # Everything is demo data: a throwaway screenshot folder under the temporary directory,
 # an in-memory com.apple.screencapture and a pasteboard that never reaches the system.

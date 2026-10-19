@@ -162,6 +162,9 @@ enum Copy {
         static let copySound = LocalizedStringResource("Play a sound when copied")
         static let copySoundNote = LocalizedStringResource("The menu bar icon shows every copy, with or without the sound.")
         static let replayTour = LocalizedStringResource("Replay welcome tour")
+        static let replayNote = LocalizedStringResource(
+            "The tour opens the next time you click ClipShot in the menu bar.",
+            comment: "Settings > General, after Replay welcome tour: the tour shows in the popover, not here")
     }
 
     enum Capture {

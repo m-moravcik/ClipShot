@@ -33,6 +33,9 @@ the reviewer and the date here when that happens.
   `ByteCountFormatStyle`), never from strings.
 - Slovak and Czech keep a no-break space after a number and after one-letter words, so no
   line ends on them. French uses a no-break space before `:` `?` `!` and inside « ».
+- Quotation marks around a folder name follow the language as macOS writes it: “ ” in
+  en and es, „ “ in sk, cs and de, « » with no-break spaces in fr. No spaces inside the
+  marks except in French.
 - No em dash anywhere.
 
 ## Checks

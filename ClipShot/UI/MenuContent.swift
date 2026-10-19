@@ -34,17 +34,21 @@ struct MenuContent: View {
     }
 
     private var main: some View {
+        // One scroll view whatever the height, so the rows keep their identity (and state, such
+        // as Copy again's checkmark) when a long translation takes the popover past its cap. It
+        // scrolls only then. The header is its top bar: rows scrolling under it soften into the
+        // edge, as macOS 26 draws content under bars. At the bottom they run under the footer's
+        // separator, the edge a native menu or list has. (A bar there too renders the scroll view
+        // black in the offscreen harness, which the README pictures come from.)
         VStack(spacing: 0) {
-            PopoverHeader()
-
-            // Scrolls only when a long translation makes it taller than the popover may grow,
-            // so nothing in it is squeezed into a truncated line and the footer stays put.
-            ViewThatFits(in: .vertical) {
-                middle
-                ScrollView { middle }
-                    .scrollBounceBehavior(.basedOnSize)
-            }
-
+            ScrollView { middle }
+                .scrollBounceBehavior(.basedOnSize)
+                .scrollEdgeEffectStyle(.soft, for: .top)
+                .safeAreaBar(edge: .top, spacing: 0) {
+                    PopoverHeader()
+                        .padding(.bottom, Design.Spacing.m)
+                }
+            FooterSeparator()
             FooterBar()
         }
         .animation(reduceMotion ? nil : Design.Motion.layout, value: model.attentions)
@@ -72,7 +76,7 @@ struct MenuContent: View {
             }
         }
         .padding(.horizontal, Design.Spacing.m)
-        .padding(.top, Design.Spacing.m)
+        .padding(.bottom, FooterSeparator.inset)
     }
 
     @ViewBuilder
@@ -329,6 +333,21 @@ private struct UpdateReadyCard: View {
 
 // MARK: - Footer
 
+/// The line above the footer rows, as a native menu separator: native NSMenu metrics,
+/// measured on macOS 26, are 11 pt for a separator item (5 + 1 + 5) and 5 pt at the menu's
+/// bottom edge.
+private struct FooterSeparator: View {
+    /// The space above the line, kept inside the scroll view as its bottom margin, so a row
+    /// cut off by the popover's height cap ends at the line rather than in mid-air.
+    static let inset = Design.Layout.menuInset + Design.Spacing.s
+
+    var body: some View {
+        Rectangle()
+            .fill(Design.Palette.separator)
+            .frame(height: 1)
+    }
+}
+
 /// Native-looking menu rows, as in VibeRes and Eject Guard.
 private struct FooterBar: View {
     @Environment(AppModel.self) private var model
@@ -337,34 +356,25 @@ private struct FooterBar: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Native NSMenu metrics, measured on macOS 26: a separator item is 11 pt
-            // (5 + 1 + 5) and the menu keeps 5 pt at its bottom edge.
-            Rectangle()
-                .fill(Design.Palette.separator)
-                .frame(height: 1)
-                .padding(.top, Design.Layout.menuInset + Design.Spacing.s)
-
-            VStack(spacing: 0) {
-                MenuRow(icon: "folder", label: Copy.Footer.openFolder, shortcut: "⌘O",
-                        isEnabled: model.screenshotFolder != nil) {
-                    model.openFolder()
-                }
-                .keyboardShortcut("o")
-
-                MenuRow(icon: "gearshape", label: Copy.Footer.settings, shortcut: "⌘,") {
-                    showSettings(.general, router: router, openSettings: openSettings)
-                }
-                .keyboardShortcut(",")
-
-                MenuRow(icon: "info.circle", label: Copy.Footer.about) { showAbout() }
-
-                MenuRow(icon: "power", label: Copy.Footer.quit, shortcut: "⌘Q") {
-                    NSApp.terminate(nil)
-                }
-                .keyboardShortcut("q")
+            MenuRow(icon: "folder", label: Copy.Footer.openFolder, shortcut: "⌘O",
+                    isEnabled: model.screenshotFolder != nil) {
+                model.openFolder()
             }
-            .padding(.vertical, Design.Layout.menuInset)
+            .keyboardShortcut("o")
+
+            MenuRow(icon: "gearshape", label: Copy.Footer.settings, shortcut: "⌘,") {
+                showSettings(.general, router: router, openSettings: openSettings)
+            }
+            .keyboardShortcut(",")
+
+            MenuRow(icon: "info.circle", label: Copy.Footer.about) { showAbout() }
+
+            MenuRow(icon: "power", label: Copy.Footer.quit, shortcut: "⌘Q") {
+                NSApp.terminate(nil)
+            }
+            .keyboardShortcut("q")
         }
+        .padding(.vertical, Design.Layout.menuInset)
     }
 
     /// The standard panel, as in the siblings: version, icon and what the app is for.

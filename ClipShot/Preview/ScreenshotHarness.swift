@@ -44,10 +44,12 @@ enum ScreenshotHarness {
             let icon = icon(pixels: 512)
             try shots.write(icon, "icon")
             try shots.write(render(MenuBarStatesSheet(), scale: MenuBarStatesSheet.scale), "menubar-states")
+            try shots.write(render(MenuBarOpticalSheet(), scale: MenuBarOpticalSheet.scale), "menubar-optical-size")
 
             try renderMain(shots, scratch: scratch, icon: icon)
             try renderPaused(shots, scratch: scratch)
             try renderAttentions(shots, scratch: scratch)
+            try renderFull(shots, scratch: scratch)
             try renderTour(shots, scratch: scratch)
         } catch {
             fail("\(error)")
@@ -88,6 +90,13 @@ enum ScreenshotHarness {
                 try shots.write(render(WindowShadow(window: window, scheme: scheme)), "settings-\(tab.name)", scheme)
             }
         }
+        // General just after "Replay welcome tour": the tour waits in the popover.
+        scene.model.replayOnboarding()
+        for scheme in ColorScheme.allCases {
+            let window = capture(SettingsWindow(tab: .general, scheme: scheme, replayed: true)
+                .harnessEnvironment(scene.model, updater: updater), scheme: scheme)
+            try shots.write(render(WindowShadow(window: window, scheme: scheme)), "settings-general-replayed", scheme)
+        }
         scene.stop()
     }
 
@@ -119,6 +128,18 @@ enum ScreenshotHarness {
         for scheme in ColorScheme.allCases {
             try shots.write(capture(PopoverPanel(scheme: scheme) { MenuContent() }
                 .harnessEnvironment(scene.model), scheme: scheme), "popover-attention", scheme)
+            // The destination guard as Settings shows it, next to its fix.
+            let window = capture(SettingsWindow(tab: .capture, scheme: scheme)
+                .harnessEnvironment(scene.model), scheme: scheme)
+            try shots.write(render(WindowShadow(window: window, scheme: scheme)), "settings-capture-attention", scheme)
+        }
+
+        // The tour's Try it on a replayed tour, blocked by the top attention row.
+        var blocked = WelcomeTour()
+        blocked.advance(scene.model)
+        for scheme in ColorScheme.allCases {
+            try shots.write(capture(tourPanel(blocked, scheme: scheme).harnessEnvironment(scene.model), scheme: scheme),
+                            "onboarding-2-try-attention", scheme)
         }
 
         let folder = scene.folder
@@ -138,6 +159,27 @@ enum ScreenshotHarness {
                 try shots.write(capture(PopoverPanel(scheme: scheme, framed: false) { row }
                     .harnessEnvironment(scene.model), scheme: scheme), "attention-\(name)", scheme)
             }
+        }
+        scene.stop()
+    }
+
+    /// Every row the popover can show at once: an attention, the latest card, the Markup tip
+    /// and the update card. Long translations take it past its height cap, where the middle
+    /// scrolls under a fixed header and footer.
+    private static func renderFull(_ shots: Shots, scratch: URL) throws {
+        let scene = try DemoScene(in: scratch)
+        scene.preferences.firstCopyDone = true
+        scene.preferences.markupTipShown = false
+        scene.preferences.totals = Totals(copied: 3, freedBytes: 1_640_000_000, trashed: 412)
+        scene.preferences.retention = RetentionPolicy(enabled: true, days: 30, confirmed: ConfirmedFolder.of(scene.folder))
+        guard scene.start() else { fail("the demo folder was not watched") }
+        try scene.copyDemoScreenshot()
+        scene.prefs["target"] = "clipboard"
+        DemoScene.wait { !scene.model.attentions.isEmpty }
+        for scheme in ColorScheme.allCases {
+            try shots.write(capture(PopoverPanel(scheme: scheme) { MenuContent() }
+                .harnessEnvironment(scene.model, updateStatus: UpdateStatus(isUpdateReady: true)), scheme: scheme),
+                "popover-full", scheme)
         }
         scene.stop()
     }
@@ -335,10 +377,12 @@ private extension SettingsTab {
 }
 
 private extension View {
-    func harnessEnvironment(_ model: AppModel, updater: (any UpdaterProviding)? = nil) -> some View {
+    func harnessEnvironment(
+        _ model: AppModel, updater: (any UpdaterProviding)? = nil, updateStatus: UpdateStatus = UpdateStatus()
+    ) -> some View {
         environment(model)
             .environment(SettingsRouter())
-            .environment(UpdateStatus())
+            .environment(updateStatus)
             .environment(\.updater, updater)
     }
 }
@@ -382,6 +426,8 @@ private extension ColorScheme {
 private struct SettingsWindow: View {
     let tab: SettingsTab
     let scheme: ColorScheme
+    /// General right after "Replay welcome tour".
+    var replayed = false
 
     private var dark: Bool { scheme == .dark }
 
@@ -447,7 +493,7 @@ private struct SettingsWindow: View {
     @ViewBuilder
     private var pane: some View {
         switch tab {
-        case .general: GeneralSettings()
+        case .general: GeneralSettings(replayRequested: replayed)
         case .capture: CaptureSettingsPane()
         case .retention: RetentionSettings()
         case .about: AboutSettings()
@@ -550,7 +596,7 @@ private struct HeroScene: View {
     }
 }
 
-/// Every menu bar state and every phase of the copied flash, at 16 pt and 1x and 2x, on
+/// Every menu bar state and every phase of the copied flash, at 1x and 2x, on
 /// light and dark menu bars and on two wallpapers. The glyphs are drawn as the menu bar
 /// draws a template image: one colour, only the opacity varies.
 private struct MenuBarStatesSheet: View {
@@ -609,7 +655,7 @@ private struct MenuBarStatesSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(verbatim: "ClipShot menu bar states - 15 pt template symbol (about 14 px tall at 1x) in a fixed 22 x 18 pt frame")
+            Text(verbatim: "ClipShot menu bar states - 15 pt template symbol in a fixed 22 x 16 pt frame, the height the menu bar draws unscaled")
                 .font(.system(size: 15, weight: .semibold))
             Text(verbatim: "Order: idle, paused, attention, copied with Reduce Motion; then the copied flash phases 1-14 (opacity of the check, the camera fades out as it fades in) and 15 = end, back to idle. Zoom rows are the 1x pixels enlarged 3x.")
                 .font(.system(size: 11))
@@ -672,6 +718,143 @@ private struct MenuBarStatesSheet: View {
         renderer.scale = scale
         guard let image = renderer.cgImage else { ScreenshotHarness.fail("glyph render failed") }
         return image
+    }
+}
+
+/// ClipShot's states next to VibeRes and Eject Guard, each drawn the way the menu bar draws
+/// a MenuBarExtra label: rendered at 2x, then, when taller than
+/// `StatusIconArt.menuBarHeight`, scaled down proportionally to it. VibeRes's label is a
+/// plain `Image(systemName:)` at the menu bar's 13 pt; Eject Guard's is the symbol at
+/// 15 pt in its own frame. Under each glyph: its ink box in 2x pixels.
+private struct MenuBarOpticalSheet: View {
+    private struct Item: Identifiable {
+        let id: String
+        let caption: String
+        let image: CGImage
+    }
+
+    private struct Cluster: Identifiable {
+        let id: String
+        let items: [Item]
+    }
+
+    static let scale: CGFloat = 2
+
+    private static func groups(_ color: Color) -> [Cluster] {
+        let states: [(String, StatusIconState, Int)] = [
+            ("idle", .idle, 0), ("paused", .paused, 0), ("attention", .attention, 0), ("copied", .copied, 6),
+        ]
+        return [
+            Cluster(id: "ClipShot before (22 x 18 pt label)", items: states.map { name, state, phase in
+                item(name, StatusIconArt(state: state, phase: phase).frame(width: 22, height: 18), color)
+            }),
+            Cluster(id: "ClipShot now (22 x 16 pt label)", items: states.map { name, state, phase in
+                item(name, StatusIconArt(state: state, phase: phase), color)
+            }),
+            Cluster(id: "VibeRes", items: [
+                item("rectangle.on.\nrectangle.angled", Image(systemName: "rectangle.on.rectangle.angled"), color),
+            ]),
+            Cluster(id: "Eject Guard (15 pt)", items: [
+                item("externaldrive", Image(systemName: "externaldrive").font(.system(size: 15)), color),
+                item("…fill.badge.\ntimemachine", Image(systemName: "externaldrive.fill.badge.timemachine")
+                    .font(.system(size: 15)), color),
+            ]),
+        ]
+    }
+
+    private static func item(_ name: String, _ view: some View, _ color: Color) -> Item {
+        let image = menuBarImage(view.foregroundStyle(color))
+        let ink = inkSize(image)
+        return Item(id: name, caption: "\(name)\n\(ink.width) x \(ink.height) px", image: image)
+    }
+
+    /// The label at 2x, fitted into the menu bar's height as AppKit fits a status item image.
+    static func menuBarImage(_ view: some View) -> CGImage {
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = scale
+        guard let image = renderer.cgImage else { ScreenshotHarness.fail("glyph render failed") }
+        let limit = Int(StatusIconArt.menuBarHeight * scale)
+        guard image.height > limit else { return image }
+        let width = Int((CGFloat(image.width) * CGFloat(limit) / CGFloat(image.height)).rounded())
+        guard let context = CGContext(
+            data: nil, width: width, height: limit, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { ScreenshotHarness.fail("could not allocate a bitmap") }
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: limit))
+        guard let scaled = context.makeImage() else { ScreenshotHarness.fail("could not scale a glyph") }
+        return scaled
+    }
+
+    /// The bounding box of the pixels that are more than faintly drawn.
+    static func inkSize(_ image: CGImage) -> (width: Int, height: Int) {
+        let width = image.width, height = image.height
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let drawn: Bool = pixels.withUnsafeMutableBytes { buffer in
+            guard let context = CGContext(
+                data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            else { return false }
+            context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard drawn else { return (0, 0) }
+        var minX = width, minY = height, maxX = -1, maxY = -1
+        for y in 0..<height {
+            for x in 0..<width where pixels[(y * width + x) * 4 + 3] > 40 {
+                minX = min(minX, x); maxX = max(maxX, x)
+                minY = min(minY, y); maxY = max(maxY, y)
+            }
+        }
+        return maxX < 0 ? (0, 0) : (maxX - minX + 1, maxY - minY + 1)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(verbatim: "Menu bar optical size - ClipShot beside VibeRes and Eject Guard")
+                .font(.system(size: 15, weight: .semibold))
+            Text(verbatim: "Each label is rendered at 2x and, when taller than 16 pt, scaled down to 16 pt as the menu bar does (the 22 x 18 pt label came out at 16/18 on a real menu bar). One glyph pixel per sheet pixel. Numbers: ink box in 2x pixels.")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            strip(background: Color(white: 0.95), glyph: .black)
+            strip(background: Color(white: 0.12), glyph: .white)
+            strip(background: Color(red: 0.36, green: 0.45, blue: 0.62), glyph: .white)
+        }
+        .padding(16)
+        .frame(width: 900, alignment: .leading)
+        .background(Color.white)
+        .foregroundStyle(Color.black)
+        .environment(\.colorScheme, .light)
+    }
+
+    private func strip(background: Color, glyph: Color) -> some View {
+        HStack(alignment: .top, spacing: 18) {
+            ForEach(Self.groups(glyph)) { group in
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(verbatim: group.id)
+                        .font(.system(size: 10, weight: .semibold))
+                    HStack(alignment: .top, spacing: 8) {
+                        ForEach(group.items) { item in
+                            VStack(spacing: 4) {
+                                // Its pixel size in points at the sheet's 2x: one glyph pixel per
+                                // sheet pixel.
+                                Image(decorative: item.image, scale: Self.scale)
+                                    .frame(height: StatusIconArt.menuBarHeight + 6)
+                                Text(verbatim: item.caption)
+                                    .font(.system(size: 8))
+                                    .multilineTextAlignment(.center)
+                                    .fixedSize()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .foregroundStyle(glyph)
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(background)
     }
 }
 #endif

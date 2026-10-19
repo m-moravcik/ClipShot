@@ -409,6 +409,7 @@ private struct PausedResult: View {
                     .fixedSize()
                 turnOn
                     .buttonStyle(WrappingButtonStyle())
+                    .focusEffectDisabled()
             }
             .padding(.leading, Design.Layout.iconColumn + Design.Spacing.s)
         }

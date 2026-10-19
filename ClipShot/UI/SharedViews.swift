@@ -64,21 +64,156 @@ struct SwitchRow: View {
 
 /// A small bordered-looking button whose title wraps. Used only where a native push button,
 /// which keeps its title on one line, would truncate a long translation.
+///
+/// It draws its own keyboard focus ring: a custom style gets none from the system. Callers
+/// add `.focusEffectDisabled()` so a system effect, where one is drawn, never doubles it.
 struct WrappingButtonStyle: ButtonStyle {
-    @Environment(\.isEnabled) private var isEnabled
-
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 11))
-            .multilineTextAlignment(.leading)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, Design.Spacing.m)
-            .padding(.vertical, 3)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: Design.Radius.chip, style: .continuous)
-                    .fill(Color.primary.opacity(configuration.isPressed ? 0.16 : 0.08)))
-            .opacity(isEnabled ? 1 : 0.5)
-            .contentShape(Rectangle())
+        WrappingButton(configuration: configuration)
+    }
+
+    private struct WrappingButton: View {
+        let configuration: ButtonStyleConfiguration
+        @Environment(\.isEnabled) private var isEnabled
+        /// The button's own focus: the label sits inside it.
+        @Environment(\.isFocused) private var isFocused
+
+        var body: some View {
+            let shape = RoundedRectangle(cornerRadius: Design.Radius.chip, style: .continuous)
+            configuration.label
+                .font(.system(size: 11))
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, Design.Spacing.m)
+                .padding(.vertical, 3)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(shape.fill(Color.primary.opacity(configuration.isPressed ? 0.16 : 0.08)))
+                .overlay {
+                    if isFocused {
+                        RoundedRectangle(cornerRadius: Design.Radius.chip + 2, style: .continuous)
+                            .strokeBorder(Color(nsColor: .keyboardFocusIndicatorColor), lineWidth: 3)
+                            .padding(-3)
+                    }
+                }
+                .opacity(isEnabled ? 1 : 0.5)
+                .contentShape(Rectangle())
+        }
+    }
+}
+
+/// Text with a button on its trailing side, or the button under the text once it would take
+/// more than `maxActionShare` of the row. A fixed width threshold kept a long button beside
+/// a note squeezed into a narrow column in one language and stacked it in the next; a share
+/// of the row reads the same in every language.
+///
+/// Subviews: an optional leading icon (`hasIcon`), the text, then the button. The icon sits
+/// on the text's first line. Stacked, the button starts where the text does, past the icon,
+/// as in the popover's attention rows; only a button wider than that column starts at the
+/// row's edge, and one wider than the row (no real translation is) is offered the row's
+/// width, so it truncates rather than running out of the window.
+struct TrailingActionLayout: Layout {
+    var hasIcon = false
+    var iconSpacing: CGFloat = Design.Spacing.s
+    var spacing: CGFloat = Design.Spacing.m
+    var stackSpacing: CGFloat = Design.Spacing.s
+    /// Side by side, the button aligns to the text's first line or to its middle.
+    var alignToFirstLine = false
+
+    static let maxActionShare: CGFloat = 0.4
+
+    /// Whether a button `actionWidth` wide goes under the text in a row `rowWidth` wide.
+    static func stacks(actionWidth: CGFloat, rowWidth: CGFloat) -> Bool {
+        actionWidth > rowWidth * maxActionShare
+    }
+
+    /// Where the stacked button starts: the text column, unless the button is wider than it.
+    static func stackedActionX(actionWidth: CGFloat, textX: CGFloat, rowWidth: CGFloat) -> CGFloat {
+        actionWidth <= rowWidth - textX ? textX : 0
+    }
+
+    private struct Placement {
+        var size: CGSize
+        var icon: CGRect?
+        var text: CGRect
+        var action: CGRect
+    }
+
+    private func placement(_ proposal: ProposedViewSize, _ subviews: Subviews) -> Placement {
+        let icon = hasIcon ? subviews[0] : nil
+        let text = subviews[hasIcon ? 1 : 0], action = subviews[hasIcon ? 2 : 1]
+        let iconSize = icon?.sizeThatFits(.unspecified) ?? .zero
+        let textX = icon == nil ? 0 : iconSize.width + iconSpacing
+        let actionSize = action.sizeThatFits(.unspecified)
+        let ideal = textX + text.sizeThatFits(.unspecified).width + spacing + actionSize.width
+        let width = proposal.width ?? ideal
+
+        var textFrame: CGRect
+        var actionFrame: CGRect
+        if Self.stacks(actionWidth: actionSize.width, rowWidth: width) {
+            let textSize = text.sizeThatFits(ProposedViewSize(width: width - textX, height: nil))
+            textFrame = CGRect(x: textX, y: 0, width: width - textX, height: textSize.height)
+            let actionX = Self.stackedActionX(actionWidth: actionSize.width, textX: textX, rowWidth: width)
+            actionFrame = CGRect(
+                x: actionX, y: textSize.height + stackSpacing,
+                width: min(actionSize.width, width - actionX), height: actionSize.height)
+        } else {
+            let textWidth = max(0, width - textX - spacing - actionSize.width)
+            let textSize = text.sizeThatFits(ProposedViewSize(width: textWidth, height: nil))
+            // The offset of each one's anchor from its top: the first baseline, or the middle.
+            let textAnchor = alignToFirstLine
+                ? text.dimensions(in: ProposedViewSize(width: textWidth, height: nil))[.firstTextBaseline]
+                : textSize.height / 2
+            let actionAnchor = alignToFirstLine
+                ? action.dimensions(in: .unspecified)[.firstTextBaseline]
+                : actionSize.height / 2
+            let anchor = max(textAnchor, actionAnchor)
+            textFrame = CGRect(x: textX, y: anchor - textAnchor, width: textWidth, height: textSize.height)
+            actionFrame = CGRect(
+                x: width - actionSize.width, y: anchor - actionAnchor,
+                width: actionSize.width, height: actionSize.height)
+        }
+
+        var iconFrame: CGRect?
+        if let icon {
+            // On the text's first baseline, as an HStack aligned to it would put it.
+            let textBaseline = text.dimensions(in: ProposedViewSize(textFrame.size))[.firstTextBaseline]
+            let iconBaseline = icon.dimensions(in: .unspecified)[.firstTextBaseline]
+            iconFrame = CGRect(origin: CGPoint(x: 0, y: textFrame.minY + textBaseline - iconBaseline), size: iconSize)
+        }
+        // Nothing above the top edge: shift everything down if the icon rose past it.
+        let shift = max(0, -(iconFrame?.minY ?? 0))
+        textFrame.origin.y += shift
+        actionFrame.origin.y += shift
+        iconFrame?.origin.y += shift
+        let height = [textFrame.maxY, actionFrame.maxY, iconFrame?.maxY ?? 0].max() ?? 0
+        return Placement(size: CGSize(width: width, height: height), icon: iconFrame, text: textFrame, action: actionFrame)
+    }
+
+    private var subviewCount: Int { hasIcon ? 3 : 2 }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard subviews.count == subviewCount else { return .zero }
+        return placement(proposal, subviews).size
+    }
+
+    /// The text's first baseline, so the row lines up with others in a form.
+    func explicitAlignment(
+        of guide: VerticalAlignment, in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
+    ) -> CGFloat? {
+        guard guide == .firstTextBaseline, subviews.count == subviewCount else { return nil }
+        let p = placement(ProposedViewSize(width: bounds.width, height: nil), subviews)
+        let text = subviews[hasIcon ? 1 : 0]
+        return bounds.minY + p.text.minY + text.dimensions(in: ProposedViewSize(p.text.size))[.firstTextBaseline]
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard subviews.count == subviewCount else { return }
+        let p = placement(ProposedViewSize(width: bounds.width, height: nil), subviews)
+        let frames = (p.icon.map { [$0] } ?? []) + [p.text, p.action]
+        for (subview, frame) in zip(subviews, frames) {
+            subview.place(
+                at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
+                proposal: ProposedViewSize(frame.size))
+        }
     }
 }

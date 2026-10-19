@@ -2918,7 +2918,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ClipShot no limpia «%@»: es una carpeta del sistema o de inicio."
+            "value" : "ClipShot no limpia “%@”: es una carpeta del sistema o de inicio."
           }
         },
         "fr" : {
@@ -3434,7 +3434,7 @@
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kopírování je vypnuté, do schránky nic nepřijde."
+            "value" : "Kopírování je vypnuto, do schránky nic nepřijde."
           }
         },
         "de" : {
@@ -5458,13 +5458,13 @@
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Zatiaľ žiadna snímka nie je dosť stará na Kôš"
+            "value" : "Zatiaľ žiadna snímka nie je dosť stará na presun do Koša"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Zatím žádný snímek není dost starý na Koš"
+            "value" : "Zatím žádný snímek není dost starý na přesun do Koše"
           }
         },
         "de" : {
@@ -6572,7 +6572,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Enregistrer les captures dans un fichier"
+            "value" : "Enregistrer dans un fichier"
           }
         }
       }
@@ -6888,7 +6888,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Las capturas van ahora a «%@». La limpieza está en pausa hasta que revises qué movería."
+            "value" : "Las capturas van ahora a “%@”. La limpieza está en pausa hasta que revises qué movería."
           }
         },
         "fr" : {
@@ -7412,13 +7412,54 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No se encontró la carpeta de capturas «%@»."
+            "value" : "No se encontró la carpeta de capturas “%@”."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Le dossier des captures « %@ » est introuvable."
+          }
+        }
+      }
+    },
+    "The tour opens the next time you click ClipShot in the menu bar." : {
+      "comment" : "Settings > General, after Replay welcome tour: the tour shows in the popover, not here",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The tour opens the next time you click ClipShot in the menu bar."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prehliadka sa otvorí, keď nabudúce klikneš na ClipShot na lište."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prohlídka se otevře, až příště klikneš na ClipShot na liště."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Einführung öffnet sich, wenn du das nächste Mal in der Menüleiste auf ClipShot klickst."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La presentación se abrirá la próxima vez que hagas clic en ClipShot en la barra de menús."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La visite s’ouvrira la prochaine fois que vous cliquerez sur ClipShot dans la barre des menus."
           }
         }
       }
@@ -7817,7 +7858,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "macOS bloqueó el acceso a «%@»."
+            "value" : "macOS bloqueó el acceso a “%@”."
           }
         },
         "fr" : {
@@ -7939,7 +7980,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "«%@» no tiene Papelera, así que la limpieza está desactivada ahí."
+            "value" : "“%@” no tiene Papelera, así que la limpieza está desactivada ahí."
           }
         },
         "fr" : {

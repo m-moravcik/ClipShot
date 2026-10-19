@@ -111,6 +111,7 @@ struct AttentionRow: View {
             if wrapping {
                 Button { perform(action) } label: { Text(action.title) }
                     .buttonStyle(WrappingButtonStyle())
+                    .focusEffectDisabled()
             } else {
                 Button { perform(action) } label: { Text(action.title) }
                     .buttonStyle(.bordered)

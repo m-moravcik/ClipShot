@@ -1,4 +1,6 @@
+import AppKit
 import Foundation
+import SwiftUI
 import Testing
 @testable import ClipShot
 
@@ -168,5 +170,39 @@ struct CopyTests {
     @Test func statusItemLabelsAndAnnouncement() {
         #expect(en(StatusIconState.attention.accessibilityLabel) == "ClipShot, needs attention")
         #expect(en(Copy.screenshotCopied) == "Screenshot copied")
+    }
+}
+
+struct TrailingActionLayoutTests {
+    /// The button goes under the text once it takes more than 40% of the row, in every
+    /// language alike, instead of below a fixed width that one translation passes and the
+    /// next does not.
+    @Test func stacksPastAShareOfTheRow() {
+        #expect(!TrailingActionLayout.stacks(actionWidth: 80, rowWidth: 400))
+        #expect(!TrailingActionLayout.stacks(actionWidth: 160, rowWidth: 400))
+        #expect(TrailingActionLayout.stacks(actionWidth: 161, rowWidth: 400))
+        #expect(TrailingActionLayout.stacks(actionWidth: 200, rowWidth: 300))
+    }
+
+    /// Stacked, the button starts in the text column past the icon, unless it is wider than
+    /// that column; then at the row's edge rather than out of the row.
+    @Test func stackedButtonStartsInTheTextColumn() {
+        #expect(TrailingActionLayout.stackedActionX(actionWidth: 200, textX: 18, rowWidth: 400) == 18)
+        #expect(TrailingActionLayout.stackedActionX(actionWidth: 382, textX: 18, rowWidth: 400) == 18)
+        #expect(TrailingActionLayout.stackedActionX(actionWidth: 390, textX: 18, rowWidth: 400) == 0)
+    }
+
+    @MainActor
+    @Test func laysOutSideBySideOrStacked() {
+        func height(action: CGFloat) -> CGFloat {
+            let view = NSHostingView(rootView: TrailingActionLayout {
+                Text(verbatim: "Note")
+                Color.clear.frame(width: action, height: 20)
+            }
+            .frame(width: 400))
+            return view.fittingSize.height
+        }
+        #expect(height(action: 100) == 20, "beside the text, as tall as the button")
+        #expect(height(action: 200) > 20 + Design.Spacing.s + 12, "under the text")
     }
 }

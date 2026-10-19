@@ -78,6 +78,9 @@ final class ModelHarness {
     private(set) var loginReconciles = 0
     var reduceMotion = false
     var screencaptureUIRunning = false
+    /// Real run-loop timers for the flash, each counting its ticks, instead of manual ones.
+    var systemFlashTimers = false
+    private(set) var systemFlashTicks: [TickCounter] = []
     let model: AppModel
 
     init(onboardingShown: Bool = true) throws {
@@ -100,6 +103,14 @@ final class ModelHarness {
             statusInterval: .milliseconds(100),
             hourly: hourly.eraseToAnyPublisher(), wake: wake.eraseToAnyPublisher(),
             makeFlashTimer: { interval, tolerance, tick in
+                if box.harness?.systemFlashTimers == true {
+                    let ticks = TickCounter()
+                    box.harness?.systemFlashTicks.append(ticks)
+                    return SystemFlashTimer(interval: interval, tolerance: tolerance) {
+                        ticks.count += 1
+                        tick()
+                    }
+                }
                 let timer = ManualFlashTimer(interval: interval, tolerance: tolerance, tick: tick)
                 box.harness?.timers.append(timer)
                 return timer
@@ -383,6 +394,37 @@ struct AppModelTests {
         let reads = prefs.synchronizeCount
         try? await Task.sleep(for: .milliseconds(500))
         #expect(prefs.synchronizeCount == reads, "no poll reads the prefs after release")
+    }
+
+    /// Reduce Motion: the copied symbol holds at full opacity for the whole flash, with no
+    /// fade, and once the flash ends no timer ticks on, on the real run loop.
+    @Test func reduceMotionFlashIsAPlainHoldAndNoTimerOutlivesIt() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        h.systemFlashTimers = true
+        h.reduceMotion = true
+        #expect(await h.start())
+        try h.shoot("Screenshot 1.png")
+        #expect(await eventually { await h.model.flashPhase > 0 })
+        #expect(h.model.flashReduceMotion)
+        var phases: Set<Int> = []
+        let deadline = Date().addingTimeInterval(5)
+        while h.model.flashPhase != 0, Date() < deadline {
+            phases.insert(h.model.flashPhase)
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(h.model.flashPhase == 0)
+        #expect(h.model.iconState == .idle)
+        #expect(!phases.isEmpty)
+        for phase in phases {
+            #expect(CopiedFlash.opacity(phase: phase, reduceMotion: true) == 1, "phase \(phase) is not a plain hold")
+        }
+        let ticks = try #require(h.systemFlashTicks.first)
+        #expect(h.systemFlashTicks.count == 1)
+        #expect(ticks.count == CopiedFlash.steps - 1, "one tick per phase after the first, then the end")
+        let after = ticks.count
+        try? await Task.sleep(for: .milliseconds(400))
+        #expect(ticks.count == after, "no timer runs after the flash ends")
     }
 
     @Test func releasedSystemFlashTimerStopsTicking() async {
