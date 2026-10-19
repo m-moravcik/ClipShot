@@ -18,13 +18,24 @@ final class CopyCoordinator {
     nonisolated static let displayGroupWindow: TimeInterval = 1
 
     var isEnabled = true
-    private(set) var lastCopied: CaptureFile?
-    private(set) var watchError: WatchError?
-    private(set) var lastFailure: Date?
+    private(set) var lastCopied: CaptureFile? {
+        didSet { if lastCopied != oldValue { onStateChange?() } }
+    }
+    private(set) var watchError: WatchError? {
+        didSet { if watchError != oldValue { onStateChange?() } }
+    }
+    private(set) var lastFailure: Date? {
+        didSet { if lastFailure != oldValue { onStateChange?() } }
+    }
     /// The folder being watched: the configured one, ~/Desktop while it is missing, or nil.
-    private(set) var watchedFolder: URL?
+    private(set) var watchedFolder: URL? {
+        didSet { if watchedFolder != oldValue { onStateChange?() } }
+    }
     var onCopied: ((CaptureFile) -> Void)?
     var onFailure: (() -> Void)?
+    /// Called on the main actor whenever `watchError`, `watchedFolder`, `lastCopied` or
+    /// `lastFailure` changes, so an app model can mirror them.
+    var onStateChange: (() -> Void)?
 
     private let settings: CaptureSettings
     private let events: any FolderEventSource
@@ -230,8 +241,9 @@ final class CopyCoordinator {
 
     private func folderChanged(generation gen: Int) {
         guard running, gen == generation else { return }
-        requestPass()
+        // Rescans first: the event's own pass must not count as the last rescan.
         scheduleRescans()
+        requestPass()
     }
 
     private func scheduleRescans() {
@@ -282,7 +294,9 @@ final class CopyCoordinator {
         let lastRescan = rescanDeadlines.isEmpty
         let clock = clock
         Task {
-            let outcome = await onIO { Self.scan(folder, decider: decider, copying: copying, now: clock()) }
+            let outcome = await onIO {
+                Self.scan(folder, decider: decider, copying: copying, lastRescan: lastRescan, now: clock())
+            }
             passInFlight = false
             if running, gen == generation {
                 finishPass(outcome, copying: copying, lastRescan: lastRescan)
@@ -317,6 +331,8 @@ final class CopyCoordinator {
                 continue
             }
             guard decider.wouldCopy(file, now: now) else { continue }
+            // Waiting for an earlier file of the same capture to get its marker.
+            if observation.deferred { continue }
             if observation.secondaryDisplay {
                 _ = decider.shouldCopy(file, now: now)
                 continue
@@ -367,7 +383,7 @@ final class CopyCoordinator {
 
     /// Lists, inspects, applies the multi-display rule and converts what may be copied.
     nonisolated private static func scan(
-        _ folder: URL, decider: CopyDecider, copying: Bool, now: Date
+        _ folder: URL, decider: CopyDecider, copying: Bool, lastRescan: Bool, now: Date
     ) -> PassOutcome {
         guard let files = list(folder) else { return .unreadable }
         var observations = files
@@ -384,9 +400,26 @@ final class CopyCoordinator {
             }
             previousDisplay = created
         }
+        // The main display file can still be unmarked (marker up to 54 ms after the rename, F4)
+        // when the secondary one, written about 10 ms later (F3), is already marked. A display
+        // file waits while a fresh unmarked image created up to 1 s before it may still turn out
+        // to be the first display; after the last rescan it no longer waits.
+        if !lastRescan {
+            let unmarked = observations
+                .filter { !$0.file.isScreenshot && CopyDecider.isFresh($0.file, now: now) }
+                .map(\.file.created)
+            for index in observations.indices
+            where observations[index].isDisplay && !observations[index].secondaryDisplay {
+                let created = observations[index].file.created
+                observations[index].deferred = unmarked.contains {
+                    $0 <= created && created.timeIntervalSince($0) <= displayGroupWindow
+                }
+            }
+        }
         guard copying else { return .listed(observations) }
         for index in observations.indices
-        where !observations[index].secondaryDisplay && decider.wouldCopy(observations[index].file, now: now) {
+        where !observations[index].secondaryDisplay && !observations[index].deferred
+            && decider.wouldCopy(observations[index].file, now: now) {
             observations[index].converted = true
             observations[index].png = PNGConverter.pngData(from: observations[index].file.url)
         }
@@ -465,6 +498,8 @@ private struct Observation: Sendable {
     let isDisplay: Bool
     /// A later display of a multi-display capture: recorded, never copied.
     var secondaryDisplay = false
+    /// A display file waiting for an earlier, still unmarked file of the same capture.
+    var deferred = false
     /// Conversion was attempted in this pass.
     var converted = false
     var png: Data?

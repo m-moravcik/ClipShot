@@ -296,4 +296,86 @@ struct CopyCoordinatorTests {
         await settle()
         #expect(h.failures == 1)
     }
+
+    // MARK: - Fix round 1
+
+    @Test func retriesScreenshotThatDecodesOnRescan() async throws {
+        let h = try CoordinatorHarness()
+        defer { h.coordinator.stop() }
+        #expect(await h.start())
+        let full = CoordinatorHarness.png(43)
+        let url = try Fixtures.write(named: "Screenshot.png", contents: full.prefix(full.count / 2), in: h.folder)
+        // The event's pass sees the truncated bytes; the rest arrives before the 250 ms rescan.
+        try await Task.sleep(for: .milliseconds(120))
+        try full.write(to: url)
+        #expect(await eventually { await h.writes == [full] })
+        await settle()
+        #expect(h.writes == [full])
+        #expect(h.failures == 0)
+        #expect(h.coordinator.lastFailure == nil)
+    }
+
+    @Test func multiDisplayWaitsForMainDisplayMarker() async throws {
+        let h = try CoordinatorHarness()
+        defer { h.coordinator.stop() }
+        #expect(await h.start())
+        // F3 + F4: the main display file is in place but unmarked when the secondary one is marked.
+        let main = CoordinatorHarness.png(44)
+        let mainURL = try Fixtures.write(named: "Screenshot 2.png", contents: main, in: h.folder,
+                                         marker: .none, captureType: false)
+        try await Task.sleep(for: .milliseconds(10))
+        try Fixtures.write(named: "Screenshot 2 (2).png", contents: CoordinatorHarness.png(45),
+                           in: h.folder, kind: "display")
+        try await Task.sleep(for: .milliseconds(60))
+        Fixtures.mark(mainURL, kind: "display")
+        #expect(await eventually { await h.writes.count >= 1 })
+        await settle()
+        #expect(h.writes == [main])
+        #expect(await h.ledgerNames() == ["Screenshot 2 (2).png", "Screenshot 2.png"])
+    }
+
+    @Test func stateChangeFiresOnFolderMissingAndOnCopy() async throws {
+        let h = try CoordinatorHarness(createFolder: false, createDesktop: true)
+        defer { h.coordinator.stop() }
+        var states: [(error: WatchError?, copied: String?)] = []
+        h.coordinator.onStateChange = { [coordinator = h.coordinator] in
+            states.append((coordinator.watchError, coordinator.lastCopied?.url.lastPathComponent))
+        }
+        #expect(await h.start(watching: h.desktop))
+        let missing = WatchError.folderMissing(h.settings.folder())
+        #expect(states.contains { $0.error == missing })
+        let before = states.count
+        try Fixtures.write(named: "Screenshot.png", contents: CoordinatorHarness.png(46), in: h.desktop)
+        #expect(await eventually { await h.writes.count == 1 })
+        #expect(states.count > before)
+        #expect(states.last?.copied == "Screenshot.png")
+    }
+
+    @Test func nothingIsCopiedAfterStop() async throws {
+        let h = try CoordinatorHarness()
+        #expect(await h.start())
+        h.coordinator.stop()
+        try Fixtures.write(named: "Screenshot.png", contents: CoordinatorHarness.png(47), in: h.folder)
+        await settle()
+        #expect(h.writes.isEmpty)
+        #expect(await h.ledgerNames().isEmpty)
+        #expect(h.coordinator.watchedFolder == nil)
+    }
+
+    @Test func retargetDoesNotCopyFreshScreenshotAlreadyThere() async throws {
+        let h = try CoordinatorHarness()
+        defer { h.coordinator.stop() }
+        #expect(await h.start())
+        let other = h.home.appendingPathComponent("Other", isDirectory: true)
+        try FileManager.default.createDirectory(at: other, withIntermediateDirectories: true)
+        try Fixtures.write(named: "Already there.png", contents: CoordinatorHarness.png(48), in: other)
+        h.prefs["location"] = other.path
+        #expect(await eventually { await h.coordinator.watchedFolder?.path == other.path })
+        let data = CoordinatorHarness.png(49)
+        try Fixtures.write(named: "New.png", contents: data, in: other)
+        #expect(await eventually { await h.writes.count == 1 })
+        await settle()
+        #expect(h.writes == [data])
+        #expect(await h.ledgerNames() == ["New.png"])
+    }
 }
