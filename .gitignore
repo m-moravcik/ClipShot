@@ -1,2 +1,23 @@
 .superpowers/
 .DS_Store
+
+# Build / signing / tooling
+build/
+build-localisation/
+DerivedData/
+*.xcodeproj/
+*.xcuserstate
+xcuserdata/
+.build/
+.swiftpm/
+Package.resolved
+.release.env
+artifacts/
+*.app.zip
+*.dmg
+notarization-*.json
+*.p12
+*.p8
+*.cer
+sparkle_ed25519.key
+__pycache__/
