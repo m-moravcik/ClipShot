@@ -27,7 +27,11 @@ enum FolderGuard {
     private static let allowedUnderPrivate = ["/private/var/folders", "/private/tmp"]
 
     static func refusal(for folder: URL, home: URL, hasTrash: TrashLookup = systemTrashLookup) -> Refusal? {
-        let path = CaptureSettings.realPath(folder)
+        refusal(resolvedPath: CaptureSettings.realPath(folder), home: home, hasTrash: hasTrash)
+    }
+
+    /// `resolvedPath` must already be resolved; it is checked as given, not resolved again.
+    static func refusal(resolvedPath path: String, home: URL, hasTrash: TrashLookup = systemTrashLookup) -> Refusal? {
         if isBroad(path, home: CaptureSettings.realPath(home)) { return .systemOrBroad }
         if !hasTrash(URL(fileURLWithPath: path, isDirectory: true)) { return .noTrash }
         return nil
