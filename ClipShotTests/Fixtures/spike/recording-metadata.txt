@@ -1,0 +1,20 @@
+=== Screen Recording 2026-10-19 at 17.00.38.mov
+--- stat -f '%FB %Fm %Fc %z'
+1792422038.946006964 1792422044.963121248 1792422050.578859699 16366570
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: .0.j
+com.apple.metadata:kMDItemIsScreenRecording: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#@. 
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Wdisplay.
+--- mdls
+kMDItemContentType             = "com.apple.quicktime-movie"
+kMDItemIsScreenCapture         = (null)
+kMDItemScreenCaptureGlobalRect = (
+    1800,
+    0,
+    2560,
+    1440
+)
+kMDItemScreenCaptureType       = "display"
+

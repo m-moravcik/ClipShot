@@ -1,0 +1,19 @@
+   0.000s [main] start pid=5112 folder=~/Desktop
+   0.501s [main] still waiting
+   1.002s [main] still waiting
+   1.503s [main] still waiting
+   2.004s [main] still waiting
+   2.504s [main] still waiting
+   3.005s [main] still waiting
+   3.506s [main] still waiting
+   4.007s [main] still waiting
+   4.507s [main] still waiting
+   5.008s [main] still waiting
+   5.509s [main] still waiting
+   6.011s [main] still waiting
+   6.512s [main] still waiting
+   7.013s [main] still waiting
+   7.513s [main] still waiting
+   7.887s [bg] open(O_EVTONLY) -> fd=4 errno=0 (ok) after 7.886s
+   7.889s [bg] contentsOfDirectory -> 5 items after 0.002s
+   8.014s [main] finished

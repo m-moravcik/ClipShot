@@ -1,0 +1,22 @@
+      0.0ms KQ ~/Pictures/Screenshots/clipshot-spike/gone mask=18
+     -1.3ms NEW     missing-target birth=     -0.2ms mtime=     -0.2ms size=64 isCap=0 capType=0 xattrs=["provenance"]
+   1033.2ms KQ ~/Pictures/Screenshots/clipshot-spike/gone mask=18
+    662.6ms POLL GONE ~/Pictures/Screenshots/clipshot-spike/gone/missing-target
+   5806.4ms KQ ~/Pictures/Screenshots/clipshot-spike/gone mask=2
+   8274.4ms KQ ~/Desktop mask=2
+   8276.6ms KQ ~/Desktop mask=2
+   8267.3ms NEW     Screenshot 2026-10-19 at 17.01.12.png birth=   8273.0ms mtime=   8273.2ms size=1013972 isCap=0 capType=0 xattrs=["FinderInfo", "macl"]
+   8278.9ms CHANGED Screenshot 2026-10-19 at 17.01.12.png birth=   8273.0ms mtime=   8273.2ms size=1013972 isCap=0 capType=0 xattrs=["FinderInfo", "lastuseddate#PS", "macl"]
+   8297.7ms CHANGED Screenshot 2026-10-19 at 17.01.12.png birth=   8273.0ms mtime=   8273.2ms size=1013972 isCap=1 capType=1 xattrs=["FinderInfo", "lastuseddate#PS", "macl", "md:kMDItemIsScreenCapture", "md:kMDItemScreenCaptureGlobalRect", "md:kMDItemScreenCaptureType"]
+  10402.1ms FSE 4367364014 Created|Renamed|Modified|FinderInfoMod|XattrMod|IsFile ~/Desktop/.Screenshot 2026-10-19 at 17.01.12.png
+  10402.1ms FSE 4367364024 XattrMod|IsFile ~/Desktop/Screenshot 2026-10-19 at 17.01.12.png
+  10402.1ms FSE 4367364036 Renamed|XattrMod|IsFile ~/Desktop/Screenshot 2026-10-19 at 17.01.12.png
+  10576.8ms FSE 4367366704 InodeMetaMod|IsFile ~/Desktop/Screenshot 2026-10-19 at 17.01.12.png
+  16441.5ms FSE 4367372320 InodeMetaMod|IsFile|Cloned ~/Desktop/Screenshot 2026-10-19 at 17.01.12.png
+  19370.5ms KQ ~/Desktop mask=2
+  19370.6ms KQ ~/Pictures/Screenshots/clipshot-spike/gone mask=2
+  19368.9ms NEW     Screenshot 2026-10-19 at 17.01.12.png birth=   8273.0ms mtime=   8273.2ms size=1013972 isCap=1 capType=1 xattrs=["FinderInfo", "lastuseddate#PS", "macl", "md:kMDItemIsScreenCapture", "md:kMDItemScreenCaptureGlobalRect", "md:kMDItemScreenCaptureType", "provenance"]
+  19368.9ms POLL GONE ~/Desktop/Screenshot 2026-10-19 at 17.01.12.png
+  19769.7ms KQ ~/Desktop mask=8
+  20390.4ms FSE 4367384103 InodeMetaMod|IsDir ~/Desktop
+  10080.9ms   ..size grew to 1013972 Screenshot 2026-10-19 at 17.01.12.png

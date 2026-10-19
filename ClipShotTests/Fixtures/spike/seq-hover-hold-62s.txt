@@ -1,0 +1,9 @@
+      0.0ms FSE 4367272311 Created|Renamed|Modified|FinderInfoMod|XattrMod|IsFile ~/Pictures/Screenshots/clipshot-spike/flow/.Screenshot 2026-10-19 at 16.56.26.png
+      0.0ms FSE 4367272324 Renamed|XattrMod|IsFile ~/Pictures/Screenshots/clipshot-spike/flow/Screenshot 2026-10-19 at 16.56.26.png
+  11355.4ms FSE 4367278115 Created|Renamed|Modified|FinderInfoMod|XattrMod|IsFile ~/Pictures/Screenshots/clipshot-spike/flow/.Screenshot 2026-10-19 at 16.56.02.png
+  11355.4ms FSE 4367278122 Renamed|XattrMod|IsFile ~/Pictures/Screenshots/clipshot-spike/flow/Screenshot 2026-10-19 at 16.56.02.png
+  61622.0ms KQ ~/Pictures/Screenshots/clipshot-spike/flow mask=2
+  61622.2ms NEW     .Screenshot 2026-10-19 at 16.57.00.png birth=  61622.0ms mtime=  61622.1ms size=31798 isCap=0 capType=0 xattrs=["FinderInfo"]
+  61623.9ms KQ ~/Pictures/Screenshots/clipshot-spike/flow mask=2
+  61624.3ms NEW     Screenshot 2026-10-19 at 16.57.00.png birth=  61622.0ms mtime=  61622.1ms size=31798 isCap=1 capType=1 xattrs=["FinderInfo", "lastuseddate#PS", "md:kMDItemIsScreenCapture", "md:kMDItemScreenCaptureGlobalRect", "md:kMDItemScreenCaptureType"]
+  61624.3ms POLL GONE ~/Pictures/Screenshots/clipshot-spike/flow/.Screenshot 2026-10-19 at 16.57.00.png

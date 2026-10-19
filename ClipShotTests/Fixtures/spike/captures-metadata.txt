@@ -1,0 +1,480 @@
+=== Screenshot 2026-10-19 at 16.46.53 (2).png
+--- stat -f '%FB %Fm %Fc %z'
+1792421219.061932060 1792421219.062217352 1792421219.064518820 1025761
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: c-.j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#@. 
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Wdisplay.
+--- mdls
+kMDItemContentType             = "public.png"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    1800,
+    0,
+    2560,
+    1440
+)
+kMDItemScreenCaptureType       = "display"
+
+=== Screenshot 2026-10-19 at 16.46.53.png
+--- stat -f '%FB %Fm %Fc %z'
+1792421219.051116728 1792421219.051608813 1792421219.055984913 4019330
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: c-.j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Wdisplay.
+--- mdls
+kMDItemContentType             = "public.png"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    0,
+    0,
+    1800,
+    1169
+)
+kMDItemScreenCaptureType       = "display"
+
+=== Screenshot 2026-10-19 at 16.47.05.png
+--- stat -f '%FB %Fm %Fc %z'
+1792421231.317921791 1792421231.318072916 1792421231.321386887 4456
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: o-.j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#@r.
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Yselection.
+--- mdls
+kMDItemContentType             = "public.png"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    300,
+    300,
+    65,
+    49
+)
+kMDItemScreenCaptureType       = "selection"
+
+=== Screenshot 2026-10-19 at 16.47.49.png
+--- stat -f '%FB %Fm %Fc %z'
+1792421275.227177345 1792421275.227448305 1792421275.232321406 1433829
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: .-.j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#.L
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Vwindow.
+--- mdls
+kMDItemContentType             = "public.png"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    "-56",
+    1,
+    1912,
+    1242
+)
+kMDItemScreenCaptureType       = "window"
+
+=== Screenshot 2026-10-19 at 16.48.08 (2).png
+--- stat -f '%FB %Fm %Fc %z'
+1792421294.049114079 1792421294.049392788 1792421294.051429004 706959
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: .-.j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#@. 
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Wdisplay.
+--- mdls
+kMDItemContentType             = "public.png"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    1800,
+    0,
+    2560,
+    1440
+)
+kMDItemScreenCaptureType       = "display"
+
+=== Screenshot 2026-10-19 at 16.48.08.png
+--- stat -f '%FB %Fm %Fc %z'
+1792421294.038380705 1792421294.039202500 1792421294.043350224 3613956
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: .-.j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Wdisplay.
+--- mdls
+kMDItemContentType             = "public.png"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    0,
+    0,
+    1800,
+    1169
+)
+kMDItemScreenCaptureType       = "display"
+
+=== Screenshot 2026-10-19 at 16.48.20.png
+--- stat -f '%FB %Fm %Fc %z'
+1792421306.459657304 1792421306.459800138 1792421306.468959422 189671
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: .-.j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#@r.
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Yselection.
+--- mdls
+kMDItemContentType             = "public.png"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    300,
+    300,
+    401,
+    301
+)
+kMDItemScreenCaptureType       = "selection"
+
+=== Screenshot 2026-10-19 at 16.48.34.png
+--- stat -f '%FB %Fm %Fc %z'
+1792421320.219247156 1792421320.219687907 1792421320.223843840 1881617
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: .-.j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#@x.
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Vwindow.
+--- mdls
+kMDItemContentType             = "public.png"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    398,
+    184,
+    1119,
+    868
+)
+kMDItemScreenCaptureType       = "window"
+
+=== Screenshot 2026-10-19 at 16.48.46 (2).jpg
+--- stat -f '%FB %Fm %Fc %z'
+1792421331.991817413 1792421331.991985497 1792421331.993786170 349356
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: .-.j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#@. 
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Wdisplay.
+--- mdls
+kMDItemContentType             = "public.jpeg"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    1800,
+    0,
+    2560,
+    1440
+)
+kMDItemScreenCaptureType       = "display"
+
+=== Screenshot 2026-10-19 at 16.48.46.jpg
+--- stat -f '%FB %Fm %Fc %z'
+1792421331.984283552 1792421331.984577344 1792421331.987958149 1175696
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: .-.j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Wdisplay.
+--- mdls
+kMDItemContentType             = "public.jpeg"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    0,
+    0,
+    1800,
+    1169
+)
+kMDItemScreenCaptureType       = "display"
+
+=== Screenshot 2026-10-19 at 16.48.58.jpg
+--- stat -f '%FB %Fm %Fc %z'
+1792421344.433931881 1792421344.434077507 1792421344.438090980 74606
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: .-.j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#@r.
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Yselection.
+--- mdls
+kMDItemContentType             = "public.jpeg"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    300,
+    300,
+    401,
+    301
+)
+kMDItemScreenCaptureType       = "selection"
+
+=== Screenshot 2026-10-19 at 16.49.12.jpg
+--- stat -f '%FB %Fm %Fc %z'
+1792421352.544949201 1792421352.545211910 1792421352.549455676 1056289
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: .-.j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Vwindow.
+--- mdls
+kMDItemContentType             = "public.jpeg"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    0,
+    0,
+    1800,
+    1169
+)
+kMDItemScreenCaptureType       = "window"
+
+=== Screenshot 2026-10-19 at 16.49.19 (2).heic
+--- stat -f '%FB %Fm %Fc %z'
+1792421365.698368162 1792421365.698498371 1792421365.701748841 187177
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: .-.j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#@. 
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Wdisplay.
+--- mdls
+kMDItemContentType             = "public.heic"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    1800,
+    0,
+    2560,
+    1440
+)
+kMDItemScreenCaptureType       = "display"
+
+=== Screenshot 2026-10-19 at 16.49.19.heic
+--- stat -f '%FB %Fm %Fc %z'
+1792421365.684094234 1792421365.684255609 1792421365.689915297 557566
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: .-.j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Wdisplay.
+--- mdls
+kMDItemContentType             = "public.heic"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    0,
+    0,
+    1800,
+    1169
+)
+kMDItemScreenCaptureType       = "display"
+
+=== Screenshot 2026-10-19 at 16.49.32.heic
+--- stat -f '%FB %Fm %Fc %z'
+1792421378.464162299 1792421378.464294757 1792421378.467316977 39653
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: ...j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#@r.
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Yselection.
+--- mdls
+kMDItemContentType             = "public.heic"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    300,
+    300,
+    401,
+    301
+)
+kMDItemScreenCaptureType       = "selection"
+
+=== Screenshot 2026-10-19 at 16.49.53 (2).tiff
+--- stat -f '%FB %Fm %Fc %z'
+1792421399.499807807 1792421399.503086361 1792421399.527237826 14747414
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: ...j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#@. 
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Wdisplay.
+--- mdls
+kMDItemContentType             = "public.tiff"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    1800,
+    0,
+    2560,
+    1440
+)
+kMDItemScreenCaptureType       = "display"
+
+=== Screenshot 2026-10-19 at 16.49.53.tiff
+--- stat -f '%FB %Fm %Fc %z'
+1792421399.458034985 1792421399.470447406 1792421399.525573779 33673690
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: ...j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Wdisplay.
+--- mdls
+kMDItemContentType             = "public.tiff"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    0,
+    0,
+    1800,
+    1169
+)
+kMDItemScreenCaptureType       = "display"
+
+=== Screenshot 2026-10-19 at 16.50.06.tiff
+--- stat -f '%FB %Fm %Fc %z'
+1792421411.963341522 1792421411.963668732 1792421411.977833118 1935754
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: #..j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#@r.
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Yselection.
+--- mdls
+kMDItemContentType             = "public.tiff"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    300,
+    300,
+    401,
+    301
+)
+kMDItemScreenCaptureType       = "selection"
+
+=== Screenshot 2026-10-19 at 16.50.19.tiff
+--- stat -f '%FB %Fm %Fc %z'
+1792421425.442909994 1792421425.447033468 1792421425.451185400 22660322
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: 1..j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#@.X
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Vwindow.
+--- mdls
+kMDItemContentType             = "public.tiff"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    619,
+    23,
+    1204,
+    1176
+)
+kMDItemScreenCaptureType       = "window"
+
+=== Screenshot 2026-10-19 at 16.52.53 (2).pdf
+--- stat -f '%FB %Fm %Fc %z'
+1792421573.378813870 1792421573.417067805 1792421573.418699144 1936764
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: ...j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#@. 
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Wdisplay.
+--- mdls
+kMDItemContentType             = "com.adobe.pdf"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    1800,
+    0,
+    2560,
+    1440
+)
+kMDItemScreenCaptureType       = "display"
+
+=== Screenshot 2026-10-19 at 16.52.53.pdf
+--- stat -f '%FB %Fm %Fc %z'
+1792421573.263879066 1792421573.369074417 1792421573.376150610 3091325
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: ...j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Wdisplay.
+--- mdls
+kMDItemContentType             = "com.adobe.pdf"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    0,
+    0,
+    1800,
+    1169
+)
+kMDItemScreenCaptureType       = "display"
+
+=== Screenshot 2026-10-19 at 16.52.57.pdf
+--- stat -f '%FB %Fm %Fc %z'
+1792421578.447301525 1792421578.450815538 1792421578.459252195 58525
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: ...j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#@r.
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Yselection.
+--- mdls
+kMDItemContentType             = "com.adobe.pdf"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    300,
+    300,
+    401,
+    301
+)
+kMDItemScreenCaptureType       = "selection"
+
+=== Screenshot 2026-10-19 at 16.53.19.heic
+--- stat -f '%FB %Fm %Fc %z'
+1792421605.207333391 1792421605.207516058 1792421605.210724653 285527
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: ...j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#@v.
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Vwindow.
+--- mdls
+kMDItemContentType             = "public.heic"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    365,
+    162,
+    1185,
+    934
+)
+kMDItemScreenCaptureType       = "window"
+
+=== Screenshot 2026-10-19 at 16.53.41.png
+--- stat -f '%FB %Fm %Fc %z'
+1792421624.139162410 1792421624.194679117 1792421624.198203922 2125811
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: ...j
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#@v.
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Vwindow.
+--- mdls
+kMDItemContentType             = "public.png"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    365,
+    162,
+    1185,
+    934
+)
+kMDItemScreenCaptureType       = "window"
+

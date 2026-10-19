@@ -1,0 +1,134 @@
+1792420678.443573000 prefs->r3 (no refresher)
+1792420678.446897000 KEY A cmd-shift-3
+1792420680.570870000 scui: 14871 screencaptureui
+1792420680.592609000 prefs->r4 during A thumbnail (no refresher)
+1792420681.626294000 KEY B cmd-shift-3 scui: 14871 screencaptureui
+1792420693.761374000 after scui: 14871 screencaptureui
+1792420700.110935000 KEY C cmd-shift-3 (prefs r4, scui alive, no refresher) scui: 
+1792420709.195129000 killall screencaptureui
+1792420710.230461000 scui: 
+1792420710.233766000 KEY D cmd-shift-3
+1792420719.341755000 scui: 28003 screencaptureui
+1792420727.826035000 scui before E: 
+1792420727.850526000 prefs->r1
+1792420727.862384000 killall screencaptureui rc=1
+1792420728.372701000 KEY E cmd-shift-3
+1792420755.702852000 KEY X cmd-shift-3 (prefs r1)
+1792420763.322136000 scui after X saved: 60134 screencaptureui
+1792420763.343702000 prefs->r2
+1792420763.357171000 killall screencaptureui rc=0
+1792420763.863024000 KEY Y cmd-shift-3
+1792420771.471760000 scui after Y saved: 71192 screencaptureui
+1792420771.499176000 prefs->r3
+1792420771.512876000 killall SystemUIServer rc=0
+1792420773.066763000 scui: 71192 screencaptureui sus: 78011 SystemUIServer
+1792420773.071011000 KEY Z cmd-shift-3
+1792420797.705708000 scui: 
+1792420797.754337000 prefs->r4 show-thumbnail=false, NO refresher, scui alive?: 
+1792420797.757351000 KEY T1 cmd-shift-3
+1792420799.352373000 after 1.5s r2/r4: 0
+1792420806.382256000 scui: 
+1792420806.393705000 killall screencaptureui rc=1
+1792420806.900945000 KEY T2 cmd-shift-3
+1792420808.477984000 after 1.5s
+1792420842.950569000 prefs->r3 show-thumbnail=true
+1792420842.954859000 KEY F cmd-shift-3 (then killall scui during thumbnail)
+1792420845.070568000 scui: 17031 screencaptureui
+1792420845.083825000 killall screencaptureui during thumbnail rc=0
+1792420853.103263000 after F
+1792420949.333319000 KEY G cmd-shift-3 (lifetime probe, prefs r3)
+1792420950198173000 screencaptureui onscreen=0  pid=80752
+1792420961326924000 screencaptureui onscreen=0  pid=
+1792421012.630749000 KEY I cmd-shift-3 (lifetime probe 2)
+1792421013236628000 pid=0 onscreen=0 
+1792421013548664000 pid=8694 onscreen=1 [owner=Screenshot layer=24 w=1800 h=1169]
+1792421024333583000 pid=0 onscreen=0 
+1792421045.449477000 scui: 
+1792421045.467155000 target,target-screenshot=clipboard (no refresher)
+1792421045.470341000 KEY J cmd-shift-3
+1792421057.213138000 clipboard: *** Error creating a JP2 color space: falling back to sRGB
+«class PNGf», 3739658, «class AVIF», 590230, «class 8BPS», 13786620, GIF picture, 902169, «class jp2 », 1687436, JPEG picture, 1403719, TIFF picture, 
+1792421057.239473000 target back to file
+1792421072.384123000 KEY cmd-shift-5
+1792421213.034501000 type=png
+1792421213.038015000 CAP display png
+1792421224.592658000 CAP selection png
+1792421236.902794000 CAP window png
+1792421245.866619000 done png
+1792421287.949944000 type=png
+1792421287.955908000 CAP display png
+1792421299.590423000 CAP selection png
+1792421312.139972000 CAP window png
+1792421325.971405000 done png
+1792421326.017922000 type=jpg
+1792421326.022434000 CAP display jpg
+1792421337.573427000 CAP selection jpg
+1792421350.145947000 CAP window jpg
+1792421359.478706000 done jpg
+1792421359.604382000 type=heic
+1792421359.611827000 CAP display heic
+1792421371.459443000 CAP selection heic
+1792421384.203448000 CAP window heic
+1792421393.555926000 done heic
+1792421393.590435000 type=tiff
+1792421393.593422000 CAP display tiff
+1792421405.126641000 CAP selection tiff
+1792421417.591053000 CAP window tiff
+1792421431.001855000 done tiff
+1792421431.037609000 type=pdf
+1792421431.040349000 CAP display pdf
+1792421438.148296000 CAP selection pdf
+1792421446.430047000 CAP window pdf
+1792421455.738113000 done pdf
+1792421476.560518000 CAP display pdf retry
+1792421573.051990000 CAP display pdf thumbnail-off
+1792421577.147453000 CAP selection pdf thumbnail-off
+1792421590.820514000 CAP window pdf thumbnail-off
+1792421597.124612000 type=heic thumbnail-on
+1792421597.127828000 CAP window heic retry
+1792421614.493133000 CAP window pdf thumbnail-off retry
+1792421621.788611000 CAP window png thumbnail-off control
+1792421672.629939000 FLOW probe: selection, then CLI grab of thumbnail area
+1792421675.480049000 grabbed
+1792421696.778521000 FLOW hover40: KEY selection
+1792421698.042428000 FLOW hover40: selection done
+1792421698.749164000 FLOW hover40: hover start
+1792421745.252858000 FLOW hover40: hover end (moved away)
+1792421745.547133000 FLOW hover40: files=Screenshot 2026-10-19 at 16.54.33.png|Screenshot 2026-10-19 at 16.54.58.png|
+1792421760.638166000 FLOW probe2
+1792421785.447103000 FLOW hover40b: KEY selection
+1792421786.739663000 FLOW hover40b: selection done
+1792421788.245918000 FLOW hover40b: hover start
+1792421809.550745000 file appeared during hover at i=63
+1792421809.554322000 FLOW hover40b: hover end, off-target samples=13
+1792421809.852988000 FLOW hover40b: files=Screenshot 2026-10-19 at 16.56.26.png
+1792421819.362887000 FLOW hover40c: KEY selection
+1792421820.651738000 FLOW hover40c: selection done
+1792421822.159669000 FLOW hover40c: hover start
+1792421877.417443000 FLOW hover40c: hover end, off-target samples=33
+1792421883.467914000 FLOW hover40c: files=Screenshot 2026-10-19 at 16.57.00.png
+1792421898.590016000 FLOW markup: KEY selection
+1792421899.866923000 FLOW markup: selection done
+1792421901.316582000 FLOW markup: clicked thumbnail
+1792421913.578569000 FLOW markup: clicked Markup toolbar button
+1792421927.019872000 FLOW markup: chose Sketch tool
+1792421928.048535000 FLOW markup: stroke 1
+1792421928.972370000 FLOW markup: stroke 2
+1792421942.504325000 FLOW markup: files before Done:        5
+1792421942.654227000 FLOW markup: clicked Done
+1792421970.760473000 REC: cmd-shift-5
+1792421993.652645000 OPTIONS: clicked Options
+1792422005.617328000 OPTIONS: chose Save to Documents (record mode active)
+1792422020.290145000 REC: escape toolbar
+1792422025.489113000 scui gone: 
+1792422025.523820000 prefs->rec
+1792422025.630140000 REC: cmd-shift-5
+1792422027.003562000 REC: chose Record Entire Screen
+1792422039.429749000 REC: clicked Record
+1792422040.701798000 REC: clicked main display (if display picker)
+1792422045.023478000 REC: stop cmd-ctrl-esc
+1792422050.840484000 REC: files: Screen Recording 2026-10-19 at 17.00.38.mov
+1792422069.611824000 MISSING: prefs->gone/missing-target
+1792422070.616851000 MISSING: folder moved to Trash, exists=no
+1792422070.646194000 MISSING: KEY selection
+1792422080.135301000 MISSING: after

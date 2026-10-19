@@ -1,0 +1,4 @@
+   0.000s [main] start pid=24328 folder=~/Desktop
+   0.015s [bg] open(O_EVTONLY) -> fd=4 errno=0 (ok) after 0.015s
+   0.017s [bg] contentsOfDirectory -> 5 items after 0.001s
+   0.501s [main] finished
