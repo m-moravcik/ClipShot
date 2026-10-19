@@ -11,6 +11,13 @@ struct ClipShotApp: App {
     private let updateStatus: UpdateStatus
 
     init() {
+        #if DEBUG
+        // Before anything else: the harness renders demo data and exits, so the app never
+        // starts watching or touches the pasteboard (scripts/screenshots.sh).
+        if let output = ScreenshotHarness.requestedOutput {
+            ScreenshotHarness.run(into: output)
+        }
+        #endif
         let model = Self.makeModel(environment: ProcessInfo.processInfo.environment)
         // Resumes watching only when onboarding was already shown; otherwise step 2 starts it.
         model?.launch()

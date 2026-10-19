@@ -13,6 +13,7 @@ final class SettingsRouter {
     var tab: SettingsTab = .general
 }
 
+/// The panes are internal, not private, so the Debug screenshot harness can draw each one.
 struct SettingsView: View {
     @Environment(SettingsRouter.self) private var router
 
@@ -59,7 +60,7 @@ private struct Note: View {
 
 // MARK: - General
 
-private struct GeneralSettings: View {
+struct GeneralSettings: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
@@ -100,7 +101,7 @@ private struct GeneralSettings: View {
 
 // MARK: - Capture
 
-private struct CaptureSettingsPane: View {
+struct CaptureSettingsPane: View {
     /// The setting the user changed last, which carries the "applies from the next
     /// screenshot" note while screencaptureui still holds the old value.
     private enum Changed { case folder, thumbnail, destination, restore }
@@ -139,7 +140,7 @@ private struct CaptureSettingsPane: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(verbatim: model.configuredFolder.map(AttentionPresentation.displayName) ?? "")
                         .lineLimit(1)
-                    Text(verbatim: model.configuredFolder.map { ($0.path as NSString).abbreviatingWithTildeInPath } ?? "")
+                    Text(verbatim: model.configuredFolder.map(model.displayPath) ?? "")
                         .font(Design.Typography.note)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -312,7 +313,7 @@ enum RetentionMode: Equatable {
     }
 }
 
-private struct RetentionSettings: View {
+struct RetentionSettings: View {
     private enum Period: Hashable { case preset(Int), custom }
 
     private struct Offer: Equatable {
@@ -558,7 +559,7 @@ private struct RetentionSettings: View {
 
 // MARK: - About
 
-private struct AboutSettings: View {
+struct AboutSettings: View {
     @Environment(AppModel.self) private var model
     @Environment(\.updater) private var updater
 

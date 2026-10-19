@@ -24,19 +24,25 @@ enum StatusIconState: Equatable, CaseIterable, Sendable {
 /// The drawing, with nothing to observe, so it can be rendered offscreen and reviewed.
 /// Template image: only opacity varies, never colour. The copied state crossfades from
 /// the idle symbol to the copied one by `phase` (see `CopiedFlash`).
+///
+/// Each state has its own outline, so it reads without colour and at a glance: the
+/// capture corners (idle, the app icon's marquee and the Screenshot app's camera), a
+/// circle (copied), a wide rounded rectangle (paused) and a triangle (attention).
 struct StatusIconArt: View {
     let state: StatusIconState
     let phase: Int
     var reduceMotion = false
 
-    private static let glyphSize: CGFloat = 15
+    static let glyphSize: CGFloat = 15
+    /// Wide enough for the widest symbol (`pause.rectangle`, 21.5 pt at 15 pt), so the
+    /// status item never changes width between states and nothing beside it shifts.
+    static let frame = CGSize(width: 22, height: 18)
 
-    /// Placeholder symbols; the final art is chosen later.
     nonisolated static func symbol(for state: StatusIconState) -> String {
         switch state {
         case .idle: "camera.viewfinder"
         case .copied: "checkmark.circle"
-        case .paused: "pause.circle"
+        case .paused: "pause.rectangle"
         case .attention: "exclamationmark.triangle"
         }
     }
@@ -45,7 +51,6 @@ struct StatusIconArt: View {
         let copied = state == .copied
         let o = CopiedFlash.opacity(phase: phase, reduceMotion: reduceMotion)
         ZStack {
-            // Fixed frame so the icon never changes size between states.
             Image(systemName: Self.symbol(for: copied ? .idle : state))
                 .opacity(copied ? 1 - o : 1)
             if copied {
@@ -53,6 +58,7 @@ struct StatusIconArt: View {
             }
         }
         .font(.system(size: Self.glyphSize))
+        .frame(width: Self.frame.width, height: Self.frame.height)
     }
 }
 

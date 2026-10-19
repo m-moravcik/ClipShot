@@ -60,6 +60,15 @@ final class AppModel {
     /// Where screenshots are going right now: the watched folder, else the configured one.
     var screenshotFolder: URL? { watchedFolder ?? configuredFolder }
 
+    /// `url` for display, with this model's home folder written as "~".
+    func displayPath(_ url: URL) -> String {
+        let path = url.standardizedFileURL.path
+        let home = home.standardizedFileURL.path
+        if path == home { return "~" }
+        if path.hasPrefix(home + "/") { return "~" + path.dropFirst(home.count) }
+        return path
+    }
+
     /// "Paste works once the thumbnail disappears", until the first copy.
     var showFirstCopyHint: Bool { !preferences.firstCopyDone }
 

@@ -166,6 +166,16 @@ struct AppModelTests {
         #expect(h.loginReconciles == 1)
     }
 
+    @Test func displayPathWritesTheModelsHomeAsTilde() throws {
+        let h = try ModelHarness()
+        #expect(h.model.displayPath(h.folder) == "~/Shots")
+        #expect(h.model.displayPath(h.home) == "~")
+        #expect(h.model.displayPath(URL(fileURLWithPath: "/Volumes/Shots")) == "/Volumes/Shots")
+        // A sibling whose name starts with the home's is not inside it.
+        let sibling = URL(fileURLWithPath: h.home.path + "-other/Shots")
+        #expect(h.model.displayPath(sibling) == sibling.path)
+    }
+
     @Test func launchStartsWatchingOnlyAfterOnboarding() async throws {
         let h = try ModelHarness(onboardingShown: true)
         defer { h.tearDown() }

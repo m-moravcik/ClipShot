@@ -1,4 +1,5 @@
-import Foundation
+import AppKit
+import SwiftUI
 import Testing
 @testable import ClipShot
 
@@ -33,5 +34,28 @@ struct StatusIconStateTests {
             #expect(!String(localized: state.accessibilityLabel).isEmpty)
             #expect(!StatusIconArt.symbol(for: state).isEmpty)
         }
+    }
+
+    @Test func everySymbolExistsAndHasItsOwnShape() {
+        let symbols = StatusIconState.allCases.map(StatusIconArt.symbol(for:))
+        #expect(Set(symbols).count == StatusIconState.allCases.count)
+        for name in symbols {
+            #expect(NSImage(systemSymbolName: name, accessibilityDescription: nil) != nil, "\(name)")
+        }
+    }
+
+    /// The status item keeps its width through every state and flash phase.
+    @MainActor
+    @Test func sizeIsTheSameInEveryStateAndPhase() {
+        var sizes: Set<String> = []
+        for state in StatusIconState.allCases {
+            for phase in 0...CopiedFlash.steps {
+                for reduceMotion in [false, true] {
+                    let view = NSHostingView(rootView: StatusIconArt(state: state, phase: phase, reduceMotion: reduceMotion))
+                    sizes.insert("\(view.fittingSize)")
+                }
+            }
+        }
+        #expect(sizes == ["\(StatusIconArt.frame)"])
     }
 }
