@@ -32,7 +32,8 @@ final class CopyCoordinator {
         didSet { if watchedFolder != oldValue { onStateChange?() } }
     }
     var onCopied: ((CaptureFile) -> Void)?
-    var onFailure: (() -> Void)?
+    /// The screenshot that could not be copied, so "Copy again" can retry that one.
+    var onFailure: ((CaptureFile) -> Void)?
     /// Called on the main actor whenever `watchError`, `watchedFolder`, `lastCopied` or
     /// `lastFailure` changes, so an app model can mirror them.
     var onStateChange: (() -> Void)?
@@ -360,7 +361,7 @@ final class CopyCoordinator {
 
     private func reportFailure(_ file: CaptureFile) {
         lastFailure = clock()
-        onFailure?()
+        onFailure?(file)
         let ext = file.url.pathExtension.lowercased()
         let log = log
         Task { await log.error("copy failed ext=\(ext)") }

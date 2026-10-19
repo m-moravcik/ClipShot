@@ -3,10 +3,9 @@ import Foundation
 /// App log: `<ISO8601> <LEVEL> <message>`, 0600, rolled to `<name>.1` by rename.
 /// Messages carry counts and extensions only, never paths.
 actor Log {
-    static let shared = Log(
-        fileURL: FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Logs/clipshot.log")
-    )
+    static let defaultFileURL = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Library/Logs/clipshot.log")
+    static let shared = Log(fileURL: defaultFileURL)
 
     private let fileURL: URL
     private let maxBytes: Int

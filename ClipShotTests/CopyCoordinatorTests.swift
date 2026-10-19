@@ -42,7 +42,7 @@ final class CoordinatorHarness {
         coordinator = CopyCoordinator(
             settings: settings, events: DirectoryEventSource(), pasteboard: pasteboard, ledger: ledger,
             clock: { Date() }, pollInterval: .milliseconds(100), home: home, log: try RT.testLog())
-        coordinator.onFailure = { [weak self] in self?.failures += 1 }
+        coordinator.onFailure = { [weak self] _ in self?.failures += 1 }
     }
 
     /// Starts and waits until the folder is watched and seeded.

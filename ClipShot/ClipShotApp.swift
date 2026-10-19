@@ -6,12 +6,16 @@ struct ClipShotApp: App {
     @State private var model: AppModel?
 
     init() {
-        _model = State(initialValue: Self.makeModel(environment: ProcessInfo.processInfo.environment))
+        let model = Self.makeModel(environment: ProcessInfo.processInfo.environment)
+        // Resumes watching only when onboarding was already shown; otherwise step 2 starts it.
+        model?.launch()
+        _model = State(initialValue: model)
     }
 
+    /// Builds the model without starting it: creating it has no side effects.
     static func makeModel(environment: [String: String]) -> AppModel? {
         if environment["XCTestConfigurationFilePath"] != nil { return nil }
-        return MainActor.assumeIsolated { AppModel() }
+        return MainActor.assumeIsolated { AppModel(dependencies: .live()) }
     }
 
     var body: some Scene {
@@ -19,7 +23,11 @@ struct ClipShotApp: App {
             Text(verbatim: "ClipShot")
                 .padding(Design.Spacing.l)
         } label: {
-            Image(systemName: "camera.viewfinder")
+            if let model {
+                StatusIcon(state: model.iconState, phase: model.flashPhase, reduceMotion: model.flashReduceMotion)
+            } else {
+                StatusIcon(state: .idle, phase: 0)
+            }
         }
         .menuBarExtraStyle(.window)
     }
