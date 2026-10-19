@@ -27,6 +27,11 @@ final class SystemFlashTimer: FlashTimer {
         timer?.invalidate()
         timer = nil
     }
+
+    /// A timer released without `invalidate()` must not keep ticking on the run loop.
+    isolated deinit {
+        timer?.invalidate()
+    }
 }
 
 /// Finder and the default apps.
@@ -218,7 +223,7 @@ final class AppModel {
         logFile = d.logFile
         appVersion = d.appVersion
         osVersion = d.osVersion
-        let settings = CaptureSettings(prefs: d.screencapturePrefs, home: d.home, backup: d.backup)
+        let settings = CaptureSettings(prefs: d.screencapturePrefs, home: d.home, backup: d.backup, log: d.log)
         self.settings = settings
         coordinator = CopyCoordinator(
             settings: settings, events: d.events, pasteboard: d.pasteboard, ledger: d.ledger,
@@ -233,6 +238,15 @@ final class AppModel {
         coordinator.onCopied = { [weak self] in self?.copied($0) }
         coordinator.onFailure = { [weak self] in self?.copyFailed($0) }
         scheduler.work = { [weak self] in await self?.runRetention() }
+    }
+
+    /// Stops what `startWatching()` started when the model goes away without `stopWatching()`.
+    isolated deinit {
+        coordinator.stop()
+        scheduler.stop()
+        statusTask?.cancel()
+        previewTask?.cancel()
+        flashTimer?.invalidate()
     }
 
     // MARK: - Lifecycle
@@ -253,7 +267,9 @@ final class AppModel {
         observePreferences()
         statusTask = Task { [weak self, statusInterval] in
             while !Task.isCancelled {
-                self?.refreshStatus()
+                // Not held across the sleep, so a released model ends the loop.
+                guard let model = self else { return }
+                model.refreshStatus()
                 try? await Task.sleep(for: statusInterval)
             }
         }
@@ -592,11 +608,12 @@ final class AppModel {
     // MARK: - Report
 
     /// A pre-filled GitHub issue with the macOS and app versions and the last 20 log lines.
-    func reportIssueURL() -> URL {
+    /// The log is read off the main actor.
+    func reportIssueURL() async -> URL {
         let title = attentions.contains(.couldNotCopy)
             ? "ClipShot saw a screenshot but could not copy it" : "ClipShot issue"
-        return IssueReport.url(
-            title: title, osVersion: osVersion, appVersion: appVersion,
-            logLines: IssueReport.lastLines(of: logFile))
+        let logFile = logFile
+        let lines = await Task.detached(priority: .userInitiated) { IssueReport.lastLines(of: logFile) }.value
+        return IssueReport.url(title: title, osVersion: osVersion, appVersion: appVersion, logLines: lines)
     }
 }

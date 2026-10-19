@@ -47,13 +47,22 @@ final class RecordingWorkspace: WorkspaceActions {
     func open(_ url: URL) { opened.append(url) }
 }
 
+@MainActor
+final class WeakModel {
+    weak var value: AppModel?
+}
+
+@MainActor
+final class TickCounter {
+    var count = 0
+}
+
 /// An AppModel on a temp home with fakes for everything that reaches outside the process.
 @MainActor
 final class ModelHarness {
     let home: URL
     let folder: URL
     let prefs: FakeScreencapturePreferences
-    let defaultsName = "clipshot.tests.\(UUID().uuidString)"
     let preferences: Preferences
     let events = CountingEventSource()
     let pasteboard = RecordingPasteboard()
@@ -76,7 +85,7 @@ final class ModelHarness {
         folder = home.appendingPathComponent("Shots", isDirectory: true)
         try fm.createDirectory(at: folder, withIntermediateDirectories: true)
         prefs = FakeScreencapturePreferences(["location": folder.path])
-        preferences = Preferences(defaults: UserDefaults(suiteName: defaultsName)!)
+        preferences = Preferences(store: InMemoryPreferenceStore())
         preferences.onboardingShown = onboardingShown
         ledger = try RT.ledger()
         trasher = try FakeTrasher()
@@ -115,7 +124,6 @@ final class ModelHarness {
 
     func tearDown() {
         model.stopWatching()
-        UserDefaults(suiteName: defaultsName)?.removePersistentDomain(forName: defaultsName)
     }
 
     /// Starts and waits until the folder is watched.
@@ -278,7 +286,7 @@ struct AppModelTests {
         // Lines that must never reach a public issue.
         try "2026-10-19T10:00:00Z INFO copied ext=png\n2026-10-19T10:00:01Z ERROR saw /Users/somebody/Pictures/x.png\n"
             .write(to: h.logFile, atomically: true, encoding: .utf8)
-        let url = h.model.reportIssueURL()
+        let url = await h.model.reportIssueURL()
         let parts = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
         #expect(parts.scheme == "https")
         #expect(parts.host == "github.com")
@@ -305,7 +313,7 @@ struct AppModelTests {
         defer { h.tearDown() }
         let lines = (1...30).map { "line \($0)" }
         try (lines.joined(separator: "\n") + "\n").write(to: h.logFile, atomically: true, encoding: .utf8)
-        let parts = try #require(URLComponents(url: h.model.reportIssueURL(), resolvingAgainstBaseURL: false))
+        let parts = try #require(URLComponents(url: await h.model.reportIssueURL(), resolvingAgainstBaseURL: false))
         let body = try #require(parts.queryItems?.first { $0.name == "body" }?.value)
         #expect(!body.contains("line 10\n"))
         #expect(body.contains("line 11\n"))
@@ -342,6 +350,39 @@ struct AppModelTests {
         try h.shoot("Screenshot 3.png", size: 19)
         #expect(await eventually { await h.timers.count == 2 })
         #expect(h.model.flashReduceMotion)
+    }
+
+    @Test func releasedModelStopsPollingAndItsFlashTimer() async throws {
+        let ref = WeakModel()
+        let prefs: FakeScreencapturePreferences
+        let timer: ManualFlashTimer
+        do {
+            let h = try ModelHarness()
+            #expect(await h.start())
+            try h.shoot("Screenshot 1.png")
+            #expect(await eventually { await h.timers.count == 1 })
+            timer = h.timers[0]
+            prefs = h.prefs
+            ref.value = h.model
+        }
+        for _ in 0..<50 where ref.value != nil { try? await Task.sleep(for: .milliseconds(100)) }
+        #expect(ref.value == nil, "nothing keeps a released model alive")
+        #expect(timer.invalidated)
+        let reads = prefs.synchronizeCount
+        try? await Task.sleep(for: .milliseconds(500))
+        #expect(prefs.synchronizeCount == reads, "no poll reads the prefs after release")
+    }
+
+    @Test func releasedSystemFlashTimerStopsTicking() async {
+        let ticks = TickCounter()
+        do {
+            let timer = SystemFlashTimer(interval: 0.02, tolerance: 0.005) { ticks.count += 1 }
+            #expect(await eventually { await ticks.count >= 2 })
+            withExtendedLifetime(timer) {}
+        }
+        let after = ticks.count
+        try? await Task.sleep(for: .milliseconds(200))
+        #expect(ticks.count == after)
     }
 
     @Test func cleanUpNowUpdatesTotals() async throws {

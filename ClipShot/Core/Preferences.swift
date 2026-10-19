@@ -7,12 +7,21 @@ struct Totals: Codable, Equatable, Sendable {
     var trashed: Int = 0
 }
 
-/// ClipShot's own settings, persisted in UserDefaults under `clipshot.`-prefixed keys.
+/// Where `Preferences` keeps its values. `UserDefaults` in the app; tests use an in-memory
+/// store so a run never creates preference files.
+protocol PreferenceStore: AnyObject {
+    func object(forKey key: String) -> Any?
+    func set(_ value: Any?, forKey key: String)
+}
+
+extension UserDefaults: PreferenceStore {}
+
+/// ClipShot's own settings, persisted under `clipshot.`-prefixed keys.
 /// Codable values are stored as JSON `Data`; an unreadable value falls back to its default.
 @MainActor
 @Observable
 final class Preferences {
-    @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let defaults: any PreferenceStore
 
     var copyEnabled: Bool { didSet { defaults.set(copyEnabled, forKey: Key.copyEnabled) } }
     var copySound: Bool { didSet { defaults.set(copySound, forKey: Key.copySound) } }
@@ -32,17 +41,17 @@ final class Preferences {
     var firstCopyDone: Bool { didSet { defaults.set(firstCopyDone, forKey: Key.firstCopyDone) } }
     var markupTipShown: Bool { didSet { defaults.set(markupTipShown, forKey: Key.markupTipShown) } }
 
-    init(defaults: UserDefaults = .standard) {
+    init(store defaults: any PreferenceStore = UserDefaults.standard) {
         self.defaults = defaults
         copyEnabled = defaults.object(forKey: Key.copyEnabled) as? Bool ?? true
-        copySound = defaults.bool(forKey: Key.copySound)
+        copySound = defaults.object(forKey: Key.copySound) as? Bool ?? false
         retention = Self.load(RetentionPolicy.self, Key.retention, defaults) ?? .default
-        onboardingShown = defaults.bool(forKey: Key.onboardingShown)
+        onboardingShown = defaults.object(forKey: Key.onboardingShown) as? Bool ?? false
         launchAtLoginIntent = defaults.object(forKey: Key.launchAtLoginIntent) as? Bool
         lastRetention = Self.load(RetentionResult.self, Key.lastRetention, defaults)
         totals = Self.load(Totals.self, Key.totals, defaults) ?? Totals()
-        firstCopyDone = defaults.bool(forKey: Key.firstCopyDone)
-        markupTipShown = defaults.bool(forKey: Key.markupTipShown)
+        firstCopyDone = defaults.object(forKey: Key.firstCopyDone) as? Bool ?? false
+        markupTipShown = defaults.object(forKey: Key.markupTipShown) as? Bool ?? false
     }
 
     private enum Key {
@@ -65,8 +74,8 @@ final class Preferences {
         defaults.set(data, forKey: key)
     }
 
-    private static func load<T: Decodable>(_ type: T.Type, _ key: String, _ defaults: UserDefaults) -> T? {
-        guard let data = defaults.data(forKey: key) else { return nil }
+    private static func load<T: Decodable>(_ type: T.Type, _ key: String, _ defaults: any PreferenceStore) -> T? {
+        guard let data = defaults.object(forKey: key) as? Data else { return nil }
         return try? JSONDecoder().decode(type, from: data)
     }
 }

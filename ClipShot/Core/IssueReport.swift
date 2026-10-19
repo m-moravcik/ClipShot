@@ -1,6 +1,7 @@
 import Foundation
 
 /// A pre-filled GitHub issue: macOS version, app version and the last log lines, no paths.
+/// The title and body are deliberately untranslated: they are read by the maintainer, not shown in the app.
 enum IssueReport {
     static let newIssue = "https://github.com/m-moravcik/ClipShot/issues/new"
     static let logLineCount = 20

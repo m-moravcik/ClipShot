@@ -37,7 +37,8 @@ final class CoordinatorHarness {
         if createDesktop { try fm.createDirectory(at: desktop, withIntermediateDirectories: true) }
         prefs = FakeScreencapturePreferences(["location": folder.path])
         settings = CaptureSettings(
-            prefs: prefs, home: home, backup: PrefsBackup(fileURL: home.appendingPathComponent("backup.plist")))
+            prefs: prefs, home: home, backup: PrefsBackup(fileURL: home.appendingPathComponent("backup.plist")),
+            log: try RT.testLog())
         ledger = try RT.ledger()
         coordinator = CopyCoordinator(
             settings: settings, events: DirectoryEventSource(), pasteboard: pasteboard, ledger: ledger,

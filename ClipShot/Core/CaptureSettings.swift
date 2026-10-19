@@ -17,11 +17,13 @@ struct CaptureSettings: Sendable {
     private let prefs: any ScreencapturePreferences
     private let home: URL
     private let backup: PrefsBackup
+    private let log: Log
 
-    init(prefs: any ScreencapturePreferences, home: URL, backup: PrefsBackup) {
+    init(prefs: any ScreencapturePreferences, home: URL, backup: PrefsBackup, log: Log = .shared) {
         self.prefs = prefs
         self.home = home
         self.backup = backup
+        self.log = log
     }
 
     /// `location-screenshot`, then `location`, then ~/Desktop. Tilde paths expanded (F12).
@@ -101,7 +103,8 @@ struct CaptureSettings: Sendable {
             if let value = prefs.value(forKey: key) { current[key] = value }
         }
         guard backup.saveOnce(current) else {
-            Task { await Log.shared.error("prefs backup failed; settings left unchanged") }
+            let log = log
+            Task { await log.error("prefs backup failed; settings left unchanged") }
             return false
         }
         return true

@@ -4,16 +4,13 @@ import Testing
 
 @MainActor
 struct PreferencesTests {
-    private func withDefaults(_ body: (UserDefaults) -> Void) {
-        let name = "clipshot.tests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: name)!
-        defer { defaults.removePersistentDomain(forName: name) }
-        body(defaults)
+    private func withDefaults(_ body: (InMemoryPreferenceStore) -> Void) {
+        body(InMemoryPreferenceStore())
     }
 
     @Test func freshInstallDefaults() {
         withDefaults { defaults in
-            let p = Preferences(defaults: defaults)
+            let p = Preferences(store: defaults)
             #expect(p.copyEnabled)
             #expect(!p.copySound)
             #expect(p.retention == .default)
@@ -28,7 +25,7 @@ struct PreferencesTests {
 
     @Test func valuesSurviveANewInstance() {
         withDefaults { defaults in
-            let p = Preferences(defaults: defaults)
+            let p = Preferences(store: defaults)
             p.copyEnabled = false
             p.copySound = true
             p.retention = RetentionPolicy(enabled: true, days: 14, confirmed: nil)
@@ -40,7 +37,7 @@ struct PreferencesTests {
             p.firstCopyDone = true
             p.markupTipShown = true
 
-            let q = Preferences(defaults: defaults)
+            let q = Preferences(store: defaults)
             #expect(!q.copyEnabled)
             #expect(q.copySound)
             #expect(q.retention.enabled && q.retention.days == 14)
@@ -55,13 +52,13 @@ struct PreferencesTests {
 
     @Test func intentCanBeClearedAndKeysArePrefixed() {
         withDefaults { defaults in
-            let p = Preferences(defaults: defaults)
+            let p = Preferences(store: defaults)
             p.launchAtLoginIntent = false
-            #expect(Preferences(defaults: defaults).launchAtLoginIntent == false)
+            #expect(Preferences(store: defaults).launchAtLoginIntent == false)
             p.launchAtLoginIntent = nil
-            #expect(Preferences(defaults: defaults).launchAtLoginIntent == nil)
+            #expect(Preferences(store: defaults).launchAtLoginIntent == nil)
             p.copySound = true
-            let keys = defaults.dictionaryRepresentation().keys.filter { $0.hasPrefix("clipshot.") }
+            let keys = defaults.keys.filter { $0.hasPrefix("clipshot.") }
             #expect(keys.contains("clipshot.copySound"))
         }
     }
@@ -70,7 +67,7 @@ struct PreferencesTests {
         withDefaults { defaults in
             defaults.set(Data("nope".utf8), forKey: "clipshot.retention")
             defaults.set(Data("nope".utf8), forKey: "clipshot.totals")
-            let p = Preferences(defaults: defaults)
+            let p = Preferences(store: defaults)
             #expect(p.retention == .default)
             #expect(p.totals == Totals())
         }

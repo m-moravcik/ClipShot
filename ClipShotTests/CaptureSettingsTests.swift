@@ -11,7 +11,7 @@ struct CaptureSettingsTests {
             .appendingPathComponent("clipshot-tests-\(UUID().uuidString)", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let backup = PrefsBackup(fileURL: dir.appendingPathComponent("backup.plist"))
-        return (prefs, CaptureSettings(prefs: prefs, home: home, backup: backup), dir)
+        return (prefs, CaptureSettings(prefs: prefs, home: home, backup: backup, log: try! RT.testLog()), dir)
     }
 
     @Test func folderPrefersLocationScreenshotThenLocationThenDesktop() {
@@ -118,7 +118,7 @@ struct CaptureSettingsTests {
         let blocker = dir.appendingPathComponent("file")
         try Data("x".utf8).write(to: blocker)
         let backup = PrefsBackup(fileURL: blocker.appendingPathComponent("sub/backup.plist"))
-        let settings = CaptureSettings(prefs: prefs, home: home, backup: backup)
+        let settings = CaptureSettings(prefs: prefs, home: home, backup: backup, log: try RT.testLog())
 
         #expect(throws: FolderValidation.notWritable) { try settings.setFolder(dir) }
         settings.showThumbnail = false

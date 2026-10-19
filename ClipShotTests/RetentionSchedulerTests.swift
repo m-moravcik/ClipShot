@@ -118,7 +118,8 @@ struct RetentionPassTests {
         }
         let prefs = FakeScreencapturePreferences(["location": (folder ?? dir).path])
         let settings = CaptureSettings(
-            prefs: prefs, home: RT.home, backup: PrefsBackup(fileURL: dir.appendingPathComponent("backup.plist")))
+            prefs: prefs, home: RT.home, backup: PrefsBackup(fileURL: dir.appendingPathComponent("backup.plist")),
+            log: try RT.testLog())
         let trasher = try FakeTrasher()
         let pass = RetentionPass(
             settings: settings, ledger: ledger, runner: try RT.runner(trasher, ledger), home: RT.home,

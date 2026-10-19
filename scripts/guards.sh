@@ -15,6 +15,11 @@ if grep -rnE 'removeItem|unlink\(' ClipShot --include='*.swift'; then
   report "removeItem/unlink found under ClipShot/"
 fi
 
+# Tests must not create preference files (removePersistentDomain leaves the plist behind).
+if grep -rnE 'UserDefaults\(suiteName|UserDefaults\.standard' ClipShotTests --include='*.swift'; then
+  report "tests use real UserDefaults; use InMemoryPreferenceStore"
+fi
+
 python3 - <<'PY' || fail=1
 import glob, re, sys
 bad = []
