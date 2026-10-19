@@ -380,6 +380,155 @@
         }
       }
     },
+    "%lld more displays in this screenshot" : {
+      "comment" : "VoiceOver label of the +N chip: a full-screen capture also saved this many other displays",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld more display in this screenshot"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld more displays in this screenshot"
+                }
+              }
+            }
+          }
+        },
+        "sk" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ešte %lld displej v tejto snímke"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ešte %lld displeje v tejto snímke"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ešte %lld displeja v tejto snímke"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ešte %lld displejov v tejto snímke"
+                }
+              }
+            }
+          }
+        },
+        "cs" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ještě %lld displej v tomto snímku"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ještě %lld displeje v tomto snímku"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ještě %lld displeje v tomto snímku"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ještě %lld displejů v tomto snímku"
+                }
+              }
+            }
+          }
+        },
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld weiterer Bildschirm in diesem Bildschirmfoto"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld weitere Bildschirme in diesem Bildschirmfoto"
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld pantalla más en esta captura"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld pantallas más en esta captura"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld pantallas más en esta captura"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld autre écran dans cette capture"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld autres écrans dans cette capture"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld autres écrans dans cette capture"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld more wait for the next cleanup" : {
       "comment" : "One cleanup moves at most 500 screenshots",
       "localizations" : {
@@ -2579,43 +2728,166 @@
         }
       }
     },
-    "Click the thumbnail to annotate with Markup; ClipShot copies the edited image." : {
-      "comment" : "One-time tip: the floating thumbnail macOS shows after a screenshot",
+    "Click the macOS thumbnail, or the picture here, to mark it up; ClipShot copies the edited image." : {
+      "comment" : "One-time tip, Preview mode macOS: the macOS floating thumbnail and the popover card's picture open Markup",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Click the thumbnail to annotate with Markup; ClipShot copies the edited image."
+            "value" : "Click the macOS thumbnail, or the picture here, to mark it up; ClipShot copies the edited image."
           }
         },
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Klikni na miniatúru a dopíš do snímky poznámky. ClipShot skopíruje upravený obrázok."
+            "value" : "Klikni na miniatúru macOS alebo na obrázok tu a dopíš poznámky. ClipShot skopíruje upravený obrázok."
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Klikni na miniaturu a dopiš do snímku poznámky. ClipShot zkopíruje upravený obrázek."
+            "value" : "Klikni na miniaturu macOS nebo na obrázek tady a dopiš poznámky. ClipShot zkopíruje upravený obrázek."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Klicke auf die Miniatur, um das Bild zu markieren. ClipShot kopiert die bearbeitete Version."
+            "value" : "Klicke auf die macOS-Miniatur oder das Bild hier, um zu markieren. ClipShot kopiert die bearbeitete Version."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Haz clic en la miniatura para hacer anotaciones. ClipShot copia la imagen editada."
+            "value" : "Haz clic en la miniatura de macOS o en la imagen de aquí para hacer anotaciones. ClipShot copia la imagen editada."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cliquez sur la vignette pour l’annoter. ClipShot copie l’image modifiée."
+            "value" : "Cliquez sur la vignette de macOS ou sur l’image ici pour l’annoter. ClipShot copie l’image modifiée."
+          }
+        }
+      }
+    },
+    "Click the picture here to mark it up; ClipShot copies the edited image." : {
+      "comment" : "One-time tip, Preview mode None: the popover card's picture opens Markup",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Click the picture here to mark it up; ClipShot copies the edited image."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klikni na obrázok tu a dopíš poznámky. ClipShot skopíruje upravený obrázok."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klikni na obrázek tady a dopiš poznámky. ClipShot zkopíruje upravený obrázek."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klicke auf das Bild hier, um zu markieren. ClipShot kopiert die bearbeitete Version."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haz clic en la imagen de aquí para hacer anotaciones. ClipShot copia la imagen editada."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cliquez sur l’image ici pour l’annoter. ClipShot copie l’image modifiée."
+          }
+        }
+      }
+    },
+    "Click the preview, or the picture here, to mark it up; ClipShot copies the edited image." : {
+      "comment" : "One-time tip, Preview mode ClipShot: the floating preview and the popover card's picture open Markup",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Click the preview, or the picture here, to mark it up; ClipShot copies the edited image."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klikni na náhľad alebo na obrázok tu a dopíš poznámky. ClipShot skopíruje upravený obrázok."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klikni na náhled nebo na obrázek tady a dopiš poznámky. ClipShot zkopíruje upravený obrázek."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Klicke auf die Vorschau oder das Bild hier, um zu markieren. ClipShot kopiert die bearbeitete Version."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haz clic en la vista previa o en la imagen de aquí para hacer anotaciones. ClipShot copia la imagen editada."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cliquez sur l’aperçu ou sur l’image ici pour l’annoter. ClipShot copie l’image modifiée."
+          }
+        }
+      }
+    },
+    "Click to mark it up" : {
+      "comment" : "Tooltip and VoiceOver hint: a click opens the screenshot in Markup",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Click to mark it up"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kliknutím dopíšeš poznámky"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kliknutím dopíšeš poznámky"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zum Markieren klicken"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haz clic para hacer anotaciones"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cliquez pour l’annoter"
           }
         }
       }
@@ -3255,6 +3527,129 @@
         }
       }
     },
+    "Close" : {
+      "comment" : "Floating preview: hides it",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zavrieť"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zavřít"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schließen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fermer"
+          }
+        }
+      }
+    },
+    "Copied" : {
+      "comment" : "Badge on ClipShot's floating preview: the screenshot is on the clipboard",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copied"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skopírované"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zkopírováno"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopiert"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiada"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiée"
+          }
+        }
+      }
+    },
+    "Copied screenshot" : {
+      "comment" : "VoiceOver label of the floating preview",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copied screenshot"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skopírovaná snímka"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zkopírovaný snímek"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopiertes Bildschirmfoto"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Captura copiada"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capture copiée"
+          }
+        }
+      }
+    },
     "Copied. Paste it anywhere with ⌘V." : {
       "comment" : "Welcome tour step 2: the first screenshot is on the clipboard",
       "localizations" : {
@@ -3296,42 +3691,165 @@
         }
       }
     },
-    "Copies every screenshot to the clipboard and keeps the file and the thumbnail. Can move old screenshots to the Trash." : {
+    "Copies every screenshot to the clipboard the moment you take it and keeps the file. Can move old screenshots to the Trash." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Copies every screenshot to the clipboard and keeps the file and the thumbnail. Can move old screenshots to the Trash."
+            "value" : "Copies every screenshot to the clipboard the moment you take it and keeps the file. Can move old screenshots to the Trash."
           }
         },
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Každú snímku obrazovky skopíruje do schránky a nechá súbor aj miniatúru. Staré snímky vie presúvať do Koša."
+            "value" : "Každú snímku obrazovky skopíruje do schránky hneď, ako ju urobíš, a nechá súbor. Staré snímky vie presúvať do Koša."
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Každý snímek obrazovky zkopíruje do schránky a nechá soubor i miniaturu. Staré snímky umí přesouvat do Koše."
+            "value" : "Každý snímek obrazovky zkopíruje do schránky hned, jak ho pořídíš, a nechá soubor. Staré snímky umí přesouvat do Koše."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kopiert jedes Bildschirmfoto in die Zwischenablage und behält Datei und Miniatur. Kann alte Bildschirmfotos in den Papierkorb legen."
+            "value" : "Kopiert jedes Bildschirmfoto sofort beim Aufnehmen in die Zwischenablage und behält die Datei. Kann alte Bildschirmfotos in den Papierkorb legen."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Copia cada captura de pantalla al portapapeles y conserva el archivo y la miniatura. Puede mover las capturas antiguas a la Papelera."
+            "value" : "Copia cada captura de pantalla al portapapeles en cuanto la haces y conserva el archivo. Puede mover las capturas antiguas a la Papelera."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Copie chaque capture d’écran dans le presse-papiers en gardant le fichier et la vignette. Peut placer les anciennes captures dans la Corbeille."
+            "value" : "Copie chaque capture d’écran dans le presse-papiers dès que vous la prenez, en gardant le fichier. Peut placer les anciennes captures dans la Corbeille."
+          }
+        }
+      }
+    },
+    "Copies the moment you take a screenshot and shows ClipShot’s own preview. The macOS thumbnail is off, because it holds the file back a few seconds." : {
+      "comment" : "Settings > Capture > Preview ClipShot",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copies the moment you take a screenshot and shows ClipShot’s own preview. The macOS thumbnail is off, because it holds the file back a few seconds."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skopíruje snímku hneď, ako ju urobíš, a ukáže vlastný náhľad ClipShotu. Miniatúra macOS je vypnutá, lebo by súbor o pár sekúnd zdržala."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zkopíruje snímek hned, jak ho pořídíš, a ukáže vlastní náhled ClipShotu. Miniatura macOS je vypnutá, protože by soubor o pár sekund zdržela."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopiert sofort beim Aufnehmen und zeigt die eigene Vorschau von ClipShot. Die macOS-Miniatur ist aus, weil sie die Datei ein paar Sekunden zurückhält."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia en cuanto haces la captura y muestra la vista previa de ClipShot. La miniatura de macOS está desactivada porque retiene el archivo unos segundos."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copie dès que vous faites une capture et affiche l’aperçu de ClipShot. La vignette de macOS est désactivée, car elle retient le fichier quelques secondes."
+          }
+        }
+      }
+    },
+    "Copies the moment you take a screenshot, with no preview." : {
+      "comment" : "Settings > Capture > Preview None",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copies the moment you take a screenshot, with no preview."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skopíruje snímku hneď, ako ju urobíš, bez náhľadu."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zkopíruje snímek hned, jak ho pořídíš, bez náhledu."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopiert sofort beim Aufnehmen, ohne Vorschau."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia en cuanto haces la captura, sin vista previa."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copie dès que vous faites une capture, sans aperçu."
+          }
+        }
+      }
+    },
+    "Copy" : {
+      "comment" : "Floating preview menu: copies the screenshot",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopírovať"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopírovat"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopieren"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier"
           }
         }
       }
@@ -3372,6 +3890,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Copier à nouveau"
+          }
+        }
+      }
+    },
+    "Copy at once" : {
+      "comment" : "Button: switches Preview to ClipShot, which turns the macOS thumbnail off",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy at once"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopírovať hneď"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopírovat hned"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sofort kopieren"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar al instante"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier aussitôt"
           }
         }
       }
@@ -3494,6 +4053,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Copie activée"
+          }
+        }
+      }
+    },
+    "Copying waits until the macOS thumbnail disappears." : {
+      "comment" : "Popover row in Preview mode macOS: macOS saves the file, and ClipShot copies it, only then",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copying waits until the macOS thumbnail disappears."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopírovanie čaká, kým miniatúra macOS nezmizne."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopírování čeká, dokud miniatura macOS nezmizí."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Kopieren wartet, bis die macOS-Miniatur verschwindet."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La copia espera a que desaparezca la miniatura de macOS."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La copie attend que la vignette de macOS disparaisse."
           }
         }
       }
@@ -3660,6 +4260,47 @@
         }
       }
     },
+    "Edit with Markup" : {
+      "comment" : "Floating preview menu: opens the screenshot in macOS Markup",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit with Markup"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dopísať poznámky"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dopsat poznámky"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mit Markierungen bearbeiten"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar con Marcación"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annoter"
+          }
+        }
+      }
+    },
     "Every new screenshot goes to the clipboard as an image. The file stays where macOS saves it." : {
       "localizations" : {
         "en" : {
@@ -3700,42 +4341,42 @@
         }
       }
     },
-    "Every screenshot you take goes to the clipboard, ready to paste. macOS still saves the file and shows the thumbnail as usual." : {
+    "Every screenshot you take goes to the clipboard the moment you take it, ready to paste. macOS still saves the file as usual." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Every screenshot you take goes to the clipboard, ready to paste. macOS still saves the file and shows the thumbnail as usual."
+            "value" : "Every screenshot you take goes to the clipboard the moment you take it, ready to paste. macOS still saves the file as usual."
           }
         },
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Každá snímka obrazovky ide rovno do schránky, hneď ju môžeš vložiť. macOS pritom uloží súbor a ukáže miniatúru ako vždy."
+            "value" : "Každá snímka obrazovky ide do schránky hneď, ako ju urobíš, a môžeš ju vložiť. macOS pritom uloží súbor ako vždy."
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Každý snímek obrazovky jde rovnou do schránky, hned ho můžeš vložit. macOS přitom uloží soubor a ukáže miniaturu jako vždy."
+            "value" : "Každý snímek obrazovky jde do schránky hned, jak ho pořídíš, a můžeš ho vložit. macOS přitom uloží soubor jako vždy."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Jedes Bildschirmfoto landet in der Zwischenablage, bereit zum Einfügen. macOS sichert die Datei und zeigt die Miniatur wie gewohnt."
+            "value" : "Jedes Bildschirmfoto landet sofort beim Aufnehmen in der Zwischenablage, bereit zum Einfügen. macOS sichert die Datei wie gewohnt."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cada captura que hagas va al portapapeles, lista para pegar. macOS sigue guardando el archivo y mostrando la miniatura como siempre."
+            "value" : "Cada captura que hagas va al portapapeles en ese mismo momento, lista para pegar. macOS sigue guardando el archivo como siempre."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chaque capture d’écran va dans le presse-papiers, prête à coller. macOS enregistre toujours le fichier et affiche la vignette comme d’habitude."
+            "value" : "Chaque capture d’écran va dans le presse-papiers dès que vous la prenez, prête à coller. macOS enregistre toujours le fichier comme d’habitude."
           }
         }
       }
@@ -5527,6 +6168,47 @@
         }
       }
     },
+    "None" : {
+      "comment" : "Settings > Capture > Preview: no preview at all",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Žiadny"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Žádný"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ninguna"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun"
+          }
+        }
+      }
+    },
     "Nothing to move." : {
       "localizations" : {
         "en" : {
@@ -5603,46 +6285,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Rien à restaurer : ClipShot n’a modifié aucun réglage de capture de macOS."
-          }
-        }
-      }
-    },
-    "Off: the file, and so the clipboard, is ready at once. On: macOS saves the file when the thumbnail disappears, a few seconds later." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Off: the file, and so the clipboard, is ready at once. On: macOS saves the file when the thumbnail disappears, a few seconds later."
-          }
-        },
-        "sk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vypnuté: súbor, a teda aj schránka, je pripravený hneď. Zapnuté: macOS uloží súbor, až keď miniatúra zmizne, o pár sekúnd."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vypnuto: soubor, a tedy i schránka, je připravený hned. Zapnuto: macOS uloží soubor, až miniatura zmizí, o pár sekund později."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aus: Die Datei und damit die Zwischenablage sind sofort bereit. An: macOS sichert die Datei erst, wenn die Miniatur verschwindet, ein paar Sekunden später."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Desactivada: el archivo, y con él el portapapeles, está listo al instante. Activada: macOS guarda el archivo cuando desaparece la miniatura, unos segundos después."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Désactivée : le fichier, et donc le presse-papiers, est prêt aussitôt. Activée : macOS enregistre le fichier quand la vignette disparaît, quelques secondes plus tard."
           }
         }
       }
@@ -5767,8 +6409,90 @@
         }
       }
     },
+    "Paste at once: ClipShot shows its own preview instead of the macOS thumbnail, which holds the file back a few seconds. Click the preview to mark it up." : {
+      "comment" : "Welcome tour step 2, Preview mode ClipShot: the trade-off in one sentence, then the Markup flow",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste at once: ClipShot shows its own preview instead of the macOS thumbnail, which holds the file back a few seconds. Click the preview to mark it up."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vložiť môžeš hneď: ClipShot ukáže vlastný náhľad namiesto miniatúry macOS, ktorá súbor o pár sekúnd zdrží. Klikni na náhľad a dopíš poznámky."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vložit můžeš hned: ClipShot ukáže vlastní náhled místo miniatury macOS, která soubor o pár sekund zdrží. Klikni na náhled a dopiš poznámky."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sofort einfügen: ClipShot zeigt eine eigene Vorschau statt der macOS-Miniatur, die die Datei ein paar Sekunden zurückhält. Klicke auf die Vorschau, um zu markieren."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pega al instante: ClipShot muestra su propia vista previa en lugar de la miniatura de macOS, que retiene el archivo unos segundos. Haz clic en la vista previa para hacer anotaciones."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collez aussitôt : ClipShot affiche son propre aperçu au lieu de la vignette de macOS, qui retient le fichier quelques secondes. Cliquez sur l’aperçu pour l’annoter."
+          }
+        }
+      }
+    },
+    "Paste at once: the macOS thumbnail, which holds the file back a few seconds, is off." : {
+      "comment" : "Welcome tour step 2, Preview mode None: the trade-off in one sentence",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste at once: the macOS thumbnail, which holds the file back a few seconds, is off."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vložiť môžeš hneď: miniatúra macOS, ktorá súbor o pár sekúnd zdrží, je vypnutá."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vložit můžeš hned: miniatura macOS, která soubor o pár sekund zdrží, je vypnutá."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sofort einfügen: Die macOS-Miniatur, die die Datei ein paar Sekunden zurückhält, ist aus."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pega al instante: la miniatura de macOS, que retiene el archivo unos segundos, está desactivada."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collez aussitôt : la vignette de macOS, qui retient le fichier quelques secondes, est désactivée."
+          }
+        }
+      }
+    },
     "Paste works once the floating thumbnail disappears. Click the thumbnail to mark it up first: ClipShot copies the edited image." : {
-      "comment" : "Welcome tour step 2: thumbnail timing and the Markup flow",
+      "comment" : "Welcome tour step 2, Preview mode macOS: thumbnail timing and the Markup flow",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5809,7 +6533,7 @@
       }
     },
     "Paste works once the thumbnail disappears" : {
-      "comment" : "Popover hint until the first copy: macOS saves the file when its floating thumbnail goes away",
+      "comment" : "Popover hint until the first copy, Preview mode macOS: macOS saves the file when its floating thumbnail goes away",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5926,6 +6650,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Émettre un son lors de la copie"
+          }
+        }
+      }
+    },
+    "Preview" : {
+      "comment" : "Settings > Capture: what shows after a screenshot (ClipShot, macOS or None)",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preview"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Náhľad"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Náhled"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vorschau"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vista previa"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aperçu"
           }
         }
       }
@@ -6698,6 +7463,88 @@
         }
       }
     },
+    "Screenshot previews" : {
+      "comment" : "VoiceOver label of the floating previews' window",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Screenshot previews"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Náhľady snímok"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Náhledy snímků"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vorschauen der Bildschirmfotos"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vistas previas de capturas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aperçus des captures"
+          }
+        }
+      }
+    },
+    "Screenshots are ready to paste at once" : {
+      "comment" : "Popover hint until the first copy, Preview mode ClipShot or None: the copy lands the moment the screenshot is taken",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Screenshots are ready to paste at once"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snímky sa dajú vložiť hneď"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snímky jdou vložit hned"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bildschirmfotos lassen sich sofort einfügen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las capturas se pueden pegar al instante"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les captures se collent aussitôt"
+          }
+        }
+      }
+    },
     "Screenshots are saved as files." : {
       "localizations" : {
         "en" : {
@@ -6979,46 +7826,6 @@
         }
       }
     },
-    "Show floating thumbnail" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show floating thumbnail"
-          }
-        },
-        "sk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zobraziť plávajúcu miniatúru"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zobrazit plovoucí miniaturu"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Schwebende Miniatur anzeigen"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostrar miniatura flotante"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Afficher la vignette flottante"
-          }
-        }
-      }
-    },
     "Show in Finder" : {
       "localizations" : {
         "en" : {
@@ -7096,6 +7903,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Afficher moins"
+          }
+        }
+      }
+    },
+    "Shows the macOS thumbnail. macOS saves the file, and ClipShot copies it, only when the thumbnail disappears, a few seconds later." : {
+      "comment" : "Settings > Capture > Preview macOS",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows the macOS thumbnail. macOS saves the file, and ClipShot copies it, only when the thumbnail disappears, a few seconds later."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ukazuje miniatúru macOS. macOS uloží súbor a ClipShot ho skopíruje, až keď miniatúra zmizne, o pár sekúnd."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ukazuje miniaturu macOS. macOS uloží soubor a ClipShot ho zkopíruje, až miniatura zmizí, o pár sekund později."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeigt die macOS-Miniatur. macOS sichert die Datei, und ClipShot kopiert sie, erst wenn die Miniatur verschwindet, ein paar Sekunden später."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muestra la miniatura de macOS. macOS guarda el archivo, y ClipShot lo copia, cuando desaparece la miniatura, unos segundos después."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Affiche la vignette de macOS. macOS enregistre le fichier, et ClipShot le copie, quand la vignette disparaît, quelques secondes plus tard."
           }
         }
       }

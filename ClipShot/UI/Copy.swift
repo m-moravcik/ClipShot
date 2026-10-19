@@ -27,7 +27,46 @@ enum Copy {
         static let attention = LocalizedStringResource("Needs attention", comment: "Popover header state")
         static let firstCopyHint = LocalizedStringResource(
             "Paste works once the thumbnail disappears",
-            comment: "Popover hint until the first copy: macOS saves the file when its floating thumbnail goes away")
+            comment: "Popover hint until the first copy, Preview mode macOS: macOS saves the file when its floating thumbnail goes away")
+        static let firstCopyHintInstant = LocalizedStringResource(
+            "Screenshots are ready to paste at once",
+            comment: "Popover hint until the first copy, Preview mode ClipShot or None: the copy lands the moment the screenshot is taken")
+        /// Until the first copy: when a screenshot can be pasted, in this Preview mode.
+        static func firstCopyHint(_ mode: PreviewMode) -> LocalizedStringResource {
+            mode.copiesInstantly ? firstCopyHintInstant : firstCopyHint
+        }
+    }
+
+    // MARK: - Preview mode macOS: copying waits
+
+    enum ThumbnailWait {
+        static let message = LocalizedStringResource(
+            "Copying waits until the macOS thumbnail disappears.",
+            comment: "Popover row in Preview mode macOS: macOS saves the file, and ClipShot copies it, only then")
+        static let useClipShot = LocalizedStringResource(
+            "Copy at once", comment: "Button: switches Preview to ClipShot, which turns the macOS thumbnail off")
+    }
+
+    // MARK: - Floating preview
+
+    enum Preview {
+        static let copied = LocalizedStringResource(
+            "Copied", comment: "Badge on ClipShot's floating preview: the screenshot is on the clipboard")
+        static let accessibility = LocalizedStringResource(
+            "Copied screenshot", comment: "VoiceOver label of the floating preview")
+        static let markupHint = LocalizedStringResource(
+            "Click to mark it up", comment: "Tooltip and VoiceOver hint: a click opens the screenshot in Markup")
+        static let copy = LocalizedStringResource("Copy", comment: "Floating preview menu: copies the screenshot")
+        static let editWithMarkup = LocalizedStringResource(
+            "Edit with Markup", comment: "Floating preview menu: opens the screenshot in macOS Markup")
+        static let close = LocalizedStringResource("Close", comment: "Floating preview: hides it")
+        static func extraDisplays(_ count: Int) -> LocalizedStringResource {
+            LocalizedStringResource(
+                "\(count) more displays in this screenshot",
+                comment: "VoiceOver label of the +N chip: a full-screen capture also saved this many other displays")
+        }
+        static let panel = LocalizedStringResource(
+            "Screenshot previews", comment: "VoiceOver label of the floating previews' window")
     }
 
     // MARK: - Attention rows
@@ -80,9 +119,23 @@ enum Copy {
             LocalizedStringResource(
                 "Latest screenshot, \(age), \(size)", comment: "VoiceOver label of the thumbnail: age, then file size")
         }
-        static let markupTip = LocalizedStringResource(
-            "Click the thumbnail to annotate with Markup; ClipShot copies the edited image.",
-            comment: "One-time tip: the floating thumbnail macOS shows after a screenshot")
+        /// The one-time Markup tip names what can be clicked in this Preview mode (A4).
+        static func markupTip(_ mode: PreviewMode) -> LocalizedStringResource {
+            switch mode {
+            case .clipShot:
+                LocalizedStringResource(
+                    "Click the preview, or the picture here, to mark it up; ClipShot copies the edited image.",
+                    comment: "One-time tip, Preview mode ClipShot: the floating preview and the popover card's picture open Markup")
+            case .macOS:
+                LocalizedStringResource(
+                    "Click the macOS thumbnail, or the picture here, to mark it up; ClipShot copies the edited image.",
+                    comment: "One-time tip, Preview mode macOS: the macOS floating thumbnail and the popover card's picture open Markup")
+            case .none:
+                LocalizedStringResource(
+                    "Click the picture here to mark it up; ClipShot copies the edited image.",
+                    comment: "One-time tip, Preview mode None: the popover card's picture opens Markup")
+            }
+        }
     }
 
     static let copyToClipboard = LocalizedStringResource("Copy to clipboard")
@@ -142,7 +195,7 @@ enum Copy {
     }
 
     static let aboutDescription = LocalizedStringResource(
-        "Copies every screenshot to the clipboard and keeps the file and the thumbnail. Can move old screenshots to the Trash.")
+        "Copies every screenshot to the clipboard the moment you take it and keeps the file. Can move old screenshots to the Trash.")
 
     // MARK: - Settings
 
@@ -188,9 +241,26 @@ enum Copy {
             case .forbidden: forbidden
             }
         }
-        static let showThumbnail = LocalizedStringResource("Show floating thumbnail")
-        static let thumbnailNote = LocalizedStringResource(
-            "Off: the file, and so the clipboard, is ready at once. On: macOS saves the file when the thumbnail disappears, a few seconds later.")
+        static let preview = LocalizedStringResource(
+            "Preview", comment: "Settings > Capture: what shows after a screenshot (ClipShot, macOS or None)")
+        static let previewNone = LocalizedStringResource(
+            "None", comment: "Settings > Capture > Preview: no preview at all")
+        static func previewNote(_ mode: PreviewMode) -> LocalizedStringResource {
+            switch mode {
+            case .clipShot:
+                LocalizedStringResource(
+                    "Copies the moment you take a screenshot and shows ClipShot’s own preview. The macOS thumbnail is off, because it holds the file back a few seconds.",
+                    comment: "Settings > Capture > Preview ClipShot")
+            case .macOS:
+                LocalizedStringResource(
+                    "Shows the macOS thumbnail. macOS saves the file, and ClipShot copies it, only when the thumbnail disappears, a few seconds later.",
+                    comment: "Settings > Capture > Preview macOS")
+            case .none:
+                LocalizedStringResource(
+                    "Copies the moment you take a screenshot, with no preview.",
+                    comment: "Settings > Capture > Preview None")
+            }
+        }
         static let pdfNote = LocalizedStringResource(
             "Screenshots are set to PDF. While the thumbnail is on, macOS saves no PDF file, so there is nothing to copy.")
         static let appliesNext = LocalizedStringResource(
@@ -282,7 +352,7 @@ enum Copy {
 
         static let welcomeTitle = LocalizedStringResource("Welcome to ClipShot")
         static let welcomeBody = LocalizedStringResource(
-            "Every screenshot you take goes to the clipboard, ready to paste. macOS still saves the file and shows the thumbnail as usual.")
+            "Every screenshot you take goes to the clipboard the moment you take it, ready to paste. macOS still saves the file as usual.")
 
         static let folderTitle = LocalizedStringResource(
             "Your screenshot folder", comment: "Welcome tour step 2, before folder access")
@@ -294,9 +364,23 @@ enum Copy {
 
         static let tryTitle = LocalizedStringResource(
             "Try it: press ⇧⌘4", comment: "Welcome tour step 2, after folder access: take a screenshot")
-        static let tryBody = LocalizedStringResource(
-            "Paste works once the floating thumbnail disappears. Click the thumbnail to mark it up first: ClipShot copies the edited image.",
-            comment: "Welcome tour step 2: thumbnail timing and the Markup flow")
+        /// What Try it says about timing and Markup, in the Preview mode that applies.
+        static func tryBody(_ mode: PreviewMode) -> LocalizedStringResource {
+            switch mode {
+            case .clipShot:
+                LocalizedStringResource(
+                    "Paste at once: ClipShot shows its own preview instead of the macOS thumbnail, which holds the file back a few seconds. Click the preview to mark it up.",
+                    comment: "Welcome tour step 2, Preview mode ClipShot: the trade-off in one sentence, then the Markup flow")
+            case .macOS:
+                LocalizedStringResource(
+                    "Paste works once the floating thumbnail disappears. Click the thumbnail to mark it up first: ClipShot copies the edited image.",
+                    comment: "Welcome tour step 2, Preview mode macOS: thumbnail timing and the Markup flow")
+            case .none:
+                LocalizedStringResource(
+                    "Paste at once: the macOS thumbnail, which holds the file back a few seconds, is off.",
+                    comment: "Welcome tour step 2, Preview mode None: the trade-off in one sentence")
+            }
+        }
         static let waiting = LocalizedStringResource(
             "Waiting for a screenshot…", comment: "Welcome tour step 2: no screenshot copied yet")
         static let copied = LocalizedStringResource(

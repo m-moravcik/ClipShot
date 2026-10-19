@@ -11,7 +11,9 @@
 # settings-capture-attention (the destination guard), onboarding-* (every tour step, and
 # Try it blocked by an attention), hero (popover under the menu bar, README) and banner
 # (1920x1080). Plus icon.png, menubar-states.png and menubar-optical-size.png (the states
-# beside VibeRes and Eject Guard, sized as the menu bar draws them).
+# beside VibeRes and Eject Guard, sized as the menu bar draws them). The floating preview:
+# preview, preview-hover, preview-stack (three, the newest with "+1"), preview-motion (key
+# frames of its springs), plus popover-macos-mode and settings-capture-macos-mode.
 # Copy what you need into docs/screenshots.
 #
 # Everything is demo data: a throwaway screenshot folder under the temporary directory,

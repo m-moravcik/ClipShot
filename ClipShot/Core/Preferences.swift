@@ -40,6 +40,14 @@ final class Preferences {
     var totals: Totals { didSet { store(totals, Key.totals) } }
     var firstCopyDone: Bool { didSet { defaults.set(firstCopyDone, forKey: Key.firstCopyDone) } }
     var markupTipShown: Bool { didSet { defaults.set(markupTipShown, forKey: Key.markupTipShown) } }
+    /// The Preview mode the user chose (Addendum A1). What applies also depends on the
+    /// system's `show-thumbnail`: see `PreviewMode.effective`.
+    var previewMode: PreviewMode { didSet { defaults.set(previewMode.rawValue, forKey: Key.previewMode) } }
+    /// ClipShot has applied its default mode once, at the first start of watching. From then on
+    /// it only follows the system pref and the user's choice, and never flips it on its own.
+    var previewModeApplied: Bool {
+        didSet { defaults.set(previewModeApplied, forKey: Key.previewModeApplied) }
+    }
 
     init(store defaults: any PreferenceStore = UserDefaults.standard) {
         self.defaults = defaults
@@ -52,6 +60,8 @@ final class Preferences {
         totals = Self.load(Totals.self, Key.totals, defaults) ?? Totals()
         firstCopyDone = defaults.object(forKey: Key.firstCopyDone) as? Bool ?? false
         markupTipShown = defaults.object(forKey: Key.markupTipShown) as? Bool ?? false
+        previewMode = (defaults.object(forKey: Key.previewMode) as? String).flatMap(PreviewMode.init(rawValue:)) ?? .clipShot
+        previewModeApplied = defaults.object(forKey: Key.previewModeApplied) as? Bool ?? false
     }
 
     private enum Key {
@@ -64,6 +74,8 @@ final class Preferences {
         static let totals = "clipshot.totals"
         static let firstCopyDone = "clipshot.firstCopyDone"
         static let markupTipShown = "clipshot.markupTipShown"
+        static let previewMode = "clipshot.previewMode"
+        static let previewModeApplied = "clipshot.previewModeApplied"
     }
 
     private func store<T: Encodable>(_ value: T?, _ key: String) {

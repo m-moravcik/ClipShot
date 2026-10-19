@@ -25,6 +25,18 @@ enum PNGConverter {
         return png
     }
 
+    /// Image data in any format ImageIO reads (an edited copy Markup handed back), as PNG.
+    static func pngData(fromImageData data: Data) -> Data? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              CGImageSourceGetCount(source) > 0
+        else { return nil }
+        if CGImageSourceGetType(source) == UTType.png.identifier as CFString, data.suffix(iend.count) == iend {
+            return data
+        }
+        guard let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+        return encode(image)
+    }
+
     private static let iend = Data([0, 0, 0, 0, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82])
 
     private static func pdfFirstPage(_ url: URL) -> Data? {

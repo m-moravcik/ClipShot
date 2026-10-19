@@ -7,10 +7,13 @@ import Testing
 final class RecordingPasteboard: PasteboardWriting {
     private(set) var writes: [Data] = []
     var failing = false
+    /// Another app's copy bumps it too.
+    var changeCount = 0
 
     func writePNG(_ data: Data) -> Bool {
         guard !failing else { return false }
         writes.append(data)
+        changeCount += 1
         return true
     }
 }
@@ -25,6 +28,7 @@ final class CoordinatorHarness {
     let settings: CaptureSettings
     let pasteboard = RecordingPasteboard()
     let ledger: ScreenshotLedger
+    let edits = EditSession()
     let coordinator: CopyCoordinator
     private(set) var failures = 0
 
@@ -42,7 +46,7 @@ final class CoordinatorHarness {
         ledger = try RT.ledger()
         coordinator = CopyCoordinator(
             settings: settings, events: DirectoryEventSource(), pasteboard: pasteboard, ledger: ledger,
-            clock: { Date() }, pollInterval: .milliseconds(100), home: home, log: try RT.testLog())
+            edits: edits, clock: { Date() }, pollInterval: .milliseconds(100), home: home, log: try RT.testLog())
         coordinator.onFailure = { [weak self] _ in self?.failures += 1 }
     }
 

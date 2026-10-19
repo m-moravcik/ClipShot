@@ -84,7 +84,7 @@ struct LatestCaptureCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Design.Spacing.m) {
             HStack(spacing: Design.Spacing.m) {
-                CaptureThumbnail(image: capture.thumbnail)
+                MarkupThumbnail(image: capture.thumbnail, file: capture.file)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(verbatim: capture.file.url.lastPathComponent)
                         .font(Design.Typography.cardTitle)
@@ -105,6 +105,7 @@ struct LatestCaptureCard: View {
             .accessibilityLabel(Text(Copy.Latest.accessibility(
                 age: capture.file.created.formatted(.relative(presentation: .named)), size: size)))
             .accessibilityAddTraits(.isImage)
+            .accessibilityAction(named: Text(Copy.Preview.editWithMarkup)) { model.markup(capture.file) }
 
             // A translation can make the two buttons wider than the card; then they stack, at
             // the same full width, rather than truncate. The symbols stay: Copy again shows

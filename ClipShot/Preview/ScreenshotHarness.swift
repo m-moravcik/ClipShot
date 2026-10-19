@@ -51,6 +51,7 @@ enum ScreenshotHarness {
             try renderAttentions(shots, scratch: scratch)
             try renderFull(shots, scratch: scratch)
             try renderTour(shots, scratch: scratch)
+            try renderPreviews(shots, scratch: scratch)
         } catch {
             fail("\(error)")
         }
@@ -220,6 +221,66 @@ enum ScreenshotHarness {
             }
         }
         for scene in [fresh, trying, tidy] { scene.stop() }
+    }
+
+    /// ClipShot's floating preview (Addendum A2): one preview, the hover state, a stack of
+    /// three with "+1" for a second display, the popover in Preview mode macOS, and key frames
+    /// of the motion (A3), drawn from the same springs the app animates with.
+    private static func renderPreviews(_ shots: Shots, scratch: URL) throws {
+        let scene = try DemoScene(in: scratch)
+        scene.preferences.firstCopyDone = true
+        guard scene.start() else { fail("the demo folder was not watched") }
+        DemoScene.wait { scene.model.previewMode == .clipShot }
+        try scene.copyDemoScreenshot()
+        DemoScene.wait { scene.model.previews.visible.count == 1 }
+        guard let single = scene.model.previews.visible.first else { fail("no preview") }
+        for scheme in ColorScheme.allCases {
+            try shots.write(capture(PreviewDesktop(scheme: scheme) { PreviewStack() }
+                .harnessEnvironment(scene.model), scheme: scheme), "preview", scheme)
+            try shots.write(capture(PreviewDesktop(scheme: scheme, height: PreviewCardMetrics.maxSize.height + PreviewCardMetrics.margin * 2 + 20) {
+                PreviewCard(item: single, actions: .inert, hovering: true)
+                    .padding(PreviewCardMetrics.screenInset)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            }.harnessEnvironment(scene.model), scheme: scheme), "preview-hover", scheme)
+        }
+
+        // Three in a row, the newest a two-display capture.
+        for index in 2...3 {
+            _ = try scene.shoot(DemoContent.screenshotName.replacingOccurrences(of: ".png", with: " \(index).png"),
+                                image: DemoContent.screenshotPNG)
+            DemoScene.wait { scene.model.previews.visible.count == index }
+        }
+        if let newest = scene.model.previews.visible.last?.file {
+            scene.model.previews.addExtraDisplay(CaptureFile(
+                url: newest.url.deletingPathExtension().appendingPathExtension("2.png"),
+                created: newest.created.addingTimeInterval(0.01), modified: newest.modified,
+                size: newest.size, resourceID: Data(), isScreenshot: true))
+        }
+        DemoScene.settle(0.6)
+        for scheme in ColorScheme.allCases {
+            try shots.write(capture(PreviewDesktop(scheme: scheme) { PreviewStack() }
+                .harnessEnvironment(scene.model), scheme: scheme), "preview-stack", scheme)
+        }
+
+        // Settings > Capture with the Preview picker, and the popover in Preview mode macOS.
+        let updater = DemoUpdater()
+        scene.prefs["show-thumbnail"] = true
+        DemoScene.wait { scene.model.previewMode == .macOS }
+        for scheme in ColorScheme.allCases {
+            try shots.write(capture(PopoverPanel(scheme: scheme) { MenuContent() }
+                .harnessEnvironment(scene.model, updater: updater), scheme: scheme), "popover-macos-mode", scheme)
+            let window = capture(SettingsWindow(tab: .capture, scheme: scheme)
+                .harnessEnvironment(scene.model, updater: updater), scheme: scheme)
+            try shots.write(render(WindowShadow(window: window, scheme: scheme)), "settings-capture-macos-mode", scheme)
+        }
+        scene.prefs["show-thumbnail"] = false
+        DemoScene.wait { scene.model.previewMode == .clipShot }
+
+        for scheme in ColorScheme.allCases {
+            try shots.write(capture(PreviewMotionSheet(item: single, scheme: scheme)
+                .harnessEnvironment(scene.model), scheme: scheme), "preview-motion", scheme)
+        }
+        scene.stop()
     }
 
     /// The tour as `MenuContent` frames it.
@@ -497,6 +558,126 @@ private struct SettingsWindow: View {
         case .capture: CaptureSettingsPane()
         case .retention: RetentionSettings()
         case .about: AboutSettings()
+        }
+    }
+}
+
+/// The bottom-right corner of a desktop, the size of the preview panel: the right and bottom
+/// edges of the picture are the edges of the screen's visible frame.
+private struct PreviewDesktop<Content: View>: View {
+    let scheme: ColorScheme
+    var height = PreviewPanelController.panelSize.height
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        content
+            .frame(width: PreviewPanelController.panelSize.width + 120, height: height)
+            .background(DesktopFill(scheme: scheme))
+            .environment(\.colorScheme, scheme)
+    }
+}
+
+private struct DesktopFill: View {
+    let scheme: ColorScheme
+
+    var body: some View {
+        LinearGradient(colors: scheme == .dark
+                       ? [Color(red: 0.24, green: 0.09, blue: 0.10), Color(red: 0.27, green: 0.16, blue: 0.05)]
+                       : [Color(red: 0.99, green: 0.84, blue: 0.80), Color(red: 0.99, green: 0.91, blue: 0.78)],
+                       startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+}
+
+/// Key frames of the preview's motion, computed from `Design.Motion`'s springs and curves:
+/// arrival from the screen edge (with the image landing), a swipe flung away, Move to Trash,
+/// and an older preview sliding up when a new one arrives. Times in ms under each frame.
+private struct PreviewMotionSheet: View {
+    let item: PreviewItem
+    let scheme: ColorScheme
+
+    private struct Frame: Identifiable {
+        let id: Int
+        let time: Double
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var scale: CGFloat = 1
+        var opacity: Double = 1
+        var imageScale: CGFloat = 1
+    }
+
+    private var size: CGSize { PreviewCardMetrics.size(for: item.image) }
+    private var cell: CGSize { CGSize(width: size.width + 40, height: size.height + 64) }
+    private static let times: [Double] = [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.45]
+
+    private var arrival: [Frame] {
+        let travel = size.width + PreviewCardMetrics.screenInset + 20
+        return Self.times.enumerated().map { index, t in
+            let p = Design.Motion.arriveSpring.value(target: 1.0, time: t)
+            let land = Design.Motion.landSpring.value(target: 1.0, time: max(0, t - Design.Motion.landDelay))
+            return Frame(id: index, time: t, x: (1 - p) * travel,
+                         imageScale: PreviewCard.arrivalImageScale + (1 - PreviewCard.arrivalImageScale) * land)
+        }
+    }
+
+    private var fling: [Frame] {
+        let start: CGFloat = 50, target = size.width + PreviewCardMetrics.screenInset + PreviewCardMetrics.margin
+        let velocity = Design.Motion.flingVelocity(1_200, distance: target - start)
+        return Self.times.enumerated().map { index, t in
+            let p = Design.Motion.flingSpring.value(target: 1.0, initialVelocity: velocity, time: t)
+            return Frame(id: index, time: t, x: start + (target - start) * p)
+        }
+    }
+
+    private var trash: [Frame] {
+        Self.times.enumerated().map { index, t in
+            let q = UnitCurve.easeIn.value(at: min(1, t / Design.Motion.dropDuration))
+            return Frame(id: index, time: t, y: 36 * q, scale: 1 - 0.65 * q, opacity: 1 - q)
+        }
+    }
+
+    private var stackUp: [Frame] {
+        let rise = size.height + PreviewCardMetrics.spacing
+        return Self.times.enumerated().map { index, t in
+            let p = Design.Motion.stackSpring.value(target: 1.0, time: t)
+            return Frame(id: index, time: t, y: -rise * p * 0.35)
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            row("Arrival (arrive + land)", arrival, edge: true)
+            row("Swipe fling at 1200 pt/s", fling, edge: true)
+            row("Move to Trash (drop)", trash, edge: false)
+            row("Stack: older preview moves up (scaled 0.35)", stackUp, edge: false)
+        }
+        .padding(20)
+        .background(DesktopFill(scheme: scheme))
+        .environment(\.colorScheme, scheme)
+    }
+
+    private func row(_ title: String, _ frames: [Frame], edge: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(verbatim: title).font(.system(size: 12, weight: .semibold))
+            HStack(spacing: 8) {
+                ForEach(frames) { frame in
+                    VStack(spacing: 4) {
+                        PreviewCard(item: item, actions: .inert, imageScale: frame.imageScale)
+                            .scaleEffect(frame.scale, anchor: .bottom)
+                            .offset(x: frame.x, y: frame.y)
+                            .opacity(frame.opacity)
+                            .frame(width: cell.width, height: cell.height)
+                            .clipped()
+                            .overlay(alignment: .trailing) {
+                                // The screen edge the card comes from and goes to.
+                                if edge { Rectangle().fill(Color.primary.opacity(0.35)).frame(width: 1) }
+                            }
+                            .background(Color.primary.opacity(0.04))
+                        Text(verbatim: "\(Int(frame.time * 1_000)) ms")
+                            .font(.system(size: 10).monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
         }
     }
 }

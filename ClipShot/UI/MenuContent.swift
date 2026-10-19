@@ -55,6 +55,7 @@ struct MenuContent: View {
         .animation(reduceMotion ? nil : Design.Motion.layout, value: attentionsExpanded)
         .animation(reduceMotion ? nil : Design.Motion.layout, value: updateStatus.isUpdateReady)
         .animation(reduceMotion ? nil : Design.Motion.layout, value: model.showMarkupTip)
+        .animation(reduceMotion ? nil : Design.Motion.layout, value: model.previewMode)
         .onChange(of: model.attentions.count) { _, count in
             if count <= 1 { attentionsExpanded = false }
         }
@@ -63,6 +64,10 @@ struct MenuContent: View {
     private var middle: some View {
         VStack(spacing: Design.Spacing.m) {
             attentionRows
+            if model.isWatching, model.previewMode == .macOS {
+                ThumbnailWaitRow()
+                    .transition(.opacity)
+            }
             LatestCaptureSection()
             if model.showMarkupTip {
                 MarkupTip()
@@ -147,7 +152,7 @@ private struct PopoverHeader: View {
             .accessibilityElement(children: .combine)
 
             if model.showFirstCopyHint {
-                Text(Copy.Header.firstCopyHint)
+                Text(Copy.Header.firstCopyHint(model.previewMode))
                     .font(Design.Typography.note)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -169,7 +174,7 @@ private struct MarkupTip: View {
                 .font(.system(size: 13))
                 .foregroundStyle(Color.accentColor)
                 .accessibilityHidden(true)
-            Text(Copy.Latest.markupTip)
+            Text(Copy.Latest.markupTip(model.previewMode))
                 .font(Design.Typography.note)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -187,6 +192,39 @@ private struct MarkupTip: View {
         .padding(.horizontal, Design.Spacing.l)
         .padding(.vertical, Design.Spacing.m)
         .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.rowSelectedFill))
+    }
+}
+
+/// Preview mode macOS: copying waits for the thumbnail. Says so, with the way to instant
+/// copy (Addendum A1).
+private struct ThumbnailWaitRow: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Design.Spacing.m) {
+            HStack(alignment: .firstTextBaseline, spacing: Design.Spacing.m) {
+                Image(systemName: "hourglass")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .frame(width: Design.Layout.iconColumn)
+                    .accessibilityHidden(true)
+                Text(Copy.ThumbnailWait.message)
+                    .font(Design.Typography.body)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            Button { Task { await model.setPreviewMode(.clipShot) } } label: {
+                Text(Copy.ThumbnailWait.useClipShot)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .padding(.leading, Design.Layout.iconColumn + Design.Spacing.m)
+        }
+        .padding(.horizontal, Design.Spacing.l)
+        .padding(.vertical, Design.Spacing.m)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.cardFill))
+        .accessibilityElement(children: .contain)
     }
 }
 

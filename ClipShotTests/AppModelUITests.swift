@@ -116,13 +116,13 @@ struct AppModelUITests {
         #expect(h.model.showThumbnail)
         #expect(h.model.pdfSavesNoFile)
 
-        await h.model.setShowThumbnail(false)
+        await h.model.setPreviewMode(.clipShot)
         #expect(h.prefs["show-thumbnail"] as? Bool == false)
         #expect(!h.model.showThumbnail)
         #expect(!h.model.pdfSavesNoFile)
 
         h.prefs["type"] = "png"
-        await h.model.setShowThumbnail(true)
+        await h.model.setPreviewMode(.macOS)
         #expect(await eventually { await h.model.captureFormat == "png" })
         #expect(!h.model.pdfSavesNoFile)
     }
@@ -131,11 +131,11 @@ struct AppModelUITests {
         let h = try ModelHarness()
         defer { h.tearDown() }
         #expect(await h.start())
-        await h.model.setShowThumbnail(false)
+        await h.model.setPreviewMode(.clipShot)
         #expect(!h.model.appliesFromNextScreenshot, "screencaptureui not running: applies at once")
 
         h.screencaptureUIRunning = true
-        await h.model.setShowThumbnail(true)
+        await h.model.setPreviewMode(.macOS)
         #expect(h.model.appliesFromNextScreenshot)
         try? await Task.sleep(for: .milliseconds(300))
         #expect(h.model.appliesFromNextScreenshot, "stays while screencaptureui runs")

@@ -20,13 +20,15 @@ final class FakeTrasher: Trashing {
 
     var trashed: [String] { state.withLock { $0.trashed } }
 
-    func trash(_ url: URL) throws {
+    @discardableResult
+    func trash(_ url: URL) throws -> URL? {
         let name = url.lastPathComponent
         let fail = state.withLock { $0.failing.remove(name) != nil }
         if fail { throw CocoaError(.fileWriteUnknown) }
         let dest = trashDir.appendingPathComponent("\(UUID().uuidString)-\(name)")
         guard rename(url.path, dest.path) == 0 else { throw CocoaError(.fileWriteUnknown) }
         state.withLock { $0.trashed.append(name) }
+        return dest
     }
 }
 

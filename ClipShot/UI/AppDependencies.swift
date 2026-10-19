@@ -83,6 +83,15 @@ struct AppDependencies {
     var logFile: URL
     var appVersion: String
     var osVersion: String
+    /// Screenshots open in Markup, shared with the copy coordinator (Addendum A4).
+    var edits = EditSession()
+    /// Hosts the floating previews on screen; nil for none (tests and the screenshot harness).
+    /// Called once, when watching starts.
+    var makePreviewHost: @MainActor (AppModel) -> AnyObject? = { _ in nil }
+    /// Opens a file in Markup and reports how the edit ended.
+    var openMarkup: @MainActor (URL, @escaping @MainActor (MarkupResult) -> Void) -> Void = { _, done in done(.failed) }
+    /// How long a floating preview stays.
+    var previewLifetime: Duration = FloatingPreviews.defaultLifetime
 
     @MainActor
     static func live() -> AppDependencies {
@@ -90,7 +99,8 @@ struct AppDependencies {
         let support = home.appendingPathComponent("Library/Application Support/ClipShot", isDirectory: true)
         let info = Bundle.main.infoDictionary ?? [:]
         let version = "\(info["CFBundleShortVersionString"] as? String ?? "?") (\(info["CFBundleVersion"] as? String ?? "?"))"
-        return AppDependencies(
+        let markup = MarkupOpener()
+        var dependencies = AppDependencies(
             preferences: Preferences(),
             screencapturePrefs: SystemScreencapturePreferences(),
             backup: PrefsBackup(fileURL: support.appendingPathComponent("prefs-backup.plist")),
@@ -117,5 +127,8 @@ struct AppDependencies {
             logFile: Log.defaultFileURL,
             appVersion: version,
             osVersion: ProcessInfo.processInfo.operatingSystemVersionString)
+        dependencies.makePreviewHost = { PreviewPanelController(model: $0) }
+        dependencies.openMarkup = { markup.open($0, completion: $1) }
+        return dependencies
     }
 }

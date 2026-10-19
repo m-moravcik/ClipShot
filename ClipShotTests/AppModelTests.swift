@@ -81,9 +81,16 @@ final class ModelHarness {
     /// Real run-loop timers for the flash, each counting its ticks, instead of manual ones.
     var systemFlashTimers = false
     private(set) var systemFlashTicks: [TickCounter] = []
+    /// Files opened in Markup, and how the fake editor ends each edit.
+    private(set) var markups: [URL] = []
+    var markupResult: MarkupResult = .closed
+    let edits: EditSession
+    let backupURL: URL
     let model: AppModel
 
-    init(onboardingShown: Bool = true) throws {
+    /// `previewModeApplied`: true is an install that already applied its default Preview mode,
+    /// so starting does not write `show-thumbnail`; false is a fresh install.
+    init(onboardingShown: Bool = true, previewModeApplied: Bool = true, previewLifetime: Duration = .seconds(5)) throws {
         let fm = FileManager.default
         home = try Fixtures.makeDir()
         folder = home.appendingPathComponent("Shots", isDirectory: true)
@@ -91,13 +98,16 @@ final class ModelHarness {
         prefs = FakeScreencapturePreferences(["location": folder.path])
         preferences = Preferences(store: InMemoryPreferenceStore())
         preferences.onboardingShown = onboardingShown
+        preferences.previewModeApplied = previewModeApplied
+        edits = EditSession()
+        backupURL = home.appendingPathComponent("prefs-backup.plist")
         ledger = try RT.ledger()
         trasher = try FakeTrasher()
         logFile = try Fixtures.makeDir().appendingPathComponent("clipshot.log")
         let box = Box()
-        let deps = AppDependencies(
+        var deps = AppDependencies(
             preferences: preferences, screencapturePrefs: prefs,
-            backup: PrefsBackup(fileURL: home.appendingPathComponent("prefs-backup.plist")),
+            backup: PrefsBackup(fileURL: backupURL),
             home: home, events: events, pasteboard: pasteboard, ledger: ledger, trasher: trasher,
             hasTrash: RT.hasTrash, clock: { Date() }, pollInterval: .milliseconds(100),
             statusInterval: .milliseconds(100),
@@ -127,6 +137,12 @@ final class ModelHarness {
             setLoginItem: { _ in true },
             log: Log(fileURL: logFile), logFile: logFile,
             appVersion: "1.0.0 (1)", osVersion: "Version 26.0 (Build 25A1)")
+        deps.edits = edits
+        deps.previewLifetime = previewLifetime
+        deps.openMarkup = { url, done in
+            box.harness?.markups.append(url)
+            done(box.harness?.markupResult ?? .closed)
+        }
         model = AppModel(dependencies: deps)
         box.harness = self
     }

@@ -26,6 +26,38 @@ struct CaptureThumbnail: View {
     }
 }
 
+/// A screenshot's thumbnail that opens the screenshot in Markup when clicked (Addendum A4).
+/// A pencil appears on hover, so it is clear the picture is the thing to click.
+struct MarkupThumbnail: View {
+    let image: CGImage?
+    let file: CaptureFile
+
+    @Environment(AppModel.self) private var model
+    @State private var isHovering = false
+
+    var body: some View {
+        Button { model.markup(file) } label: {
+            CaptureThumbnail(image: image)
+                .overlay {
+                    if isHovering {
+                        Image(systemName: "pencil.tip.crop.circle.fill")
+                            .font(.system(size: 18))
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(.white, Color.accentColor)
+                            .shadow(color: .black.opacity(0.3), radius: 2)
+                            .transition(.opacity)
+                    }
+                }
+                .contentShape(RoundedRectangle(cornerRadius: Design.Radius.chip, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .animation(Design.Motion.quick, value: isHovering)
+        .help(Text(Copy.Preview.markupHint))
+        .accessibilityLabel(Text(Copy.Preview.editWithMarkup))
+    }
+}
+
 /// A label that may wrap, with a small switch on the right. The popover's Copy to clipboard
 /// row and the welcome tour's switches.
 struct SwitchRow: View {

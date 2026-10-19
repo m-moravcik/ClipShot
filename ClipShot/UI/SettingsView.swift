@@ -151,7 +151,7 @@ struct GeneralSettings: View {
 struct CaptureSettingsPane: View {
     /// The setting the user changed last, which carries the "applies from the next
     /// screenshot" note while screencaptureui still holds the old value.
-    private enum Changed { case folder, thumbnail, destination, restore }
+    private enum Changed { case folder, preview, destination, restore }
 
     @Environment(AppModel.self) private var model
     @State private var changed: Changed?
@@ -214,24 +214,38 @@ struct CaptureSettingsPane: View {
         }
     }
 
-    /// The floating thumbnail, the destination and the way back, in one section so the tab
-    /// does not scroll.
+    /// The preview, the destination and the way back, in one section so the tab does not
+    /// scroll.
     private var nativeSection: some View {
         Section {
-            Toggle(isOn: Binding(
-                get: { model.showThumbnail },
-                set: { on in
-                    changed = .thumbnail
-                    Task { await model.setShowThumbnail(on) }
+            VStack(alignment: .leading, spacing: Design.Spacing.s) {
+                Picker(selection: Binding(
+                    get: { model.previewMode },
+                    set: { mode in
+                        changed = .preview
+                        Task { await model.setPreviewMode(mode) }
+                    }
+                )) {
+                    // Names, not words: the same in every language.
+                    Text(verbatim: Copy.appName).tag(PreviewMode.clipShot)
+                    Text(verbatim: "macOS").tag(PreviewMode.macOS)
+                    Text(Copy.Capture.previewNone).tag(PreviewMode.none)
+                } label: {
+                    Text(Copy.Capture.preview)
                 }
-            )) {
-                Text(Copy.Capture.showThumbnail)
-                Text(Copy.Capture.thumbnailNote)
+                .pickerStyle(.segmented)
+                .fixedSize()
+                Text(Copy.Capture.previewNote(model.previewMode))
+                    .font(Design.Typography.note)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .contentTransition(.opacity)
+                    .animation(Design.Motion.quick, value: model.previewMode)
             }
             if model.pdfSavesNoFile {
                 Note(text: Copy.Capture.pdfNote, systemImage: "exclamationmark.triangle.fill", tint: .orange)
             }
-            appliesNote(.thumbnail)
+            appliesNote(.preview)
 
             if model.destination == .file {
                 Label {

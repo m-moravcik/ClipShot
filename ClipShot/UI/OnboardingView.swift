@@ -312,7 +312,9 @@ private struct FolderStep: View {
         ZStack {
             if model.isWatching {
                 VStack(spacing: Design.Spacing.l) {
-                    StepHeader(symbol: "camera.viewfinder", title: Copy.Onboarding.tryTitle, text: Copy.Onboarding.tryBody)
+                    StepHeader(
+                        symbol: "camera.viewfinder", title: Copy.Onboarding.tryTitle,
+                        text: Copy.Onboarding.tryBody(model.previewMode))
                     tryResult
                 }
                 .transition(.opacity)
@@ -329,7 +331,7 @@ private struct FolderStep: View {
         ZStack {
             switch state {
             case .copied(let file):
-                CopiedResult(thumbnail: model.latest?.file == file ? model.latest?.thumbnail : nil)
+                CopiedResult(file: file, thumbnail: model.latest?.file == file ? model.latest?.thumbnail : nil)
                     .transition(.opacity)
             case .attention(let attention):
                 // The try can not work until this is fixed, so say why here, with the row's
@@ -359,12 +361,12 @@ private struct FolderStep: View {
 
 /// The try's result: the thumbnail and "Copied", as the latest card shows it.
 private struct CopiedResult: View {
+    let file: CaptureFile
     let thumbnail: CGImage?
 
     var body: some View {
         HStack(spacing: Design.Spacing.m) {
-            CaptureThumbnail(image: thumbnail)
-                .accessibilityHidden(true)
+            MarkupThumbnail(image: thumbnail, file: file)
             Label {
                 Text(Copy.Onboarding.copied)
                     .font(Design.Typography.body)
@@ -378,7 +380,7 @@ private struct CopiedResult: View {
         .padding(.horizontal, Design.Spacing.l)
         .padding(.vertical, Design.Spacing.m)
         .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.cardFill))
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
     }
 }
 

@@ -20,14 +20,24 @@ struct CopyDecider: Sendable {
             && file.created <= now.addingTimeInterval(1)
     }
 
-    /// `shouldCopy` without recording the copy.
-    func wouldCopy(_ file: CaptureFile, now: Date) -> Bool {
-        guard file.isScreenshot, Self.isFresh(file, now: now) else { return false }
+    /// A file open in Markup (`EditSession`): it was a screenshot when ClipShot opened it, so
+    /// neither its birth time nor the marker (an editor may drop it) counts; only that it was
+    /// written within the copy window.
+    static func isFreshEdit(_ file: CaptureFile, now: Date) -> Bool {
+        now.timeIntervalSince(file.modified) <= window && file.modified <= now.addingTimeInterval(1)
+    }
+
+    /// `shouldCopy` without recording the copy. `editing`: the file is in an edit session.
+    func wouldCopy(_ file: CaptureFile, now: Date, editing: Bool = false) -> Bool {
+        let fresh = editing
+            ? Self.isFreshEdit(file, now: now)
+            : file.isScreenshot && Self.isFresh(file, now: now)
+        guard fresh else { return false }
         return copied[file.url.standardizedFileURL] != file.modified
     }
 
-    mutating func shouldCopy(_ file: CaptureFile, now: Date) -> Bool {
-        guard wouldCopy(file, now: now) else { return false }
+    mutating func shouldCopy(_ file: CaptureFile, now: Date, editing: Bool = false) -> Bool {
+        guard wouldCopy(file, now: now, editing: editing) else { return false }
         copied[file.url.standardizedFileURL] = file.modified
         return true
     }

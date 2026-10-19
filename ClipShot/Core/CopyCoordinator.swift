@@ -12,9 +12,12 @@ import Synchronization
 /// or `stop` are dropped.
 @MainActor
 final class CopyCoordinator {
-    /// Rescans after each folder event. The marker lands 0-54 ms after the final rename and
-    /// fires no event (spike F4/F5); the later rescans cover slow writers.
-    nonisolated static let rescanOffsets: [Duration] = [.milliseconds(250), .seconds(1), .seconds(3)]
+    /// Rescans after each folder event. The marker lands 0-54 ms after the final rename,
+    /// typically about 2 ms, and fires no event (spike F4/F5): the 30 and 80 ms rescans copy
+    /// it at once (Addendum A), the later ones cover slow writers.
+    nonisolated static let rescanOffsets: [Duration] = [
+        .milliseconds(30), .milliseconds(80), .milliseconds(250), .seconds(1), .seconds(3),
+    ]
     /// `Cmd+Shift+3` writes one file per display about 10 ms apart, main display first (spike F3).
     nonisolated static let displayGroupWindow: TimeInterval = 1
 
@@ -35,6 +38,9 @@ final class CopyCoordinator {
     var onCopied: ((CaptureFile) -> Void)?
     /// The screenshot that could not be copied, so "Copy again" can retry that one.
     var onFailure: ((CaptureFile) -> Void)?
+    /// A later display of a multi-display capture (F3): recorded, never copied. The floating
+    /// preview counts it as "+1".
+    var onExtraDisplay: ((CaptureFile) -> Void)?
     /// Called on the main actor whenever `watchError`, `watchedFolder`, `lastCopied` or
     /// `lastFailure` changes, so an app model can mirror them.
     var onStateChange: (() -> Void)?
@@ -43,6 +49,7 @@ final class CopyCoordinator {
     private let events: any FolderEventSource
     private let pasteboard: any PasteboardWriting
     private let ledger: ScreenshotLedger
+    private let edits: EditSession
     private let clock: @Sendable () -> Date
     private let pollInterval: Duration
     private let desktop: URL
@@ -76,13 +83,15 @@ final class CopyCoordinator {
 
     init(
         settings: CaptureSettings, events: any FolderEventSource, pasteboard: any PasteboardWriting,
-        ledger: ScreenshotLedger, clock: @escaping @Sendable () -> Date, pollInterval: Duration = .seconds(1),
+        ledger: ScreenshotLedger, edits: EditSession = EditSession(), clock: @escaping @Sendable () -> Date,
+        pollInterval: Duration = .seconds(1),
         home: URL = FileManager.default.homeDirectoryForCurrentUser, log: Log = .shared
     ) {
         self.settings = settings
         self.events = events
         self.pasteboard = pasteboard
         self.ledger = ledger
+        self.edits = edits
         self.clock = clock
         self.pollInterval = pollInterval
         self.desktop = home.appendingPathComponent("Desktop", isDirectory: true)
@@ -99,6 +108,8 @@ final class CopyCoordinator {
                 guard !Task.isCancelled, let self else { return }
                 self.requestRefresh()
                 self.pruneMemory()
+                // A file open in Markup may be saved in place, which fires no folder event.
+                if self.edits.isActive { self.requestPass() }
             }
         }
     }
@@ -308,9 +319,10 @@ final class CopyCoordinator {
         // No rescan left after this one: a screenshot that still does not decode has failed.
         let lastRescan = rescanDeadlines.isEmpty
         let clock = clock
+        let edits = edits
         Task {
             let outcome = await onIO {
-                Self.scan(folder, decider: decider, copying: copying, lastRescan: lastRescan, now: clock())
+                Self.scan(folder, decider: decider, edits: edits, copying: copying, lastRescan: lastRescan, now: clock())
             }
             passInFlight = false
             if running, gen == generation {
@@ -345,28 +357,34 @@ final class CopyCoordinator {
                 decider.seed([file])
                 continue
             }
-            guard decider.wouldCopy(file, now: now) else { continue }
+            let editing = observation.editing
+            guard decider.wouldCopy(file, now: now, editing: editing) else { continue }
             // Waiting for an earlier file of the same capture to get its marker.
             if observation.deferred { continue }
             if observation.secondaryDisplay {
                 _ = decider.shouldCopy(file, now: now)
+                onExtraDisplay?(file)
                 continue
             }
             guard let png = observation.png else {
                 // Not decodable yet: the next rescan tries again; after the last one it failed.
                 if observation.converted, lastRescan {
-                    _ = decider.shouldCopy(file, now: now)
+                    _ = decider.shouldCopy(file, now: now, editing: editing)
                     reportFailure(file)
                 }
                 continue
             }
-            _ = decider.shouldCopy(file, now: now)
+            _ = decider.shouldCopy(file, now: now, editing: editing)
             if pasteboard.writePNG(png) {
                 lastCopied = file
                 onCopied?(file)
                 let ext = file.url.pathExtension.lowercased()
+                // How long after the file appeared it reached the clipboard (Addendum A).
+                let message = editing
+                    ? "copied edit ext=\(ext)"
+                    : "copied ext=\(ext) \(Int((now.timeIntervalSince(file.created) * 1_000).rounded())) ms after the file appeared"
                 let log = log
-                Task { await log.info("copied ext=\(ext)") }
+                Task { await log.info(message) }
             } else {
                 reportFailure(file)
             }
@@ -398,12 +416,16 @@ final class CopyCoordinator {
 
     /// Lists, inspects, applies the multi-display rule and converts what may be copied.
     nonisolated private static func scan(
-        _ folder: URL, decider: CopyDecider, copying: Bool, lastRescan: Bool, now: Date
+        _ folder: URL, decider: CopyDecider, edits: EditSession, copying: Bool, lastRescan: Bool, now: Date
     ) -> PassOutcome {
         guard let files = list(folder) else { return .unreadable }
         var observations = files
             .map { file in
-                Observation(file: file, isDisplay: file.isScreenshot && CaptureMarker.captureType(of: file.url) == "display")
+                // A file being edited stands alone: it is never part of a multi-display group.
+                let editing = edits.isEditing(file)
+                return Observation(
+                    file: file, editing: editing,
+                    isDisplay: !editing && file.isScreenshot && CaptureMarker.captureType(of: file.url) == "display")
             }
             .sorted { ($0.file.created, $0.file.url.path) < ($1.file.created, $1.file.url.path) }
         // Of display captures created within 1 s of each other only the first (main display) is copied.
@@ -434,7 +456,7 @@ final class CopyCoordinator {
         guard copying else { return .listed(observations) }
         for index in observations.indices
         where !observations[index].secondaryDisplay && !observations[index].deferred
-            && decider.wouldCopy(observations[index].file, now: now) {
+            && decider.wouldCopy(observations[index].file, now: now, editing: observations[index].editing) {
             observations[index].converted = true
             observations[index].png = PNGConverter.pngData(from: observations[index].file.url)
         }
@@ -510,6 +532,8 @@ private struct FileKey: Hashable, Sendable {
 
 private struct Observation: Sendable {
     let file: CaptureFile
+    /// In an edit session: exempt from the copy window's birth-time rule.
+    let editing: Bool
     let isDisplay: Bool
     /// A later display of a multi-display capture: recorded, never copied.
     var secondaryDisplay = false
@@ -519,8 +543,9 @@ private struct Observation: Sendable {
     var converted = false
     var png: Data?
 
-    init(file: CaptureFile, isDisplay: Bool) {
+    init(file: CaptureFile, editing: Bool, isDisplay: Bool) {
         self.file = file
+        self.editing = editing
         self.isDisplay = isDisplay
     }
 }

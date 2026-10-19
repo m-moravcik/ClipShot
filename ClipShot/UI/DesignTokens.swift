@@ -76,5 +76,39 @@ enum Design {
         static let quick: Animation = .easeInOut(duration: 0.18)
         static let layout: Animation = .smooth(duration: 0.2)
         static let number: Animation = .smooth(duration: 0.25)
+
+        // The floating preview (Addendum A3): playful, each with a job, all settled within
+        // about 0.45 s. Reduce Motion replaces every one of them with `quick` crossfades.
+
+        /// Arrival from the screen edge, with a little overshoot: shows where the copy is.
+        static let arriveSpring = Spring(duration: 0.42, bounce: 0.32)
+        static let arrive: Animation = .spring(arriveSpring)
+        /// The image settles into the card a beat after the card lands.
+        static let landSpring = Spring(duration: 0.34, bounce: 0.38)
+        static let landDelay: TimeInterval = 0.06
+        static let land: Animation = .spring(landSpring).delay(landDelay)
+        /// Older previews make room above a new one.
+        static let stackSpring = Spring(duration: 0.36, bounce: 0.2)
+        static let stack: Animation = .spring(stackSpring)
+        /// A swipe that does not go far enough springs back past its rest point once.
+        static let snapBack: Animation = .spring(duration: 0.32, bounce: 0.4)
+        /// Leaving on time or on Close: exits are faster than arrivals.
+        static let leave: Animation = .smooth(duration: 0.24)
+        /// Move to Trash: shrink and drop, accelerating like something falling.
+        static let dropDuration: TimeInterval = 0.24
+        static let drop: Animation = .easeIn(duration: dropDuration)
+        /// Moments after the copy the badge bounces, with the menu bar flash.
+        static let badgeDelay: Duration = .milliseconds(120)
+
+        /// A swipe released at `velocity` (points per second) flings out along `distance`
+        /// with that speed, then settles without bounce.
+        static func fling(velocity: CGFloat, distance: CGFloat) -> Animation {
+            .interpolatingSpring(flingSpring, initialVelocity: flingVelocity(velocity, distance: distance))
+        }
+        static let flingSpring = Spring(mass: 1, stiffness: 260, damping: 32)
+        /// The release speed relative to the distance left, as a spring's initial velocity.
+        static func flingVelocity(_ velocity: CGFloat, distance: CGFloat) -> Double {
+            distance > 0 ? Double(max(0, velocity) / distance) : 0
+        }
     }
 }

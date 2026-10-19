@@ -74,7 +74,9 @@ final class DemoScene {
             log: log,
             logFile: logFile,
             appVersion: version,
-            osVersion: ProcessInfo.processInfo.operatingSystemVersionString))
+            osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
+            // Previews stay while the harness draws them; no panel ever opens.
+            previewLifetime: .seconds(3_600)))
     }
 
     /// Starts watching and waits until the folder is watched (or the watch has failed).
@@ -207,12 +209,13 @@ final class DemoScreencapturePreferences: ScreencapturePreferences {
 @MainActor
 final class DemoPasteboard: PasteboardWriting {
     var failing = false
+    let changeCount = 0
     func writePNG(_ data: Data) -> Bool { !failing }
 }
 
 /// Refuses every move, so nothing can reach the Trash.
 struct DemoTrasher: Trashing {
-    func trash(_ url: URL) throws { throw CocoaError(.fileWriteNoPermission) }
+    func trash(_ url: URL) throws -> URL? { throw CocoaError(.fileWriteNoPermission) }
 }
 
 @MainActor
