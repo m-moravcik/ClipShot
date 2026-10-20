@@ -70,14 +70,20 @@ enum RecentSlot: Equatable, Identifiable, Sendable {
 extension RecentScreenshots {
     /// The list's places: `files` (newest first), with the Undo strip for `trashed` where its
     /// row was in time order, never more than `count`. While the strip is there, the older
-    /// screenshot that will take the last row waits until Undo is over. A trashed file older
-    /// than every listed row (a floating preview's, say) puts its strip on top.
-    static func slots(files: [CaptureFile], trashed: CaptureFile?, count: Int = count) -> [RecentSlot] {
-        guard let trashed else { return files.prefix(count).map(RecentSlot.screenshot) }
+    /// screenshot that will take the last row waits until Undo is over.
+    ///
+    /// Where time order puts the strip past the last place: a row that was in the list
+    /// (`wasListed`: a newer screenshot arrived meanwhile) keeps the last place, never
+    /// jumping; a file that never was (moved from its floating preview) gets the top.
+    static func slots(
+        files: [CaptureFile], trashed: CaptureFile?, wasListed: Bool = false, count: Int = count
+    ) -> [RecentSlot] {
+        guard count > 0, let trashed else { return files.prefix(count).map(RecentSlot.screenshot) }
         let name = trashed.url.lastPathComponent
         var slots = files.filter { $0.url.lastPathComponent != name }.map(RecentSlot.screenshot)
         let index = slots.firstIndex { $0.file.created < trashed.created } ?? slots.count
-        slots.insert(.trashed(trashed), at: index < count ? index : 0)
+        let place = index < count ? index : (wasListed ? count - 1 : 0)
+        slots.insert(.trashed(trashed), at: place)
         return Array(slots.prefix(count))
     }
 

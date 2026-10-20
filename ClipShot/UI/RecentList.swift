@@ -376,7 +376,7 @@ struct RecentRow: View {
             .focused($focus, equals: .reveal)
     }
 
-    /// Move to Trash, with no confirmation: the Undo row above puts it back for 5 s.
+    /// Move to Trash, with no confirmation: the Undo strip in its place puts it back for 5 s.
     private var trashButton: some View {
         Button(action: trash) { PillLabel(symbol: "trash") }
             .help(Text(Copy.Retention.moveToTrash))
@@ -476,8 +476,8 @@ struct FileNameLabel: View {
 }
 
 /// Why something the user asked for in the popover did not happen: a Move to Trash or an
-/// Undo (in the Undo row's place, for 5 s, with the alert sound as well), or a macOS setting
-/// ClipShot could not change.
+/// Undo (above the list, for 5 s, with the alert sound as well), or a macOS setting ClipShot
+/// could not change.
 struct ActionNoteRow: View {
     let message: LocalizedStringResource
 

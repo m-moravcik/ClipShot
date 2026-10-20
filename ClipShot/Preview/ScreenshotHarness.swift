@@ -296,7 +296,7 @@ enum ScreenshotHarness {
         scene.stop()
     }
 
-    /// Every row the popover can show at once: an attention, the update card, the Undo row,
+    /// Every row the popover can show at once: an attention, the update card, the Undo strip,
     /// the four recent screenshots and the Markup tip. It is taller than the height cap in
     /// every language: the middle scrolls under a fixed header and footer.
     private static func renderFull(_ shots: Shots, scratch: URL) throws {
@@ -310,7 +310,7 @@ enum ScreenshotHarness {
         DemoScene.wait { scene.model.recent.count == RecentScreenshots.count }
         scene.prefs["target"] = "clipboard"
         DemoScene.wait { !scene.model.attentions.isEmpty }
-        // The Undo row as just after a Move to Trash; drawn only, nothing is moved.
+        // The Undo strip as just after a Move to Trash; drawn only, nothing is moved.
         if let shown = scene.model.recent.last {
             scene.model.showUndoForHarness(AppModel.TrashedScreenshot(
                 file: shown, inTrash: scene.home.appendingPathComponent(".Trash/\(shown.url.lastPathComponent)")))

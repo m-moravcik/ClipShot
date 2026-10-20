@@ -252,6 +252,60 @@ struct RecentTests {
         #expect(await eventually { await self.slots(h) == ["E.png", "C.png", "B.png", "A.png"] })
     }
 
+    /// The strip on the last row, then a new screenshot: the strip keeps the last place
+    /// rather than jumping to the top. Undo puts the file back in time order, below the
+    /// four rows now, and still says so.
+    @Test func aNewScreenshotDuringUndoLeavesTheStripAtTheBottom() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        try await tracked(h, [("A.png", 50), ("B.png", 40), ("C.png", 30), ("D.png", 20), ("E.png", 10)])
+        #expect(await h.start())
+        #expect(await eventually { await self.names(h.model.recent) == ["E.png", "D.png", "C.png", "B.png"] })
+        try await h.model.trash(try row(h, "B.png"))
+        #expect(slots(h) == ["E.png", "D.png", "C.png", "undo:B.png"])
+
+        try h.shoot("New.png")
+        #expect(await eventually { await self.names(h.model.recent) == ["New.png", "E.png", "D.png", "C.png"] })
+        #expect(slots(h) == ["New.png", "E.png", "D.png", "undo:B.png"], "still at the bottom, not on top")
+
+        #expect(await h.model.undoTrash())
+        #expect(slots(h) == ["New.png", "E.png", "D.png", "C.png"], "back in time order, below the four rows")
+        #expect(h.announced.last == Copy.Recent.putBack.key)
+        #expect(RT.exists(h.folder.appendingPathComponent("B.png")))
+    }
+
+    /// A screenshot that was not among the rows (moved from its floating preview, older than
+    /// all four) gets its strip on top.
+    @Test func aFileThatWasNotListedGetsItsStripOnTop() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        let files = try await tracked(h, [("Old.png", 90), ("A.png", 40), ("B.png", 30), ("C.png", 20), ("D.png", 10)])
+        #expect(await h.start())
+        #expect(await eventually { await self.names(h.model.recent) == ["D.png", "C.png", "B.png", "A.png"] })
+        try await h.model.trash(files[0])
+        #expect(h.model.undoable?.listed == false)
+        #expect(slots(h) == ["undo:Old.png", "D.png", "C.png", "B.png"])
+    }
+
+    /// Undo pressed again while the first one is still putting the file back (a double
+    /// click, ⌘Z repeated): the same Undo, so no failure, no alert, no note.
+    @Test func aRepeatedUndoDuringTheRestoreIsSilent() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        let files = try await tracked(h, [("A.png", 30), ("B.png", 20)])
+        #expect(await h.start())
+        #expect(await eventually { await h.model.recent.count == 2 })
+        try await h.model.trash(files[0])
+        async let first: Void = h.model.putBack()
+        async let second: Void = h.model.putBack()
+        _ = await (first, second)
+        #expect(RT.exists(files[0].url))
+        #expect(h.alerts == 0, "no alert sound")
+        #expect(h.model.actionNote == nil, "no failure note")
+        #expect(!h.announced.contains(Copy.Failure.undoFailed.key))
+        #expect(slots(h) == ["B.png", "A.png"])
+    }
+
     /// Where the strip goes: the row's place in time order, at most four places; a trashed
     /// file older than all four rows (a floating preview's) on top.
     @Test func undoStripPlace() throws {
@@ -275,6 +329,10 @@ struct RecentTests {
         #expect(names(RecentScreenshots.slots(files: Array(rows.prefix(2)), trashed: file("Old", 90))) == ["E", "D", "undo:Old"],
                 "fewer rows: where it was")
         #expect(names(RecentScreenshots.slots(files: [], trashed: file("Only", 1))) == ["undo:Only"])
+        #expect(names(RecentScreenshots.slots(files: rows, trashed: file("Old", 90), wasListed: true)) == ["E", "D", "B", "undo:Old"],
+                "a row that was listed keeps the last place")
+        #expect(names(RecentScreenshots.slots(files: rows, trashed: file("C", 30), wasListed: true)) == ["E", "D", "undo:C", "B"],
+                "in its natural place when there is room")
         #expect(RecentScreenshots.inserting(file("C", 30), into: rows).map(\.url.lastPathComponent) == ["E", "D", "C", "B"])
     }
 

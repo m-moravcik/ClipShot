@@ -56,7 +56,7 @@ final class AppModel {
     /// The list as the popover shows it: the rows, with the Undo strip in the place of the
     /// screenshot just moved to the Trash while its Undo is offered (Task 12i fix 1).
     var recentSlots: [RecentSlot] {
-        RecentScreenshots.slots(files: recent, trashed: undoable?.file)
+        RecentScreenshots.slots(files: recent, trashed: undoable?.file, wasListed: undoable?.listed ?? false)
     }
     /// Decoded thumbnails of the listed screenshots, so a popover that opens, or a row that
     /// moves up, never waits for a decode.
@@ -64,8 +64,8 @@ final class AppModel {
     /// The screenshot just moved to the Trash while its Undo is offered (Addendum A6). One at
     /// a time: a newer trash replaces it.
     private(set) var undoable: TrashedScreenshot?
-    /// A Move to Trash or Undo from the popover that failed, said in the Undo row's place for
-    /// `undoLifetime` (Addendum A6). One at a time.
+    /// A Move to Trash or Undo from the popover that failed, said in a note above the list
+    /// for `undoLifetime` (Addendum A6). One at a time.
     private(set) var actionNote: ActionNote?
     /// ClipShot's floating previews (Addendum A2); only filled in Preview mode ClipShot.
     let previews: FloatingPreviews
@@ -1081,6 +1081,9 @@ extension AppModel {
         let inTrash: URL
         /// Its ledger entry was an adopted older file, not one ClipShot saw being taken.
         var adopted = false
+        /// It was a row of the popover's list when it was moved: its Undo strip keeps a place
+        /// in the list (the last one at worst), never jumping to the top.
+        var listed = false
 
         var original: URL { file.url }
     }
@@ -1094,7 +1097,7 @@ extension AppModel {
 
     /// Move to Trash as a row of the list and a floating preview (`preview`) ask for it. A
     /// refusal is said where the user acted, in words, with the alert sound as well: on the
-    /// preview, or in the popover's Undo row place.
+    /// preview, or in a note above the popover's list.
     func moveToTrash(_ file: CaptureFile, fromPreview preview: UUID? = nil) async {
         do throws(TrashError) {
             try await trash(file, fromPreview: preview)
@@ -1103,9 +1106,12 @@ extension AppModel {
         }
     }
 
-    /// Undo, from the popover's Undo row or a preview's. `file`: the screenshot that preview
-    /// moved, so a preview never brings back a newer one; nil for the popover row.
+    /// Undo, from the popover's Undo strip or a preview's. `file`: the screenshot that
+    /// preview moved, so a preview never brings back a newer one; nil for the popover strip.
+    /// A repeat while that Undo is still putting the file back (a double click, ⌘Z held) is
+    /// the same Undo, so it does nothing, and says nothing.
     func putBack(_ file: CaptureFile? = nil, fromPreview preview: UUID? = nil) async {
+        guard !restoring else { return }
         if await !undoTrash(expecting: file, fromPreview: preview) { actionFailed(.undo, preview: preview) }
     }
 
@@ -1167,7 +1173,11 @@ extension AppModel {
             throw error
         }
         let entry = await ledger.remove(path: path, resourceID: file.resourceID)
-        let trashed = inTrash.map { TrashedScreenshot(file: file, inTrash: $0, adopted: entry?.adopted ?? false) }
+        let name = file.url.lastPathComponent
+        let listed = recent.contains { $0.url.lastPathComponent == name }
+        let trashed = inTrash.map {
+            TrashedScreenshot(file: file, inTrash: $0, adopted: entry?.adopted ?? false, listed: listed)
+        }
         offerUndo(trashed)
         if let preview, trashed != nil {
             previews.offerUndo(preview)
@@ -1243,7 +1253,7 @@ extension AppModel {
     }
 
     #if DEBUG
-    /// The render harness draws the Undo row without a real Trash (its demo Trash refuses).
+    /// The render harness draws the Undo strip without a real Trash (its demo Trash refuses).
     func showUndoForHarness(_ trashed: TrashedScreenshot?) {
         undoable = trashed
     }
