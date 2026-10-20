@@ -9,8 +9,28 @@
     {
       "layers": [
         {
-          "image-name": "marquee.svg",
-          "name": "marquee",
+          "image-name": "peg.svg",
+          "name": "peg"
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0.5
+      }
+    },
+    {
+      "layers": [
+        {
+          "image-name": "print.svg",
+          "name": "print"
+        },
+        {
+          "image-name": "picture.svg",
+          "name": "picture",
           "opacity": 0.9
         }
       ],
@@ -26,8 +46,9 @@
     {
       "layers": [
         {
-          "image-name": "clipboard.svg",
-          "name": "clipboard"
+          "image-name": "line.svg",
+          "name": "line",
+          "opacity": 0.85
         }
       ],
       "shadow": {
