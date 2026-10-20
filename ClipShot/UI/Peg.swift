@@ -206,16 +206,18 @@ enum Peg {
 
     // MARK: Other moments
 
-    /// Beats of the attention moment: the card drops off level, swings past its tilt and
-    /// settles, the "!" fading in as the picture fades out. Once, when something first needs
-    /// attention; it ends exactly on the attention pose.
-    /// Like every moment's beats, they end by its last frame, one frame before its length,
-    /// so that frame is exactly at rest.
+    /// Beats of the attention moment, as shares of its length (`Design.Motion.menuBarAttention`),
+    /// so a retime keeps the shape: the card drops off level slowly enough to catch in the
+    /// corner of the eye, swings past its tilt and damps out, the "!" fading in as the picture
+    /// fades out; then it holds still before the timer stops. Unsolicited, so it is a menu bar
+    /// moment of about 2 s, once, when something first needs attention; it ends exactly on
+    /// the attention pose.
     enum AttentionBeat {
-        static let tilt = 0.0...0.15
-        static let swing = 0.15...0.85
-        static let jolt = 0.0...0.6
-        static let mark = 0.3...0.5
+        static let length = Design.Motion.menuBarAttention
+        static let tilt = 0.0...(0.15 * length)
+        static let swing = (0.15 * length)...(0.75 * length)
+        static let jolt = 0.0...(0.35 * length)
+        static let mark = (0.2 * length)...(0.35 * length)
         /// How far past its rest the card swings, in degrees: to about twice the tilt.
         static let swingAngle: Double = 12
     }

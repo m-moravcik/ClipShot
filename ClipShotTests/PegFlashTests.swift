@@ -21,9 +21,15 @@ struct PegFlashTests {
         #expect(PegMoment.pause.duration == Design.Motion.menuBarPause)
         #expect(PegMoment.resume.duration == Design.Motion.menuBarResume)
         for moment in [PegMoment.attention, .pause, .resume] {
-            #expect(moment.duration < 1, "\(moment) is a small moment, under a second")
             #expect(abs(Double(moment.steps - 1) * PegFlash.interval - moment.duration) < 1e-9)
         }
+        // The switch's answers are short: the user is looking at the popover.
+        for moment in [PegMoment.pause, .resume] {
+            #expect(moment.duration < 1, "\(moment) is a small moment, under a second")
+        }
+        // Attention is unsolicited: a menu bar moment, long enough to catch at a glance, and
+        // no longer than the copy.
+        #expect(PegMoment.attention.duration >= 1.8 && PegMoment.attention.duration <= PegMoment.copied.duration)
     }
 
     @Test(arguments: [PegMoment.copied, .attention, .pause, .resume])

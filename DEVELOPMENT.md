@@ -131,11 +131,14 @@ frame by frame by a 30 fps timer that runs only while one plays (`PegFlash`):
 | Moment | When | Length | Reduce Motion |
 |---|---|---|---|
 | Copy | every copy | 2.4 s | the copied pose held 1.4 s on one timer |
-| Attention | when something first needs fixing | 0.9 s | the "!" pose at once |
+| Attention | when something first needs fixing | 2.0 s | the "!" pose at once |
 | Pause | Copy to clipboard switched off | 0.6 s | the dashed card at once |
 | Resume | Copy to clipboard switched on | 0.9 s | the picture at once |
 
-Each ends exactly on its resting pose. A copy plays over an attention (it did
+Copy and attention come unasked, so they are slow enough to catch at a glance;
+pause and resume answer a switch the user is looking at in the popover, so they
+are short. Each ends exactly on its resting pose; an attention fixed while Peg
+still swings ends at once on the new resting pose. A copy plays over an attention (it did
 happen) and ends on the card the icon rests on, dashed while paused or "!"
 while something needs attention; a change of state never cuts a copy short. The
 floating preview's Copied badge and the tour's check bounce as Peg's clamp
@@ -145,9 +148,10 @@ three in step.
 In the app:
 
 - Floating preview: arrival, landing, badge bounce (again after Copy again),
-  stack, drop and fling as before; hover lifts the card 2 pt and spreads its
-  shadow; past the point where letting go dismisses it, a swipe tips the card
-  2 degrees and fades it a little, with a Force Touch trackpad tick; a file drag
+  stack, drop and fling as before; hover lifts the picture 2 pt and spreads its
+  shadow (the pointer handling stays put; nothing with Reduce Motion); while a
+  swipe is held past the point where letting go dismisses it, the card tips 2
+  degrees and fades a little, with a Force Touch trackpad tick; a file drag
   carries the picture larger, raised and shadowed while the card ghosts; "+N"
   pops in.
 - Popover: a row Undo puts back grows into the strip's place; the header's
@@ -157,7 +161,8 @@ In the app:
   folder turns into the viewfinder in place; while Try it waits, the viewfinder
   breathes and Peg waits, half as large again, beside "Watch the menu bar", then
   plays the menu bar's own frames; the first copy ever bursts small cards from
-  the check, once per install; the current dot slides to the next step.
+  the check inside the result's card, once per install; a step's words change
+  in turn, never on top of each other; the current dot slides to the next step.
 
 ## The ledger and retention
 

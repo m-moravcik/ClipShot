@@ -254,18 +254,23 @@ struct OnboardingView: View {
         .fixedSize(horizontal: !stretched, vertical: true)
     }
 
+    static func title(_ primary: WelcomeTour.Primary) -> LocalizedStringResource {
+        switch primary {
+        case .next: Copy.Onboarding.next
+        case .startCopying: Copy.Onboarding.startCopying
+        case .done: Copy.Onboarding.done
+        }
+    }
+
     private func primaryButton(stretched: Bool) -> some View {
         Button {
             withAnimation(Design.Motion.quick) { tour.advance(model) }
         } label: {
-            Group {
-                switch tour.primary(model) {
-                case .next: Text(Copy.Onboarding.next)
-                case .startCopying: Text(Copy.Onboarding.startCopying)
-                case .done: Text(Copy.Onboarding.done)
-                }
-            }
-            .frame(maxWidth: stretched ? .infinity : nil)
+            // One text whose words change in place, not one text fading out for another: a
+            // fading old label stayed behind while the button moved with the step's height.
+            Text(Self.title(tour.primary(model)))
+                .contentTransition(.identity)
+                .frame(maxWidth: stretched ? .infinity : nil)
         }
         .buttonStyle(.borderedProminent)
         .keyboardShortcut(.defaultAction)
@@ -323,18 +328,26 @@ private struct StepHeader: View {
             .accessibilityHidden(true)
             .padding(.top, Design.Spacing.s)
 
-            Text(title)
-                .font(.headline)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .contentTransition(.opacity)
-                .accessibilityAddTraits(.isHeader)
-            Text(text)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .contentTransition(.opacity)
+            // New words (folder access granted) replace the old ones in turn, never on top of
+            // them: the old fade out, then the new fade in.
+            ZStack(alignment: .top) {
+                VStack(spacing: 10) {
+                    Text(title)
+                        .font(.headline)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityAddTraits(.isHeader)
+                    Text(text)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .id(title.key)
+                .transition(.asymmetric(
+                    insertion: .opacity.animation(Design.Motion.wordsIn),
+                    removal: .opacity.animation(Design.Motion.wordsOut)))
+            }
         }
         .frame(maxWidth: .infinity)
         .task {
@@ -376,9 +389,11 @@ private struct FolderStep: View {
                 title: model.isWatching ? Copy.Onboarding.tryTitle : Copy.Onboarding.folderTitle,
                 text: model.isWatching ? Copy.Onboarding.tryBody(model.previewMode) : Copy.Onboarding.folderBody,
                 breathing: model.isWatching && state == .waiting)
+            // Fades in once the step has grown to its new height, so it never shows over the
+            // dots and buttons still moving down.
             if model.isWatching {
                 tryResult
-                    .transition(.opacity)
+                    .transition(.asymmetric(insertion: .opacity.animation(Design.Motion.afterResize), removal: .opacity))
             }
         }
         .animation(Design.Motion.quick, value: model.isWatching)
@@ -494,7 +509,8 @@ private struct TourPeg: View {
 }
 
 /// The first copy ever: small cards, in the template ink and a few in the check's green,
-/// burst from the check, fall and fade. Pure, so its course can be tested.
+/// burst from the check, fall and fade, inside the result's card (it clips them), so they
+/// never fly over the words above or the tour's dots. Pure, so its course can be tested.
 enum Celebration {
     struct Particle: Equatable {
         /// Direction of travel, in radians, 0 to the right, counter-clockwise.
@@ -518,7 +534,7 @@ enum Celebration {
     /// The square the cards fly in, centred on the check.
     static let side: CGFloat = 240
     /// Points per second squared, downwards.
-    static let gravity: Double = 260
+    static let gravity: Double = 160
 
     /// Spread around the upper half, deterministic: every first copy looks the same.
     static let particles: [Particle] = (0..<count).map { i in
@@ -526,7 +542,7 @@ enum Celebration {
         let wobble = sin(Double(i) * 2.3)
         return Particle(
             angle: .pi * (0.05 + 0.9 * u) + 0.12 * wobble,
-            speed: 75 + 40 * abs(cos(Double(i) * 1.7)),
+            speed: 45 + 30 * abs(cos(Double(i) * 1.7)),
             spin: (i.isMultiple(of: 2) ? 1 : -1) * (0.8 + 0.6 * abs(wobble)),
             size: CGSize(width: i % 3 == 0 ? 5 : 6, height: i % 3 == 0 ? 4 : 4.5),
             green: i % 4 == 1)
@@ -609,13 +625,15 @@ private struct CopiedResult: View {
                     }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            // The celebration flies over its neighbours.
+            // The celebration flies over its neighbours in the card.
             .zIndex(1)
             TourPeg()
         }
         .padding(.horizontal, Design.Spacing.l)
         .padding(.vertical, Design.Spacing.m)
         .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.cardFill))
+        // The celebration stays inside the card.
+        .clipShape(RoundedRectangle(cornerRadius: Design.Radius.card))
         .accessibilityElement(children: .contain)
     }
 }

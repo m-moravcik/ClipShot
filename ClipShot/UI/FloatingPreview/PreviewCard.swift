@@ -51,6 +51,12 @@ enum PreviewCardMetrics {
         translation > width * dismissFraction
     }
 
+    /// The card tips, fades a little and ticks: past the dismiss point, and only while the
+    /// swipe is held. After the release a fling moves the card on its own, without them.
+    static func showsCommit(swiping: Bool, translation: CGFloat, width: CGFloat) -> Bool {
+        swiping && pastDismissPoint(translation, width: width)
+    }
+
     /// A release that should fling the preview away rather than spring it back.
     static func flings(translation: CGFloat, velocity: CGFloat, width: CGFloat) -> Bool {
         pastDismissPoint(translation, width: width) || (velocity > 450 && translation > 8)
@@ -100,6 +106,8 @@ struct PreviewCard: View {
     @State private var hovering: Bool
     @State private var offerCopy: Bool
     @State private var dragX: CGFloat = 0
+    /// A swipe is held: the pointer is down and moving the card.
+    @State private var swiping = false
     @State private var landed = false
     @State private var badgeBounce = 0
     /// The wait before the badge's next bounce, or a Copy again; cancelled when the card goes.
@@ -120,6 +128,7 @@ struct PreviewCard: View {
         _hovering = State(initialValue: hovering)
         _offerCopy = State(initialValue: hovering)
         _dragX = State(initialValue: dragX)
+        _swiping = State(initialValue: dragX > 0)
     }
 
     /// The image starts this much smaller and lands into the card.
@@ -145,14 +154,21 @@ struct PreviewCard: View {
 
     private var card: some View {
         ZStack {
+            // Hover lifts the picture and its overlays towards the pointer; the pointer
+            // handling stays put, so its tracking area never moves under the pointer.
             picture
+                .offset(y: lift)
+                .animation(Design.Motion.hover, value: hovering)
             CardInteraction(
                 overhang: PreviewCardMetrics.hoverOverhang,
                 file: item.file, image: item.image,
                 toolTip: String(localized: Copy.Preview.markupHint),
                 onClick: actions.markup,
                 onHover: hoverChanged,
-                onSwipeChanged: { dragX = PreviewCardMetrics.rubberBand($0) },
+                onSwipeChanged: {
+                    swiping = true
+                    dragX = PreviewCardMetrics.rubberBand($0)
+                },
                 onSwipeEnded: swipeEnded,
                 onDragBegan: { inHand = true },
                 onDragEnded: { _ in inHand = false },
@@ -161,14 +177,14 @@ struct PreviewCard: View {
                 .padding(-PreviewCardMetrics.hoverOverhang)
                 .accessibilityHidden(true)
             overlays
+                .offset(y: lift)
+                .animation(Design.Motion.hover, value: hovering)
         }
         .frame(width: size.width, height: size.height)
-        // Hover lifts it towards the pointer. Past the point where letting go dismisses it,
-        // the card tips and fades a little, and comes back if the pointer does; a Force Touch
-        // trackpad ticks as it crosses. Each animates on its own value, inside the swipe's
-        // offset, so the swipe itself keeps following the pointer frame by frame.
-        .offset(y: hovering && !reduceMotion ? -Design.Motion.hoverLift : 0)
-        .animation(Design.Motion.hover, value: hovering)
+        // While the swipe is held past the point where letting go dismisses it, the card tips
+        // and fades a little, and comes back if the pointer does; a Force Touch trackpad ticks
+        // as it crosses. Not after the release: a fling never tips or ticks. Animated on its
+        // own value, inside the swipe's offset, so the swipe keeps following the pointer.
         .rotationEffect(.degrees(pastDismissPoint && !reduceMotion ? Design.Motion.swipeCommitAngle : 0),
                         anchor: .bottomLeading)
         .opacity(pastDismissPoint ? Design.Motion.swipeCommitOpacity : 1)
@@ -197,9 +213,14 @@ struct PreviewCard: View {
         }
     }
 
+    /// Only while the swipe is held: after the release, a fling moves `dragX` on its own.
     private var pastDismissPoint: Bool {
-        PreviewCardMetrics.pastDismissPoint(dragX, width: size.width)
+        PreviewCardMetrics.showsCommit(swiping: swiping, translation: dragX, width: size.width)
     }
+
+    /// Hover lifts the card; nothing changes with Reduce Motion.
+    private var lifted: Bool { hovering && !reduceMotion }
+    private var lift: CGFloat { lifted ? -Design.Motion.hoverLift : 0 }
 
     private var picture: some View {
         ZStack {
@@ -220,9 +241,8 @@ struct PreviewCard: View {
         .clipShape(shape)
         .overlay(shape.strokeBorder(Color.primary.opacity(0.18), lineWidth: 0.5))
         .background(shape.fill(Color(nsColor: .windowBackgroundColor)))
-        // Hover: the card lifts (see `card`) and its shadow spreads. Reduce Motion keeps the
-        // shadow, which is not movement.
-        .shadow(color: .black.opacity(0.28), radius: hovering ? 14 : 10, y: hovering ? 6 : 4)
+        // Hover: the card lifts (see `card`) and its shadow spreads. Reduce Motion: neither.
+        .shadow(color: .black.opacity(0.28), radius: lifted ? 14 : 10, y: lifted ? 6 : 4)
         .animation(Design.Motion.hover, value: hovering)
     }
 
@@ -333,6 +353,7 @@ struct PreviewCard: View {
     }
 
     private func swipeEnded(translation: CGFloat, velocity: CGFloat) {
+        swiping = false
         let current = PreviewCardMetrics.rubberBand(translation)
         guard PreviewCardMetrics.flings(translation: current, velocity: velocity, width: size.width) else {
             withAnimation(reduceMotion ? Design.Motion.quick : Design.Motion.snapBack) { dragX = 0 }

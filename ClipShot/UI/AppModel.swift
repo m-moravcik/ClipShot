@@ -639,6 +639,14 @@ final class AppModel {
         flashTimer = nil
     }
 
+    /// Stops the moment playing, and its timer, on the resting pose.
+    private func endFlash() {
+        flashTimer?.invalidate()
+        flashTimer = nil
+        flash = PegFlash()
+        flashPhase = 0
+    }
+
     /// Copies the screenshot that failed, or else the latest one, again.
     @discardableResult
     func copyAgain() async -> Bool {
@@ -1069,6 +1077,9 @@ final class AppModel {
         // Peg swings into the attention pose once, when something first needs fixing; more
         // problems while it already shows "!" change nothing in the menu bar.
         if first { play(.attention, from: before) }
+        // Fixed while it still swings: the icon goes to its resting pose at once, so the "!"
+        // never swings in after the problem is gone and agrees with what VoiceOver reads.
+        if attentions.isEmpty, flashPhase > 0, flashMoment == .attention { endFlash() }
     }
 
     /// `copyEnabled` goes straight to the coordinator; a retention change re-reads the status.

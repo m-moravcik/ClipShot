@@ -9103,13 +9103,13 @@
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sleduj lištu"
+            "value" : "Sleduj lištu menu"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sleduj lištu"
+            "value" : "Sleduj řádek nabídek"
           }
         },
         "de" : {

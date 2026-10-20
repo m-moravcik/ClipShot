@@ -22,6 +22,16 @@ struct PreviewMotionTests {
                 "a leftward drag never commits")
     }
 
+    /// The tip, fade and tick belong to the held swipe: a fling after the release, which
+    /// carries the card far past the point, never shows them.
+    @Test func commitFeedbackOnlyWhileTheSwipeIsHeld() {
+        let width: CGFloat = 200
+        #expect(PreviewCardMetrics.showsCommit(swiping: true, translation: width * 0.5, width: width))
+        #expect(!PreviewCardMetrics.showsCommit(swiping: false, translation: width * 0.5, width: width))
+        #expect(!PreviewCardMetrics.showsCommit(swiping: false, translation: width * 2, width: width), "a fling")
+        #expect(!PreviewCardMetrics.showsCommit(swiping: true, translation: width * 0.3, width: width))
+    }
+
     /// The drag image is the picture a little larger, raised off its card, with room for its
     /// shadow; the drag starts centred on the card so the pointer keeps its place on it.
     @Test func dragImageIsLiftedOffTheCard() throws {

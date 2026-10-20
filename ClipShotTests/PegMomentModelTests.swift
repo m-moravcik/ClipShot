@@ -35,6 +35,28 @@ struct PegMomentModelTests {
         #expect(h.timers.count == 1)
     }
 
+    /// Fixed while Peg still swings: the moment ends at once on the resting pose, its timer
+    /// goes, and VoiceOver and the icon agree.
+    @Test func attentionClearedMidSwingEndsOnTheRestingPose() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        h.prefs["target"] = "clipboard"
+        #expect(await h.start())
+        #expect(await eventually { await !h.model.attentions.isEmpty })
+        let timer = try #require(h.timer)
+        timer.fire(10)
+        #expect(h.model.flashMoment == .attention)
+        #expect(h.model.flashPhase == 11)
+        await h.model.fixDestination()
+        #expect(await eventually { await h.model.attentions.isEmpty })
+        #expect(h.model.flashPhase == 0)
+        #expect(timer.invalidated, "no timer left after the moment ends")
+        #expect(h.model.iconState == .idle)
+        #expect(h.model.iconPose == Peg.pose(.idle))
+        timer.fire(5)
+        #expect(h.model.flashPhase == 0, "a late tick of the old timer draws nothing")
+    }
+
     @Test func reduceMotionSwapsToAttentionInOneFrame() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }

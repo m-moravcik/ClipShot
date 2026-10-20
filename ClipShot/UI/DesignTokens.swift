@@ -134,11 +134,12 @@ enum Design {
         static let menuBarFrameRate: Double = 30
         /// Reduce Motion: the copied pose, held, with no movement.
         static let menuBarHold: TimeInterval = 1.4
-        /// Peg's smaller moments, on the same frame timer, each once and under a second: they
-        /// confirm a change of state where it shows rather than celebrate it. Reduce Motion:
-        /// none of them plays; the state changes in one frame.
-        /// Something first needs attention: the card swings into its "!" pose.
-        static let menuBarAttention: TimeInterval = 0.9
+        /// Peg's other moments, on the same frame timer, each once. Reduce Motion: none of them
+        /// plays; the state changes in one frame.
+        /// Something first needs attention: unsolicited, so it is a menu bar moment, long
+        /// enough to catch at a glance (the card drops, swings, damps out, holds).
+        static let menuBarAttention: TimeInterval = 2.0
+        /// The switch in the popover answers where it shows: short, since the user is looking.
         /// Copy to clipboard off: the picture fades, the outline breaks into dashes.
         static let menuBarPause: TimeInterval = 0.6
         /// Copy to clipboard on: the outline joins up, the peg bites again.
@@ -159,6 +160,14 @@ enum Design {
         /// The first copy ever, once per install, in Try it: small cards burst from the check
         /// with the bounce, fall and fade. The only celebration in the app. Reduce Motion: none.
         static let celebration: TimeInterval = 0.9
+        /// A step's words change in turn: the old fade out, then the new fade in, so the two
+        /// never overlap. Also with Reduce Motion (opacity only).
+        static let wordsOutDuration: TimeInterval = 0.1
+        static let wordsOut: Animation = .easeOut(duration: wordsOutDuration)
+        static let wordsIn: Animation = .easeIn(duration: 0.16).delay(wordsOutDuration)
+        /// Something new in a step that grows: it fades in once the step's height has settled
+        /// (`quick`), so it never shows over the dots and buttons still moving down.
+        static let afterResize: Animation = .easeIn(duration: 0.16).delay(0.18)
         /// The current tour dot is a capsule that slides to the next step.
         static let dots: Animation = layout
 
