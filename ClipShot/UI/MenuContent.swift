@@ -392,6 +392,7 @@ enum RetentionSummary: Equatable {
 
 private struct RetentionSummaryRow: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.displayNow) private var displayNow
     @Environment(SettingsRouter.self) private var router
     @Environment(\.openSettings) private var openSettings
     @State private var isHovering = false
@@ -412,7 +413,7 @@ private struct RetentionSummaryRow: View {
                     Text(summary.title)
                         .font(Design.Typography.row)
                     if case .on = summary {
-                        Text(RetentionSummary.lastCleanup(model.preferences.lastRetention, now: Date()))
+                        Text(RetentionSummary.lastCleanup(model.preferences.lastRetention, now: displayNow ?? Date()))
                             .font(Design.Typography.cardSubtitle)
                             .foregroundStyle(.secondary)
                     }
@@ -593,4 +594,8 @@ extension EnvironmentValues {
     /// which draws a scroll view with a bottom edge bar black. Views that use one fall back to
     /// a plain layout.
     @Entry var offscreenCapture = false
+    /// The moment the popover reads its dates against ("Last cleanup today at ..."); nil is
+    /// the real now. The screenshot harness fixes it, so a picture does not change with the
+    /// time of day it is rendered.
+    @Entry var displayNow: Date? = nil
 }

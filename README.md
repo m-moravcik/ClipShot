@@ -26,7 +26,7 @@ brew install --cask m-moravcik/clipshot/clipshot
 
 macOS saves a screenshot as a file, or copies it to the clipboard if you hold
 Control, but never both. And with the floating thumbnail on, the file only appears
-once the thumbnail goes away, about five seconds later. I kept taking a screenshot,
+once the thumbnail goes away, about six seconds later. I kept taking a screenshot,
 switching to a chat and finding nothing to paste.
 
 For a while a small script copied the newest screenshot to the clipboard for me. It
@@ -51,7 +51,8 @@ kept piling up. ClipShot is that script done properly.
 - **Changes the macOS screenshot settings for you.** The save folder and the
   preview, without Terminal, and with a way back to what you had before.
 
-It works in English, Slovak, Czech, German, Spanish and French, and updates itself.
+It works in English, Slovak, Czech, German, Spanish and French. A downloaded copy
+updates itself; a Homebrew copy updates with `brew upgrade`.
 
 ## Install
 
@@ -92,7 +93,7 @@ Preview picks one:
 | Preview | What you see | When the copy lands |
 |---|---|---|
 | **ClipShot** (default) | ClipShot's own floating preview; the macOS thumbnail is off | at once |
-| **macOS** | the macOS floating thumbnail | when the thumbnail goes away, a few seconds later |
+| **macOS** | the macOS floating thumbnail | when the thumbnail goes away, about six seconds later |
 | **None** | no preview at all | at once |
 
 If you turn the thumbnail on yourself in ⇧⌘5 > Options, ClipShot follows and shows
@@ -225,7 +226,7 @@ Mail. Then macOS saves no file and ClipShot has nothing to copy. The popover and
 Settings > Capture show this with a **Save screenshots to a file** button that
 sets it back.
 
-### The copy takes a few seconds
+### The copy takes about six seconds
 
 Preview is set to **macOS**, so macOS saves the file only when its thumbnail goes
 away. Click **Copy at once** in the popover, or pick **ClipShot** in Settings >
@@ -257,9 +258,15 @@ folder, and the floating thumbnail it turned off for its own preview. To put bac
 what you had before ClipShot, use **Settings > Capture > Restore previous
 settings** before you uninstall.
 
-Without Homebrew: quit ClipShot, move it to the Trash, and move
-`~/Library/Application Support/ClipShot` and `~/Library/Logs/clipshot.log` to the
-Trash as well. `defaults delete sk.moravcik.ClipShot` removes its settings.
+Without Homebrew: quit ClipShot, move it to the Trash, and move these to the Trash
+as well (the same list `--zap` uses):
+
+- `~/Library/Application Support/ClipShot`
+- `~/Library/Caches/sk.moravcik.ClipShot`
+- `~/Library/HTTPStorages/sk.moravcik.ClipShot`
+- `~/Library/Logs/clipshot.log` and `~/Library/Logs/clipshot.log.1`
+- `~/Library/Preferences/sk.moravcik.ClipShot.plist` (or run
+  `defaults delete sk.moravcik.ClipShot`)
 
 ## Building from source
 

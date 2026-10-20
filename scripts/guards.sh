@@ -6,7 +6,7 @@
 #   - the em dash (U+2014) in user-facing resources and docs
 
 set -uo pipefail
-cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" || exit 1
 
 fail=0
 report() { printf '\033[31mguard failed:\033[0m %s\n' "$1" >&2; fail=1; }

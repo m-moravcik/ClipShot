@@ -89,7 +89,7 @@ echo "Version: $VERSION"
 # Resolve the signing certificate up front. An ambiguous identity makes
 # xcodebuild fail deep inside the build log.
 IDENTITIES="$(security find-identity -v -p codesigning 2>/dev/null || true)"
-MATCHES="$(printf '%s\n' "$IDENTITIES" | grep -c "Developer ID Application" || true)"
+MATCHES="$(grep -c "Developer ID Application" <<<"$IDENTITIES" || true)"
 if [ "$MATCHES" -eq 0 ]; then
   printf '%s\n' "$IDENTITIES" >&2
   die "no 'Developer ID Application' certificate in the keychain.
@@ -102,7 +102,7 @@ if [ "$MATCHES" -gt 1 ] && [ "$SIGN_IDENTITY" = "Developer ID Application" ]; th
   ambiguous. Set SIGN_IDENTITY to the full name or SHA-1 hash from the list above."
 fi
 
-CERT_LINE="$(printf '%s\n' "$IDENTITIES" | grep "Developer ID Application" | head -1)"
+CERT_LINE="$(grep -m1 "Developer ID Application" <<<"$IDENTITIES")"
 echo "Certificate: ${CERT_LINE#*\"}"
 
 # The Team ID is the parenthesised suffix of the certificate common name, e.g.
@@ -249,7 +249,8 @@ signable_targets() {
   find "$APP/Contents" -type f -perm -111 ! -name "*.dylib" -print 2>/dev/null \
     | while read -r candidate; do
         # Mach-O only; shell scripts and resources are not separately signed.
-        if file -b "$candidate" | grep -q "Mach-O"; then printf '%s\n' "$candidate"; fi
+        kind="$(file -b "$candidate")"
+        if [[ "$kind" == *Mach-O* ]]; then printf '%s\n' "$candidate"; fi
       done
 }
 
@@ -261,14 +262,16 @@ while IFS= read -r target; do
 
   info="$(codesign --display --verbose=4 "$target" 2>&1)" || die "unsigned: $label"
 
-  printf '%s\n' "$info" | grep -q "flags=.*runtime" \
+  # Matched from here-strings, never from a pipe: under pipefail, a `grep -q` that
+  # exits on its first match can fail the pipeline through SIGPIPE.
+  grep -q "flags=.*runtime" <<<"$info" \
     || die "hardened runtime missing on $label"
-  printf '%s\n' "$info" | grep -q "^Timestamp=" \
+  grep -q "^Timestamp=" <<<"$info" \
     || die "no secure timestamp on $label; notarization would reject it"
-  printf '%s\n' "$info" | grep -q "^TeamIdentifier=$DEVELOPMENT_TEAM" \
-    || die "$label is signed by an unexpected team: $(printf '%s\n' "$info" | grep '^TeamIdentifier=' || echo 'none')
+  grep -q "^TeamIdentifier=$DEVELOPMENT_TEAM" <<<"$info" \
+    || die "$label is signed by an unexpected team: $(grep '^TeamIdentifier=' <<<"$info" || echo 'none')
   Upstream frameworks arrive ad-hoc signed; they must be re-signed."
-  printf '%s\n' "$info" | grep -q "^Authority=Developer ID Application" \
+  grep -q "^Authority=Developer ID Application" <<<"$info" \
     || die "$label does not carry a Developer ID Application authority"
 
   # Debug entitlements are a hard rejection, and the failure arrives minutes
@@ -280,8 +283,8 @@ while IFS= read -r target; do
     com.apple.security.cs.disable-library-validation \
     com.apple.security.cs.allow-dyld-environment-variables
   do
-    if printf '%s' "$ents" | grep -q "$forbidden"; then
-      printf '%s' "$ents" | plutil -p - >&2 2>/dev/null || printf '%s\n' "$ents" >&2
+    if grep -q "$forbidden" <<<"$ents"; then
+      plutil -p - <<<"$ents" >&2 2>/dev/null || printf '%s\n' "$ents" >&2
       die "$label requests '$forbidden'.
   Notarization rejects this. Check ENABLE_CODE_COVERAGE and
   CODE_SIGN_INJECT_BASE_ENTITLEMENTS for the Release configuration."
@@ -294,7 +297,8 @@ $(signable_targets | sort -u)
 EOF
 
 [ "$checked" -gt 0 ] || die "no signable targets found under $APP"
-codesign --display --verbose=4 "$APP" 2>&1 | grep -E "^(Authority|TeamIdentifier|Timestamp)=|flags=" | head -6
+summary="$(codesign --display --verbose=4 "$APP" 2>&1)"
+grep -E "^(Authority|TeamIdentifier|Timestamp)=|flags=" <<<"$summary" || true
 echo "Verified $checked signable target(s): Developer ID, hardened runtime, timestamp, no debug entitlements"
 
 if [ "${SKIP_NOTARIZE:-0}" = "1" ]; then
@@ -325,25 +329,27 @@ ditto -c -k --keepParent "$APP" "$SUBMIT_ZIP"
 
 set +e
 SUBMIT_JSON="$(xcrun notarytool submit "$SUBMIT_ZIP" \
-  "${NOTARY_ARGS[@]}" --wait --timeout "$NOTARY_TIMEOUT" --output-format json 2>&1)"
+  ${NOTARY_ARGS[@]+"${NOTARY_ARGS[@]}"} --wait --timeout "$NOTARY_TIMEOUT" --output-format json 2>&1)"
 SUBMIT_RC=$?
 set -e
 printf '%s\n' "$SUBMIT_JSON"
 
-SUBMISSION_ID="$(printf '%s' "$SUBMIT_JSON" \
-  | grep -oE '"id"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 | cut -d'"' -f4)"
+# The first value of a JSON key, read from a here-string (no pipe for pipefail to trip on).
+json_first() {
+  python3 -I -c 'import re,sys; m=re.search(r"\""+sys.argv[1]+r"\"\s*:\s*\"([^\"]+)\"", sys.stdin.read()); print(m.group(1) if m else "")' "$1" <<<"$2"
+}
+SUBMISSION_ID="$(json_first id "$SUBMIT_JSON")"
 
 # notarytool exits 0 for a *completed* submission even when the verdict is
 # Invalid: the exit code reports whether the round trip worked, not whether
 # Apple accepted the bundle. Both have to be checked.
-SUBMIT_STATUS="$(printf '%s' "$SUBMIT_JSON" \
-  | grep -oE '"status"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 | cut -d'"' -f4)"
+SUBMIT_STATUS="$(json_first status "$SUBMIT_JSON")"
 
 if [ "$SUBMIT_RC" -ne 0 ] || [ "$SUBMIT_STATUS" != "Accepted" ]; then
   if [ -n "$SUBMISSION_ID" ]; then
     echo
     echo "--- notarization log for $SUBMISSION_ID ---" >&2
-    xcrun notarytool log "$SUBMISSION_ID" "${NOTARY_ARGS[@]}" >&2 || true
+    xcrun notarytool log "$SUBMISSION_ID" ${NOTARY_ARGS[@]+"${NOTARY_ARGS[@]}"} >&2 || true
   fi
   die "notarization was not accepted (status=${SUBMIT_STATUS:-unknown}, exit $SUBMIT_RC)"
 fi
@@ -370,7 +376,8 @@ xcrun stapler validate "$APP" || die "stapler validate failed after stapling"
 
 # What Gatekeeper does when a user opens a freshly downloaded app. Only
 # meaningful where assessment is enabled; say so rather than imply a check.
-if spctl --status 2>&1 | grep -q "assessments enabled"; then
+gatekeeper="$(spctl --status 2>&1 || true)"
+if [[ "$gatekeeper" == *"assessments enabled"* ]]; then
   spctl --assess --type exec --verbose=4 "$APP" || die "Gatekeeper assessment failed"
   echo "Gatekeeper: enforced assessment passed"
 else

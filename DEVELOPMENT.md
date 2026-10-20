@@ -207,15 +207,31 @@ popover offers a row to restart into a downloaded update.
 
 ClipShot, VibeRes and Eject Guard sign updates with the same EdDSA key. The
 private key is in the login keychain of the release Mac and backed up; it never
-leaves it. Accepted on purpose:
+leaves it. This is an accepted risk, chosen on purpose: one key to guard and back
+up instead of three.
 
-- One key to guard and back up instead of three.
-- If it leaked, all three apps' update channels would be exposed at once. That is
-  the cost. A signed archive of one app is still not accepted as an update of
-  another: Sparkle also checks the update's Apple code signature against the
-  installed app's.
-- Losing it would strand existing installs of all three on their current
-  version. Hence the backup.
+What the key protects, read from Sparkle 2.10.0's source
+(`build/SourcePackages/checkouts/Sparkle` after a build):
+
+- With `SUVerifyUpdateBeforeExtraction` on, the archive is checked against the
+  EdDSA key before it is unpacked (`Sparkle/SUUpdateValidator.m` 60-75). After
+  unpacking, the new app only has to pass Sparkle's basic policy and carry *a*
+  valid Apple code signature (lines 170-206); it is not compared with the
+  installed app's signature. Matching the two is only a fallback for when the
+  EdDSA check fails (lines 360-375: either one passing is enough).
+- Which bundle inside the archive is installed is picked by name (`ClipShot.app`)
+  or by bundle identifier (`Autoupdate/SUInstaller.m` 81-110). A package in the
+  archive can be used too (lines 92-121).
+
+So the honest exposure is this: **anyone holding the shared private key can sign
+an archive with a bundle named ClipShot.app, or with ClipShot's bundle
+identifier, and every installed copy will install it**, the same for VibeRes and
+Eject Guard. A genuine VibeRes archive is not installed as ClipShot only because
+its bundle has the wrong name and identifier, not because of any signature
+check. Serving such an archive also needs control of the feed, which is signed
+with the same key. The key is the whole defence, which is why it stays in one
+keychain with an offline backup. Losing it would strand existing installs of all
+three on their current version.
 
 ### Releasing
 
@@ -232,7 +248,10 @@ scripts/release.sh
 
 1. Preflight: on `main`, clean tree, same commit as `origin/main`, tag and
    release absent, notes present, repository public, tap working copy clean,
-   `make test l10n guards`, the notarytool profile works.
+   `CURRENT_PROJECT_VERSION` above the highest `sparkle:version` already in
+   `appcast.xml` (Sparkle offers an update only for a higher build number),
+   `make test l10n guards`, the notarytool profile works. An inherited
+   `SKIP_NOTARIZE` is cleared.
 2. `scripts/release-signed.sh`: Release build with the Developer ID identity,
    Sparkle's nested helpers re-signed, every signable item checked for Developer
    ID, hardened runtime, timestamp and no debug entitlements, universal binary,
@@ -240,19 +259,37 @@ scripts/release.sh
 3. Verify what will be published: `lipo -archs` is `x86_64 arm64`, no
    `get-task-allow`, `spctl -a -vv` says Notarized Developer ID and `stapler
    validate` passes, for the built app and the app inside the ZIP.
-4. Commit "Release X" (empty), tag `vX`, push both atomically.
-5. `gh release create` with the ZIP and the notes file.
-6. Download the asset back from GitHub, build the appcast from those bytes
-   (`scripts/make-appcast.sh`), `sign_update --verify` it, commit and push
-   `appcast.xml`.
-7. Fetch the feed and the asset as a client would and check the length and the
-   signature against each other.
-8. Update version and sha256 in the tap's cask (`~/Projects/homebrew-clipshot`),
+4. Rehearse the appcast on the local ZIP into a temporary feed, with both
+   signatures verified. Any appcast or key problem, and the keychain prompt,
+   comes up here, while nothing is public.
+5. Commit "Release X" (empty), tag `vX`, push both atomically.
+6. `gh release create` with the ZIP and the notes file.
+7. Download the asset back from GitHub and compare it byte for byte with the
+   local ZIP, build the appcast from those bytes (`scripts/make-appcast.sh`
+   signs the feed and verifies the enclosure signature and the feed signature),
+   commit and push `appcast.xml`.
+8. Fetch the feed and the asset as a client would: verify the feed's own
+   signature, and check the length and the enclosure signature against the
+   asset.
+9. Update version and sha256 in the tap's cask (`~/Projects/homebrew-clipshot`),
    `brew audit --cask --strict --online`, `brew style`, push.
 
-It is interactive: the first `sign_update` asks for access to the EdDSA key in
-the keychain. If a step after the tag fails, the script says what is already
-public; nothing is rolled back.
+It is interactive: `sign_update` asks for access to the EdDSA key in the
+keychain (set `SPARKLE_EDDSA_PRIVATE_KEY_PATH` to use a key file instead). Nothing
+public is rolled back. If the push of the tag fails, the script prints the two
+commands that undo the local commit and tag. If a step after the tag fails, it
+says what is already public and how to finish:
+
+```sh
+scripts/release.sh --resume-from appcast
+```
+
+That mode skips the build, the tag and the GitHub release. It requires the tag
+on origin and the release with its asset, downloads the asset again, and
+continues from step 7 (when the local ZIP is still there, the download is
+compared with it). The other preflight checks still run, except the tests, the
+notarytool check and the build-number check against the feed, which may already
+hold this release.
 
 `release-notes/<version>.md` is both the GitHub release body and the text in
 Sparkle's update window (converted to HTML; paragraphs, `- ` bullets and
@@ -288,8 +325,7 @@ by XcodeGen and not committed. The only dependency is Sparkle.
 make test
 ```
 
-Swift Testing, 278 tests in 46 suites at the time of writing. Pure logic is
-tested; views are not, except their layout rules. The ones worth knowing about:
+Swift Testing. Pure logic is tested; views are not, except their layout rules. The ones worth knowing about:
 
 | Area | Why it is tested |
 |---|---|

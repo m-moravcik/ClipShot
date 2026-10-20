@@ -26,6 +26,15 @@ struct DemoDataTests {
         #expect(DemoContent.screenshotTime("09.41.12", language: "sk") == "o 9.41.12")
     }
 
+    @Test func picturesShowTheLastCleanupTodayAtWhateverTimeTheyAreRendered() {
+        let cleanup = DemoContent.lastCleanup(now: DemoContent.renderNow)
+        #expect(Calendar.current.isDate(cleanup, inSameDayAs: DemoContent.renderNow))
+        #expect(cleanup < DemoContent.renderNow)
+        #expect(String(localized: RetentionSummary.lastCleanup(
+            RetentionResult(moved: 12, movedBytes: 1, failed: 0, at: cleanup), now: DemoContent.renderNow))
+            .hasPrefix("Last cleanup today at"))
+    }
+
     @Test func lastCleanupIsAlwaysInThePast() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = try #require(TimeZone(identifier: "Europe/Bratislava"))

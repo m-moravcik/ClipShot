@@ -106,7 +106,7 @@ enum ScreenshotHarness {
         // in the past and fixed to a time of day, so a re-render shows the same.
         DemoScene.wait { (scene.preferences.lastRetention?.failed ?? 0) > 0 }
         scene.preferences.lastRetention = RetentionResult(
-            moved: 12, movedBytes: 38_400_000, failed: 0, at: DemoContent.lastCleanup(now: now))
+            moved: 12, movedBytes: 38_400_000, failed: 0, at: DemoContent.lastCleanup(now: DemoContent.renderNow))
         try scene.copyDemoScreenshot()
         scene.model.refreshPreview()
         DemoScene.wait { scene.model.retentionPreview != nil }
@@ -713,6 +713,7 @@ private extension View {
             .environment(updateStatus)
             .environment(\.updater, updater)
             .environment(\.offscreenCapture, !ScreenshotHarness.liveCapture)
+            .environment(\.displayNow, DemoContent.renderNow)
     }
 }
 
@@ -725,6 +726,8 @@ private struct PopoverPanel<Content: View>: View {
     let scheme: ColorScheme
     /// False for a single row: no popover frame, just the row on the popover's colour.
     var framed = true
+    /// Only framed panels go through `capturePanel`, the one path that can capture live.
+    private var live: Bool { framed && ScreenshotHarness.liveCapture }
     @ViewBuilder let content: Content
 
     var body: some View {
@@ -738,8 +741,9 @@ private struct PopoverPanel<Content: View>: View {
                 content.fixedSize(horizontal: false, vertical: true)
             }
         }
-        // Live, the window's material shows through; off-screen it is drawn as its colour.
-        .background(ScreenshotHarness.liveCapture ? Color.clear : scheme.popoverFill)
+        // A live popover or tour panel lets the window's material show through; everything
+        // drawn off-screen, single rows included, gets the material's colour.
+        .background(live ? Color.clear : scheme.popoverFill)
         .environment(\.colorScheme, scheme)
     }
 }

@@ -41,12 +41,17 @@ REPO="m-moravcik/ClipShot"
 die() { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 
 [ -f "$ZIP" ] || die "no such archive: $ZIP"
+# sign_update recognises a feed by its extension.
+case "$OUT" in *.xml) : ;; *) die "the output must end in .xml: $OUT" ;; esac
 
 # Sparkle ships its tools inside the SwiftPM artifact bundle, so there is no
 # separate download to pin or checksum.
-SIGN_UPDATE="$(find "$DERIVED_DATA/SourcePackages/artifacts" -name sign_update -type f -perm +111 2>/dev/null | head -1)"
+SIGN_UPDATE="$(find "$DERIVED_DATA/SourcePackages/artifacts" -name sign_update -type f -perm +111 -print -quit 2>/dev/null || true)"
 [ -n "$SIGN_UPDATE" ] || die "sign_update not found under $DERIVED_DATA; build the app first (scripts/release-signed.sh)"
 
+# Empty when the key comes from the keychain. Always expanded as
+# ${SIGN_ARGS[@]+"${SIGN_ARGS[@]}"}: macOS's /bin/bash is 3.2, where "${SIGN_ARGS[@]}"
+# on an empty array is an unbound-variable error under `set -u`.
 SIGN_ARGS=()
 if [ -n "${SPARKLE_EDDSA_PRIVATE_KEY_PATH:-}" ]; then
   [ -f "$SPARKLE_EDDSA_PRIVATE_KEY_PATH" ] || die "key file missing: $SPARKLE_EDDSA_PRIVATE_KEY_PATH"
@@ -68,7 +73,7 @@ NOTES="release-notes/$VERSION.md"
 # not the marketing version. Getting this wrong makes every client see "no
 # update" with nothing logged anywhere.
 LENGTH="$(stat -f%z "$ZIP")"
-SIGNATURE="$("$SIGN_UPDATE" "${SIGN_ARGS[@]}" -p "$ZIP")" || die "sign_update failed"
+SIGNATURE="$("$SIGN_UPDATE" ${SIGN_ARGS[@]+"${SIGN_ARGS[@]}"} -p "$ZIP")" || die "sign_update failed"
 [ -n "$SIGNATURE" ] || die "sign_update produced no signature"
 
 # The notes as HTML, so the update window shows bullets rather than raw
@@ -150,11 +155,18 @@ XML
 # refuse an unsigned feed. Without this, someone able to substitute the feed
 # cannot ship a malicious build (the enclosure signature stops that) but could
 # pin every client to an older, validly signed release.
-"$SIGN_UPDATE" "${SIGN_ARGS[@]}" --disable-signing-warning "$OUT" >/dev/null \
+"$SIGN_UPDATE" ${SIGN_ARGS[@]+"${SIGN_ARGS[@]}"} --disable-signing-warning "$OUT" >/dev/null \
   || die "failed to sign the appcast feed"
+
+# Check both signatures as a client would, before anyone relies on them: the
+# enclosure against the archive, and the feed's own embedded signature.
+"$SIGN_UPDATE" ${SIGN_ARGS[@]+"${SIGN_ARGS[@]}"} --verify "$ZIP" "$SIGNATURE" \
+  || die "the enclosure signature does not verify against $ZIP"
+"$SIGN_UPDATE" ${SIGN_ARGS[@]+"${SIGN_ARGS[@]}"} --verify "$OUT" \
+  || die "the feed signature in $OUT does not verify"
 
 grep -q 'sparkle:edSignature' "$OUT" || die "appcast has no enclosure signature"
 echo "appcast: $OUT"
 echo "  version ${VERSION} (build ${BUILD}), ${LENGTH} bytes"
 echo "  signature: ${SIGNATURE:0:16}..."
-echo "  feed signed; SURequireSignedFeed in Info.plist makes clients demand it"
+echo "  enclosure and feed signatures verified; SURequireSignedFeed makes clients demand both"

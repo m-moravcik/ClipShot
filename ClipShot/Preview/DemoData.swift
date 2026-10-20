@@ -319,6 +319,11 @@ enum DemoContent {
         }
     }
 
+    /// The "now" the pictures are drawn at: today at 15:00, whatever the time of rendering.
+    /// The popover reads its dates against it (`displayNow`), so "Last cleanup today at 9:12"
+    /// reads the same at 5 in the morning. File ages stay real: the copy pipeline needs them.
+    static let renderNow: Date = Calendar.current.date(bySettingHour: 15, minute: 0, second: 0, of: Date()) ?? Date()
+
     /// When the popover's "Last cleanup" happened: today at 09:12, or yesterday at 09:12 when
     /// that is not at least ten minutes ago, so the picture never shows a cleanup still to
     /// come and does not change with the minute it is rendered.
