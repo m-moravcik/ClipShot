@@ -92,7 +92,7 @@ final class ModelHarness {
     /// so starting does not write `show-thumbnail`; false is a fresh install.
     init(
         onboardingShown: Bool = true, previewModeApplied: Bool = true, previewLifetime: Duration = .seconds(5),
-        hasTrash: Bool = true
+        hasTrash: Bool = true, undoLifetime: Duration = AppModel.defaultUndoLifetime
     ) throws {
         let fm = FileManager.default
         home = try Fixtures.makeDir()
@@ -142,6 +142,7 @@ final class ModelHarness {
             appVersion: "1.0.0 (1)", osVersion: "Version 26.0 (Build 25A1)")
         deps.edits = edits
         deps.previewLifetime = previewLifetime
+        deps.undoLifetime = undoLifetime
         deps.openMarkup = { url, done in
             box.harness?.markups.append(url)
             done(box.harness?.markupResult ?? .closed)
@@ -213,15 +214,14 @@ struct AppModelTests {
         #expect(await eventually { await h.model.watchedFolder?.path == h.folder.path })
     }
 
-    @Test func firstCopyHintShownUntilFirstCopy() async throws {
+    @Test func firstCopyIsRecorded() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }
-        #expect(h.model.showFirstCopyHint)
+        #expect(!h.preferences.firstCopyDone)
         #expect(await h.start())
         try h.shoot("Screenshot 1.png")
         #expect(await eventually { await h.pasteboard.writes.count == 1 })
-        #expect(await eventually { await !h.model.showFirstCopyHint })
-        #expect(h.preferences.firstCopyDone)
+        #expect(await eventually { await h.preferences.firstCopyDone })
         #expect(h.preferences.totals.copied == 1)
         #expect(h.model.lastCopied?.url.lastPathComponent == "Screenshot 1.png")
         #expect(h.announcements >= 1)
@@ -510,7 +510,7 @@ struct AppModelTests {
         #expect(await h.start())
         let url = try h.shoot("Screenshot 1.png")
         #expect(await eventually { await h.model.lastCopied != nil })
-        h.model.revealLast()
+        h.model.reveal(try #require(h.model.lastCopied))
         #expect(h.workspace.revealed.map(\.lastPathComponent) == [url.lastPathComponent])
         h.model.openFolder()
         #expect(h.workspace.opened.map(\.path) == [h.folder.path])

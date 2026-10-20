@@ -15,6 +15,8 @@
 # preview, preview-hover, preview-stack (three, the newest with "+1"), preview-motion (key
 # frames of its springs), plus popover-macos-mode, settings-capture-macos-mode and
 # popover-preview-offer (the one-time offer after an update with the macOS thumbnail on).
+# The popover pictures show the strip of earlier screenshots under the latest card;
+# popover-undo is the popover just after Move to Trash, with its Undo row.
 # Copy what you need into docs/screenshots.
 #
 # Everything is demo data: a throwaway screenshot folder under the temporary directory,

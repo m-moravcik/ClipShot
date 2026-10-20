@@ -367,6 +367,11 @@ final class CopyCoordinator {
                 let ledger = ledger
                 Task { await ledger.record(file) }
             }
+            if observation.editing {
+                // Saved by replacing the file while it is open in Markup: keep it tracked.
+                let ledger = ledger
+                Task { await ledger.followEdit(file) }
+            }
             guard copying else {
                 // While disabled, everything seen counts as handled: no catch-up on re-enable.
                 decider.seed([file])

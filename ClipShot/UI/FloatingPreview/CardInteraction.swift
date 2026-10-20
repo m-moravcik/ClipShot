@@ -10,19 +10,21 @@ struct CardMenuItem {
 
 /// The card's pointer handling, in AppKit, because one press has to become a click (Markup),
 /// a swipe towards the screen edge, or a file drag into another app, decided by where the
-/// pointer goes first. VoiceOver uses the card's own actions instead.
+/// pointer goes first. VoiceOver uses the card's own actions instead. The popover's recent
+/// screenshots use it without the swipe: there, any movement drags the file out.
 ///
 /// The view reaches `overhang` past the card on every side, so the hover (which shows the
 /// buttons and stops the timer) still holds over the Close button that sits over the card's
 /// corner. Presses only count on the card itself.
 struct CardInteraction: NSViewRepresentable {
-    let overhang: CGFloat
+    var overhang: CGFloat = 0
     let file: CaptureFile
     let image: CGImage?
     let onClick: () -> Void
     let onHover: (Bool) -> Void
-    let onSwipeChanged: (CGFloat) -> Void
-    let onSwipeEnded: (_ translation: CGFloat, _ velocity: CGFloat) -> Void
+    /// nil: no swipe, a movement in any direction is a file drag.
+    var onSwipeChanged: ((CGFloat) -> Void)?
+    var onSwipeEnded: (_ translation: CGFloat, _ velocity: CGFloat) -> Void = { _, _ in }
     let onDraggedOut: () -> Void
     let menu: () -> [CardMenuItem]
 
@@ -65,7 +67,7 @@ final class CardInteractionView: NSView, NSDraggingSource {
     var image: CGImage?
     var onClick: () -> Void = {}
     var onHover: (Bool) -> Void = { _ in }
-    var onSwipeChanged: (CGFloat) -> Void = { _ in }
+    var onSwipeChanged: ((CGFloat) -> Void)?
     var onSwipeEnded: (CGFloat, CGFloat) -> Void = { _, _ in }
     var onDraggedOut: () -> Void = {}
     var menuItems: () -> [CardMenuItem] = { [] }
@@ -109,7 +111,7 @@ final class CardInteractionView: NSView, NSDraggingSource {
         case .pressed(let start):
             let dx = point.x - start.x, dy = point.y - start.y
             guard hypot(dx, dy) >= Self.threshold else { return }
-            if dx > 0 && abs(dx) > abs(dy) {
+            if let onSwipeChanged, dx > 0 && abs(dx) > abs(dy) {
                 gesture = .swiping(start)
                 samples = [(event.timestamp, dx)]
                 onSwipeChanged(dx)
@@ -121,7 +123,7 @@ final class CardInteractionView: NSView, NSDraggingSource {
             let dx = point.x - start.x
             samples.append((event.timestamp, dx))
             samples.removeAll { event.timestamp - $0.time > 0.1 }
-            onSwipeChanged(dx)
+            onSwipeChanged?(dx)
         case .idle, .dragging:
             break
         }
@@ -177,7 +179,7 @@ final class CardInteractionView: NSView, NSDraggingSource {
 }
 
 /// A menu item that runs a closure.
-private final class ClosureMenuItem: NSMenuItem {
+final class ClosureMenuItem: NSMenuItem {
     private let run: () -> Void
 
     init(title: String, action: @escaping () -> Void) {

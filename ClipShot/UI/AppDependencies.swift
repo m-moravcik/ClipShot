@@ -92,6 +92,8 @@ struct AppDependencies {
     var openMarkup: @MainActor (URL, @escaping @MainActor (MarkupResult) -> Void) -> Void = { _, done in done(.failed) }
     /// How long a floating preview stays.
     var previewLifetime: Duration = FloatingPreviews.defaultLifetime
+    /// How long Undo is offered after a move to the Trash (Addendum A6).
+    var undoLifetime: Duration = AppModel.defaultUndoLifetime
 
     @MainActor
     static func live() -> AppDependencies {

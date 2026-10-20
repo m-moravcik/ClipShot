@@ -27,13 +27,15 @@ enum Copy {
         static let attention = LocalizedStringResource("Needs attention", comment: "Popover header state")
         static let firstCopyHint = LocalizedStringResource(
             "Paste works once the thumbnail disappears",
-            comment: "Popover hint until the first copy, Preview mode macOS: macOS saves the file when its floating thumbnail goes away")
+            comment: "Popover status row under Copying on, Preview mode macOS while the one-time offer shows: macOS saves the file when its floating thumbnail goes away")
         static let firstCopyHintInstant = LocalizedStringResource(
             "Screenshots are ready to paste at once",
-            comment: "Popover hint until the first copy, Preview mode ClipShot or None: the copy lands the moment the screenshot is taken")
-        /// Until the first copy: when a screenshot can be pasted, in this Preview mode.
-        static func firstCopyHint(_ mode: PreviewMode) -> LocalizedStringResource {
-            mode.copiesInstantly ? firstCopyHintInstant : firstCopyHint
+            comment: "Popover status row under Copying on, Preview mode ClipShot or None: the copy lands the moment the screenshot is taken")
+        static let pausedDetail = LocalizedStringResource(
+            "New screenshots are not copied", comment: "Popover status row, under Paused: the Copy to clipboard toggle is off")
+        static func attentionDetail(_ count: Int) -> LocalizedStringResource {
+            LocalizedStringResource(
+                "\(count) issues to fix", comment: "Popover status row, under Needs attention: how many attention rows follow")
         }
     }
 
@@ -45,7 +47,7 @@ enum Copy {
             comment: "One-time popover row after an update, while the macOS floating thumbnail is on: what it costs")
         static let hint = LocalizedStringResource(
             "Copying waits for the macOS thumbnail",
-            comment: "Popover header line in Preview mode macOS, before a Copy at once link")
+            comment: "Popover status row under Copying on, Preview mode macOS, before a Copy at once link")
         static let useClipShot = LocalizedStringResource(
             "Copy at once", comment: "Button: switches Preview to ClipShot, which turns the macOS thumbnail off")
     }
@@ -141,6 +143,23 @@ enum Copy {
         }
     }
 
+    // MARK: - Recent screenshots and Undo
+
+    enum Recent {
+        static let strip = LocalizedStringResource(
+            "Recent screenshots", comment: "VoiceOver label of the strip of earlier screenshots under the latest card")
+        static func item(age: String) -> LocalizedStringResource {
+            LocalizedStringResource(
+                "Screenshot, \(age)", comment: "VoiceOver label of one earlier screenshot in the popover: its relative age")
+        }
+        static let moreActions = LocalizedStringResource(
+            "More actions", comment: "Button on an earlier screenshot: opens Copy, Edit with Markup, Show in Finder, Move to Trash")
+        static let moved = LocalizedStringResource(
+            "Moved to the Trash", comment: "Popover row for 5 seconds after Move to Trash, before its Undo button")
+        static let undo = LocalizedStringResource(
+            "Undo", comment: "Puts the screenshot just moved to the Trash back")
+    }
+
     static let copyToClipboard = LocalizedStringResource("Copy to clipboard")
 
     // MARK: - Retention summary
@@ -148,8 +167,11 @@ enum Copy {
     enum Summary {
         static let off = LocalizedStringResource("Retention is off")
         static let paused = LocalizedStringResource("Retention is paused")
-        static func keeps(_ days: Int) -> LocalizedStringResource {
-            LocalizedStringResource("Keeps \(days) days", comment: "Retention keeps screenshots this many days")
+        /// The same sentence shape as the tour's period choice (Addendum A7).
+        static func olderGo(_ days: Int) -> LocalizedStringResource {
+            LocalizedStringResource(
+                "Older than \(days) days go to the Trash",
+                comment: "Popover retention row while retention is on: screenshots older than the period, in days, go to the Trash")
         }
         static let offForFolder = LocalizedStringResource(
             "Retention is off for this folder", comment: "The folder has no Trash, or is a system or home-level folder")
@@ -397,10 +419,15 @@ enum Copy {
 
         static let tidyTitle = LocalizedStringResource(
             "Keep the folder tidy", comment: "Welcome tour step 3: retention offer")
-        static func tidyBody(_ days: Int) -> LocalizedStringResource {
+        static let tidyBody = LocalizedStringResource(
+            "ClipShot can move the screenshots it saw being made to the Trash. Rename one to keep it.",
+            comment: "Welcome tour step 3: what retention does; the period is chosen below")
+        /// "Move screenshots older than [30 days] to the Trash": `period` is the choice the
+        /// sentence shows as a pop-up link, such as "30 days".
+        static func tidyPeriod(_ period: String) -> LocalizedStringResource {
             LocalizedStringResource(
-                "ClipShot can move the screenshots it saw being made to the Trash after \(days) days. Rename one to keep it.",
-                comment: "Welcome tour step 3: the retention period in days")
+                "Move screenshots older than \(period) to the Trash",
+                comment: "Welcome tour step 3, beside the retention switch: the period, such as 30 days, is a pop-up choice")
         }
     }
 

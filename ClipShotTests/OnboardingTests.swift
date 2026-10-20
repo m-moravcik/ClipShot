@@ -192,4 +192,30 @@ struct OnboardingTests {
         #expect(!h.preferences.retention.enabled)
         #expect(h.preferences.retention.confirmed == nil)
     }
+
+    /// Step 3's period is a choice (Addendum A7): picking one in the sentence's pop-up drives
+    /// the live preview above it, with retention still off.
+    @Test func tourPeriodPickerDrivesPreview() async throws {
+        let h = try ModelHarness(onboardingShown: false)
+        defer { h.tearDown() }
+        let date = Date().addingTimeInterval(-20 * RT.day)
+        let url = try Fixtures.write(named: "Twenty days.png", in: h.folder, created: date, modified: date)
+        await h.ledger.adopt([try #require(CaptureFile.inspect(url))])
+        #expect(await h.start())
+        h.model.refreshPreview()
+        #expect(await eventually { await h.model.retentionPreview?.success?.days == 30 })
+        #expect(h.model.retentionPreview?.success?.expired.isEmpty == true)
+
+        #expect(RetentionPeriod.of(days: 30, customRequested: false) == .preset(30))
+        #expect(!RetentionPeriod.choose(.preset(14), preferences: h.preferences))
+        #expect(await eventually { await h.model.retentionPreview?.success?.days == 14 })
+        #expect(h.model.retentionPreview?.success?.expired.count == 1)
+        #expect(!h.preferences.retention.enabled, "choosing a period does not turn retention on")
+
+        // Custom keeps the days and shows the stepper.
+        #expect(RetentionPeriod.choose(.custom, preferences: h.preferences))
+        #expect(h.preferences.retention.days == 14)
+        #expect(RetentionPeriod.of(days: 14, customRequested: true) == .custom)
+        #expect(RetentionPeriod.of(days: 45, customRequested: false) == .custom)
+    }
 }

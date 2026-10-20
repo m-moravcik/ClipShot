@@ -425,9 +425,18 @@ private struct PausedResult: View {
 
 /// The retention offer with the live preview above its switch, then launch at login.
 /// Switching retention on confirms the folder the preview showed, as Settings does.
+///
+/// The period is a choice, not a fact (Michal: "it said retention 30 days, that confused
+/// me"): one sentence, "Move screenshots older than [30 days] to the Trash", whose period is
+/// a pop-up link with Settings' presets and Custom, next to the switch. The preview above
+/// follows the chosen period.
 private struct TidyStep: View {
+    /// The period link's address: a click opens the period menu, nothing leaves the app.
+    private static let periodURL = URL(string: "clipshot-period:choose")!
+
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var customPeriod = false
 
     private var scan: RetentionScan? {
         if case .success(let scan) = model.retentionPreview { scan } else { nil }
@@ -436,7 +445,7 @@ private struct TidyStep: View {
     var body: some View {
         let retention = model.preferences.retention
         VStack(spacing: Design.Spacing.l) {
-            StepHeader(symbol: "trash", title: Copy.Onboarding.tidyTitle, text: Copy.Onboarding.tidyBody(retention.days))
+            StepHeader(symbol: "trash", title: Copy.Onboarding.tidyTitle, text: Copy.Onboarding.tidyBody)
 
             VStack(alignment: .leading, spacing: Design.Spacing.xs) {
                 previewLine
@@ -446,27 +455,90 @@ private struct TidyStep: View {
                     .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.cardFill))
                     .padding(.bottom, Design.Spacing.xs)
 
-                SwitchRow(
-                    title: Copy.Retention.enable,
-                    isOn: Binding(
-                        get: { model.preferences.retention.enabled },
-                        set: { on in
-                            if on {
-                                Task { await model.turnOnRetention() }
-                            } else {
-                                model.preferences.retention.enabled = false
-                            }
-                        }),
-                    // On only for a folder the user has just seen a preview for.
-                    isEnabled: retention.enabled || scan != nil,
-                    font: Design.Typography.body)
+                periodRow(retention)
+                if RetentionPeriod.of(days: retention.days, customRequested: customPeriod) == .custom {
+                    Stepper(
+                        value: Binding(get: { model.preferences.retention.days }, set: { model.preferences.retention.days = $0 }),
+                        in: RetentionPolicy.dayRange
+                    ) {
+                        Text(Copy.Retention.days(retention.days))
+                            .font(Design.Typography.body)
+                            .monospacedDigit()
+                    }
+                    .controlSize(.small)
+                    .padding(.horizontal, Design.Spacing.l)
+                    .transition(.opacity)
+                }
                 SwitchRow(
                     title: Copy.General.launchAtLogin,
                     isOn: Binding(get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }),
                     font: Design.Typography.body)
             }
+            .animation(Design.Motion.quick, value: customPeriod)
         }
         .onAppear { model.refreshPreview() }
+    }
+
+    /// The sentence with its period link, and the switch, laid out as `SwitchRow`.
+    private func periodRow(_ retention: RetentionPolicy) -> some View {
+        HStack(spacing: Design.Spacing.m) {
+            Text(sentence(days: retention.days))
+                .font(Design.Typography.body)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .environment(\.openURL, OpenURLAction { url in
+                    guard url == Self.periodURL else { return .systemAction }
+                    showPeriodMenu()
+                    return .handled
+                })
+                .accessibilityAction(named: Text(Copy.Retention.period)) { showPeriodMenu() }
+            Toggle(isOn: Binding(
+                get: { model.preferences.retention.enabled },
+                set: { on in
+                    if on {
+                        Task { await model.turnOnRetention() }
+                    } else {
+                        model.preferences.retention.enabled = false
+                    }
+                })
+            ) { Text(Copy.Retention.enable) }
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                // On only for a folder the user has just seen a preview for.
+                .disabled(!(retention.enabled || scan != nil))
+        }
+        .padding(.horizontal, Design.Spacing.l)
+        .padding(.vertical, Design.Spacing.s)
+    }
+
+    /// "Move screenshots older than 30 days ▾ to the Trash", the period a link. One
+    /// translated sentence; the period is found in it, so every language keeps its word order.
+    private func sentence(days: Int) -> AttributedString {
+        let period = String(localized: Copy.Retention.days(days))
+        var text = AttributedString(localized: Copy.Onboarding.tidyPeriod(period))
+        if let range = text.range(of: period) {
+            // Never broken across lines: the period and its arrow are one choice.
+            var link = AttributedString(period.replacingOccurrences(of: " ", with: "\u{00A0}") + "\u{00A0}\u{25BE}")
+            link.link = Self.periodURL
+            text.replaceSubrange(range, with: link)
+        }
+        return text
+    }
+
+    /// Settings' choices, the current one checked, at the pointer.
+    private func showPeriodMenu() {
+        let current = RetentionPeriod.of(days: model.preferences.retention.days, customRequested: customPeriod)
+        let menu = NSMenu()
+        for choice in RetentionPeriod.choices {
+            let item = ClosureMenuItem(title: String(localized: choice.title)) { [model] in
+                customPeriod = RetentionPeriod.choose(choice, preferences: model.preferences)
+            }
+            item.state = choice == current ? .on : .off
+            if choice == .custom { menu.addItem(.separator()) }
+            menu.addItem(item)
+        }
+        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
     }
 
     /// Before the switch: what would go now. After it: what goes at the next cleanup.

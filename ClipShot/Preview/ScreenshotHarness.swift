@@ -67,6 +67,8 @@ enum ScreenshotHarness {
         let now = Date()
         // Older screenshots ClipShot never saw: Settings offers to clean them up as well.
         try awaitTask { try await scene.oldScreenshots(3, days: 41, tracked: false) }
+        // Earlier screenshots it saw: the strip under the card.
+        try awaitTask { try await scene.recentScreenshots() }
         scene.preferences.retention = RetentionPolicy(enabled: true, days: 30, confirmed: ConfirmedFolder.of(scene.folder))
         // Today at 09:12, so the picture does not change with the time it is rendered.
         let cleanup = Calendar.current.startOfDay(for: now).addingTimeInterval(9 * 3_600 + 12 * 60)
@@ -76,6 +78,7 @@ enum ScreenshotHarness {
         try scene.copyDemoScreenshot()
         scene.model.refreshPreview()
         DemoScene.wait { scene.model.retentionPreview != nil }
+        DemoScene.wait { scene.model.recent.count == RecentScreenshots.count }
 
         let updater = DemoUpdater()
         for scheme in ColorScheme.allCases {
@@ -91,6 +94,24 @@ enum ScreenshotHarness {
                 try shots.write(render(WindowShadow(window: window, scheme: scheme)), "settings-\(tab.name)", scheme)
             }
         }
+        // Just after Move to Trash on the strip's newest: Undo for 5 s, the gap closed. The
+        // demo Trash refuses every move, so the file goes to a demo Trash folder by hand.
+        if let moved = scene.model.recent.first {
+            let trash = scene.home.appendingPathComponent(".Trash", isDirectory: true)
+            try FileManager.default.createDirectory(at: trash, withIntermediateDirectories: true)
+            let inTrash = trash.appendingPathComponent(moved.url.lastPathComponent)
+            try FileManager.default.moveItem(at: moved.url, to: inTrash)
+            scene.model.undoable = AppModel.TrashedScreenshot(file: moved, inTrash: inTrash)
+            scene.model.screenshotLeft(moved)
+            DemoScene.wait { scene.model.recent.count == RecentScreenshots.count - 1 }
+            DemoScene.settle(0.6)
+            for scheme in ColorScheme.allCases {
+                try shots.write(capture(PopoverPanel(scheme: scheme) { MenuContent() }
+                    .harnessEnvironment(scene.model, updater: updater), scheme: scheme), "popover-undo", scheme)
+            }
+            scene.model.undoable = nil
+        }
+
         // General just after "Replay welcome tour": the tour waits in the popover.
         scene.model.replayOnboarding()
         for scheme in ColorScheme.allCases {

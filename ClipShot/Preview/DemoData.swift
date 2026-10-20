@@ -120,6 +120,18 @@ final class DemoScene {
         Self.wait { self.model.latest != nil }
     }
 
+    /// Earlier screenshots ClipShot saw being taken, for the popover's strip: in the ledger,
+    /// minutes to a day old, each picture in its own colours.
+    func recentScreenshots() async throws {
+        let ages: [TimeInterval] = [6 * 60, 48 * 60, 3 * 3_600, 26 * 3_600]
+        var files: [CaptureFile] = []
+        for (index, age) in ages.enumerated() {
+            let name = DemoContent.recentScreenshotName(index)
+            files.append(try shoot(name, image: DemoContent.screenshotPNG(variant: index + 1), age: age))
+        }
+        await ledger.adopt(files)
+    }
+
     /// Old screenshots, `count` of them `days` old: in the ledger when `tracked`, otherwise
     /// left for "Also clean up N older screenshots".
     func oldScreenshots(_ count: Int, days: Int, tracked: Bool) async throws {
@@ -255,6 +267,12 @@ enum DemoContent {
         "\(screenshotPrefix) 2026-10-19 \(screenshotTime("09.41.12")).png"
     }
 
+    static func recentScreenshotName(_ index: Int) -> String {
+        let times = ["09.35.40", "08.53.17", "06.41.02", "07.12.55"]
+        let day = index == 3 ? "2026-10-18" : "2026-10-19"
+        return "\(screenshotPrefix) \(day) \(screenshotTime(times[index % times.count])).png"
+    }
+
     static func oldScreenshotName(days: Int) -> String {
         let date = Calendar(identifier: .gregorian).date(byAdding: .day, value: -days, to: fixedDate) ?? fixedDate
         let day = date.formatted(.iso8601.year().month().day())
@@ -290,18 +308,30 @@ enum DemoContent {
 
     /// An invented app window with a chart and cards: shapes only, so it reads the same in
     /// every language and shows nothing personal.
-    static let screenshotPNG: Data = {
-        let renderer = ImageRenderer(content: DemoWindow())
+    static let screenshotPNG: Data = screenshotPNG(variant: 0)
+
+    /// The demo window in other colours, so the strip's pictures tell apart.
+    static func screenshotPNG(variant: Int) -> Data {
+        let renderer = ImageRenderer(content: DemoWindow(variant: variant))
         renderer.scale = 1
         guard let image = renderer.cgImage else { return Data() }
         return NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) ?? Data()
-    }()
+    }
 }
 
 private struct DemoWindow: View {
+    var variant = 0
+
+    private static let palettes: [(Color, Color)] = [
+        (Color(red: 0.937, green: 0.396, blue: 0.329), Color(red: 0.973, green: 0.643, blue: 0.247)),
+        (Color(red: 0.247, green: 0.459, blue: 0.937), Color(red: 0.400, green: 0.780, blue: 0.960)),
+        (Color(red: 0.196, green: 0.667, blue: 0.455), Color(red: 0.600, green: 0.850, blue: 0.400)),
+        (Color(red: 0.557, green: 0.329, blue: 0.890), Color(red: 0.890, green: 0.490, blue: 0.820)),
+        (Color(red: 0.180, green: 0.560, blue: 0.640), Color(red: 0.980, green: 0.780, blue: 0.300)),
+    ]
     private let bars: [CGFloat] = [0.42, 0.58, 0.51, 0.72, 0.66, 0.84, 0.78, 0.93]
-    private let coral = Color(red: 0.937, green: 0.396, blue: 0.329)
-    private let amber = Color(red: 0.973, green: 0.643, blue: 0.247)
+    private var coral: Color { Self.palettes[variant % Self.palettes.count].0 }
+    private var amber: Color { Self.palettes[variant % Self.palettes.count].1 }
 
     var body: some View {
         VStack(spacing: 0) {

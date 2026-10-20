@@ -59,6 +59,8 @@ struct MenuContent: View {
         .onChange(of: model.attentions.count) { _, count in
             if count <= 1 { attentionsExpanded = false }
         }
+        // A screenshot deleted in Finder since the last look leaves the card and the strip.
+        .onAppear { model.refreshRecent() }
     }
 
     private var middle: some View {
@@ -113,71 +115,121 @@ struct MenuContent: View {
 
 // MARK: - Header
 
-private struct PopoverHeader: View {
-    @Environment(AppModel.self) private var model
+/// The popover's first row, as Eject Guard's status row: the state with a symbol in its tint,
+/// and one line under it. No app name: the siblings never show theirs. Pure, so it can be
+/// tested.
+struct HeaderStatus: Equatable {
+    enum Detail: Equatable {
+        /// Preview mode ClipShot or None.
+        case pasteAtOnce
+        /// Preview mode macOS while the one-time offer row says what it costs.
+        case pasteAfterThumbnail
+        /// Preview mode macOS: copying waits, with Copy at once next to it (A1).
+        case thumbnailWait
+        case paused
+        case issues(Int)
+    }
 
-    private var stateText: LocalizedStringResource {
-        switch model.headerState {
+    let state: StatusIconState
+    let detail: Detail
+
+    static func of(state: StatusIconState, previewMode: PreviewMode, showsThumbnailWait: Bool, attentions: Int) -> HeaderStatus {
+        switch state {
+        case .attention: HeaderStatus(state: .attention, detail: .issues(attentions))
+        case .paused: HeaderStatus(state: .paused, detail: .paused)
+        case .idle, .copied:
+            HeaderStatus(
+                state: .idle,
+                detail: showsThumbnailWait ? .thumbnailWait : previewMode.copiesInstantly ? .pasteAtOnce : .pasteAfterThumbnail)
+        }
+    }
+
+    var title: LocalizedStringResource {
+        switch state {
         case .attention: Copy.Header.attention
         case .paused: Copy.Header.paused
         case .idle, .copied: Copy.Header.on
         }
     }
 
-    private var stateColor: Color {
-        switch model.headerState {
+    var symbol: String {
+        switch state {
+        case .attention: "exclamationmark.triangle.fill"
+        case .paused: "pause.circle.fill"
+        case .idle, .copied: "checkmark.circle.fill"
+        }
+    }
+
+    /// Green while copying, the attention rows' orange when something needs fixing.
+    var tint: Color {
+        switch state {
         case .attention: .orange
         case .paused: .secondary
         case .idle, .copied: .green
         }
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: Design.Spacing.xs) {
-            HStack(spacing: Design.Spacing.s) {
-                // A name, not a sentence: the same in every language.
-                Text(verbatim: Copy.appName)
-                    .font(Design.Typography.navTitle)
-                Spacer(minLength: Design.Spacing.m)
-                Circle()
-                    .fill(stateColor)
-                    .frame(width: 6, height: 6)
-                    .accessibilityHidden(true)
-                Text(stateText)
-                    .font(Design.Typography.note)
-                    .foregroundStyle(.secondary)
-                    .contentTransition(.opacity)
-            }
-            .animation(Design.Motion.quick, value: model.headerState)
-            .accessibilityElement(children: .combine)
-
-            if model.showsThumbnailWait {
-                // Preview mode macOS (A1): copying waits, with the way to instant copy.
-                // On one line when it fits, else the link under the sentence.
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .firstTextBaseline, spacing: Design.Spacing.s) {
-                        thumbnailWaitText.fixedSize()
-                        useClipShotLink
-                    }
-                    VStack(alignment: .leading, spacing: Design.Spacing.xs) {
-                        thumbnailWaitText.fixedSize(horizontal: false, vertical: true)
-                        useClipShotLink
-                    }
-                }
-                .font(Design.Typography.note)
-            } else if model.showFirstCopyHint {
-                Text(Copy.Header.firstCopyHint(model.previewMode))
-                    .font(Design.Typography.note)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+    var detailText: LocalizedStringResource {
+        switch detail {
+        case .pasteAtOnce: Copy.Header.firstCopyHintInstant
+        case .pasteAfterThumbnail: Copy.Header.firstCopyHint
+        case .thumbnailWait: Copy.ThumbnailWait.hint
+        case .paused: Copy.Header.pausedDetail
+        case .issues(let count): Copy.Header.attentionDetail(count)
         }
+    }
+}
+
+private struct PopoverHeader: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        let status = HeaderStatus.of(
+            state: model.headerState, previewMode: model.previewMode,
+            showsThumbnailWait: model.showsThumbnailWait, attentions: model.attentions.count)
+        HStack(alignment: .firstTextBaseline, spacing: Design.Spacing.m) {
+            Image(systemName: status.symbol)
+                .font(.system(size: 13))
+                .foregroundStyle(status.tint)
+                .contentTransition(reduceMotion ? .opacity : .symbolEffect(.replace))
+                .frame(width: Design.Layout.iconColumn)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(status.title)
+                    .font(Design.Typography.cardTitle)
+                    .contentTransition(.opacity)
+                detail(status)
+                    .font(Design.Typography.note)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .animation(Design.Motion.quick, value: status)
+        .accessibilityElement(children: .contain)
         .padding(.horizontal, Design.Spacing.l + Design.Spacing.m)
-        .padding(.top, Design.Spacing.m)
+        .padding(.top, Design.Spacing.l)
     }
 
-    private var thumbnailWaitText: some View {
-        Text(Copy.ThumbnailWait.hint).foregroundStyle(.secondary)
+    @ViewBuilder
+    private func detail(_ status: HeaderStatus) -> some View {
+        let text = Text(status.detailText).foregroundStyle(.secondary)
+        if status.detail == .thumbnailWait {
+            // On one line when it fits, else the link under the sentence.
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: Design.Spacing.s) {
+                    text.fixedSize()
+                    useClipShotLink
+                }
+                VStack(alignment: .leading, spacing: Design.Spacing.xs) {
+                    text.fixedSize(horizontal: false, vertical: true)
+                    useClipShotLink
+                }
+            }
+        } else {
+            text
+                .fixedSize(horizontal: false, vertical: true)
+                .contentTransition(.opacity)
+        }
     }
 
     private var useClipShotLink: some View {
@@ -274,19 +326,21 @@ private struct CopyToggleRow: View {
     }
 }
 
-/// What retention keeps and did, as one line each. Pure, so it can be tested.
+/// The quiet retention row (A7): its state, "Retention is off" or the tour's sentence shape
+/// "Older than 30 days go to the Trash", then what it did. Opens Settings >
+/// Retention. Pure, so it can be tested.
 enum RetentionSummary: Equatable {
     case off
     /// On, but this folder can never be cleaned: no Trash, or a system or broad folder.
     case offForFolder
     /// On, but waiting for the user to confirm a new folder.
     case paused
-    case keeps(days: Int)
+    case on(days: Int)
 
     static func of(policy: RetentionPolicy, refusal: Refusal?) -> RetentionSummary {
         guard policy.enabled else { return .off }
         switch refusal {
-        case nil: return .keeps(days: policy.days)
+        case nil: return .on(days: policy.days)
         case .notConfirmed: return .paused
         case .noTrash, .systemOrBroad: return .offForFolder
         }
@@ -297,7 +351,7 @@ enum RetentionSummary: Equatable {
         case .off: Copy.Summary.off
         case .offForFolder: Copy.Summary.offForFolder
         case .paused: Copy.Summary.paused
-        case .keeps(let days): Copy.Summary.keeps(days)
+        case .on(let days): Copy.Summary.olderGo(days)
         }
     }
 
@@ -334,8 +388,8 @@ private struct RetentionSummaryRow: View {
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(summary.title)
-                        .font(Design.Typography.row)
-                    if case .keeps = summary {
+                        .font(Design.Typography.body)
+                    if case .on = summary {
                         Text(RetentionSummary.lastCleanup(model.preferences.lastRetention, now: Date()))
                             .font(Design.Typography.cardSubtitle)
                             .foregroundStyle(.secondary)

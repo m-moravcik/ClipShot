@@ -380,6 +380,155 @@
         }
       }
     },
+    "%lld issues to fix" : {
+      "comment" : "Popover status row, under Needs attention: how many attention rows follow",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld issue to fix"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld issues to fix"
+                }
+              }
+            }
+          }
+        },
+        "sk" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld problém na vyriešenie"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld problémy na vyriešenie"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld problému na vyriešenie"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld problémov na vyriešenie"
+                }
+              }
+            }
+          }
+        },
+        "cs" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld problém k vyřešení"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld problémy k vyřešení"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld problému k vyřešení"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld problémů k vyřešení"
+                }
+              }
+            }
+          }
+        },
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Problem zu beheben"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Probleme zu beheben"
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld problema por resolver"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld problemas por resolver"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld problemas por resolver"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld problème à régler"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld problèmes à régler"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld problèmes à régler"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld more displays in this screenshot" : {
       "comment" : "VoiceOver label of the +N chip: a full-screen capture also saved this many other displays",
       "localizations" : {
@@ -2932,151 +3081,43 @@
         }
       }
     },
-    "ClipShot can move the screenshots it saw being made to the Trash after %lld days. Rename one to keep it." : {
-      "comment" : "Welcome tour step 3: the retention period in days",
+    "ClipShot can move the screenshots it saw being made to the Trash. Rename one to keep it." : {
+      "comment" : "Welcome tour step 3: what retention does; the period is chosen below",
       "localizations" : {
         "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "ClipShot can move the screenshots it saw being made to the Trash after %lld day. Rename one to keep it."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "ClipShot can move the screenshots it saw being made to the Trash after %lld days. Rename one to keep it."
-                }
-              }
-            }
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot can move the screenshots it saw being made to the Trash. Rename one to keep it."
           }
         },
         "sk" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "ClipShot vie snímky, ktoré videl vznikať, po %lld dni presunúť do Koša. Ak snímku premenuješ, zostane."
-                }
-              },
-              "few" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "ClipShot vie snímky, ktoré videl vznikať, po %lld dňoch presunúť do Koša. Ak snímku premenuješ, zostane."
-                }
-              },
-              "many" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "ClipShot vie snímky, ktoré videl vznikať, po %lld dňa presunúť do Koša. Ak snímku premenuješ, zostane."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "ClipShot vie snímky, ktoré videl vznikať, po %lld dňoch presunúť do Koša. Ak snímku premenuješ, zostane."
-                }
-              }
-            }
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot vie snímky, ktoré videl vznikať, presúvať do Koša. Ak snímku premenuješ, zostane."
           }
         },
         "cs" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "ClipShot umí snímky, které viděl vznikat, po %lld dni přesunout do Koše. Když snímek přejmenuješ, zůstane."
-                }
-              },
-              "few" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "ClipShot umí snímky, které viděl vznikat, po %lld dnech přesunout do Koše. Když snímek přejmenuješ, zůstane."
-                }
-              },
-              "many" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "ClipShot umí snímky, které viděl vznikat, po %lld dne přesunout do Koše. Když snímek přejmenuješ, zůstane."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "ClipShot umí snímky, které viděl vznikat, po %lld dnech přesunout do Koše. Když snímek přejmenuješ, zůstane."
-                }
-              }
-            }
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot umí snímky, které viděl vznikat, přesouvat do Koše. Když snímek přejmenuješ, zůstane."
           }
         },
         "de" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "ClipShot kann Bildschirmfotos, die es entstehen sah, nach %lld Tag in den Papierkorb legen. Umbenannte bleiben liegen."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "ClipShot kann Bildschirmfotos, die es entstehen sah, nach %lld Tagen in den Papierkorb legen. Umbenannte bleiben liegen."
-                }
-              }
-            }
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot kann Bildschirmfotos, die es entstehen sah, in den Papierkorb legen. Umbenannte bleiben liegen."
           }
         },
         "es" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "ClipShot puede mover a la Papelera, tras %lld día, las capturas que vio hacer. Renombra una para conservarla."
-                }
-              },
-              "many" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "ClipShot puede mover a la Papelera, tras %lld días, las capturas que vio hacer. Renombra una para conservarla."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "ClipShot puede mover a la Papelera, tras %lld días, las capturas que vio hacer. Renombra una para conservarla."
-                }
-              }
-            }
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot puede mover a la Papelera las capturas que vio hacer. Renombra una para conservarla."
           }
         },
         "fr" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "ClipShot peut placer dans la Corbeille, après %lld jour, les captures qu’il a vu prendre. Renommez-en une pour la garder."
-                }
-              },
-              "many" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "ClipShot peut placer dans la Corbeille, après %lld jours, les captures qu’il a vu prendre. Renommez-en une pour la garder."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "ClipShot peut placer dans la Corbeille, après %lld jours, les captures qu’il a vu prendre. Renommez-en une pour la garder."
-                }
-              }
-            }
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot peut placer dans la Corbeille les captures qu’il a vu prendre. Renommez-en une pour la garder."
           }
         }
       }
@@ -4058,7 +4099,7 @@
       }
     },
     "Copying waits for the macOS thumbnail" : {
-      "comment" : "Popover header line in Preview mode macOS, before a Copy at once link",
+      "comment" : "Popover status row under Copying on, Preview mode macOS, before a Copy at once link",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4665,155 +4706,6 @@
         }
       }
     },
-    "Keeps %lld days" : {
-      "comment" : "Retention keeps screenshots this many days",
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Keeps %lld day"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Keeps %lld days"
-                }
-              }
-            }
-          }
-        },
-        "sk" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Uchováva %lld deň"
-                }
-              },
-              "few" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Uchováva %lld dni"
-                }
-              },
-              "many" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Uchováva %lld dňa"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Uchováva %lld dní"
-                }
-              }
-            }
-          }
-        },
-        "cs" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Uchovává %lld den"
-                }
-              },
-              "few" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Uchovává %lld dny"
-                }
-              },
-              "many" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Uchovává %lld dne"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Uchovává %lld dní"
-                }
-              }
-            }
-          }
-        },
-        "de" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Behält %lld Tag"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Behält %lld Tage"
-                }
-              }
-            }
-          }
-        },
-        "es" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Conserva %lld día"
-                }
-              },
-              "many" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Conserva %lld días"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Conserva %lld días"
-                }
-              }
-            }
-          }
-        },
-        "fr" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Conserve %lld jour"
-                }
-              },
-              "many" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Conserve %lld jours"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Conserve %lld jours"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "Last cleanup %@, %lld moved" : {
       "comment" : "Date and time, then how many screenshots went to the Trash",
       "localizations" : {
@@ -5313,6 +5205,47 @@
         }
       }
     },
+    "More actions" : {
+      "comment" : "Button on an earlier screenshot: opens Copy, Edit with Markup, Show in Finder, Move to Trash",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More actions"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ďalšie akcie"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Další akce"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weitere Aktionen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Más acciones"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autres actions"
+          }
+        }
+      }
+    },
     "More apps" : {
       "localizations" : {
         "en" : {
@@ -5597,6 +5530,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Placer les anciennes captures dans la Corbeille"
+          }
+        }
+      }
+    },
+    "Move screenshots older than %@ to the Trash" : {
+      "comment" : "Welcome tour step 3, beside the retention switch: the period, such as 30 days, is a pop-up choice",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move screenshots older than %@ to the Trash"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Presúvať do Koša snímky staršie ako %@"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Přesouvat do Koše snímky starší než %@"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bildschirmfotos älter als %@ in den Papierkorb legen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mover a la Papelera las capturas de más de %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Placer dans la Corbeille les captures de plus de %@"
           }
         }
       }
@@ -5965,6 +5939,47 @@
         }
       }
     },
+    "Moved to the Trash" : {
+      "comment" : "Popover row for 5 seconds after Move to Trash, before its Undo button",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Moved to the Trash"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Presunuté do Koša"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Přesunuto do Koše"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In den Papierkorb gelegt"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Movida a la Papelera"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Placée dans la Corbeille"
+          }
+        }
+      }
+    },
     "Needs attention" : {
       "comment" : "Popover header state",
       "localizations" : {
@@ -6002,6 +6017,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Requiert votre attention"
+          }
+        }
+      }
+    },
+    "New screenshots are not copied" : {
+      "comment" : "Popover status row, under Paused: the Copy to clipboard toggle is off",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New screenshots are not copied"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nové snímky sa nekopírujú"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nové snímky se nekopírují"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neue Bildschirmfotos werden nicht kopiert"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las capturas nuevas no se copian"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les nouvelles captures ne sont pas copiées"
           }
         }
       }
@@ -6330,6 +6386,155 @@
         }
       }
     },
+    "Older than %lld days go to the Trash" : {
+      "comment" : "Popover retention row while retention is on: screenshots older than the period, in days, go to the Trash",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Older than %lld day go to the Trash"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Older than %lld days go to the Trash"
+                }
+              }
+            }
+          }
+        },
+        "sk" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Staršie ako %lld deň idú do Koša"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Staršie ako %lld dni idú do Koša"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Staršie ako %lld dňa idú do Koša"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Staršie ako %lld dní idú do Koša"
+                }
+              }
+            }
+          }
+        },
+        "cs" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Starší než %lld den jdou do Koše"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Starší než %lld dny jdou do Koše"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Starší než %lld dne jdou do Koše"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Starší než %lld dní jdou do Koše"
+                }
+              }
+            }
+          }
+        },
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Älter als %lld Tag kommen in den Papierkorb"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Älter als %lld Tage kommen in den Papierkorb"
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Las de más de %lld día van a la Papelera"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Las de más de %lld días van a la Papelera"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Las de más de %lld días van a la Papelera"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Celles de plus de %lld jour vont dans la Corbeille"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Celles de plus de %lld jours vont dans la Corbeille"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Celles de plus de %lld jours vont dans la Corbeille"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "Only screenshots taken while ClipShot runs are cleaned up. Rename a screenshot to keep it." : {
       "localizations" : {
         "en" : {
@@ -6574,7 +6779,7 @@
       }
     },
     "Paste works once the thumbnail disappears" : {
-      "comment" : "Popover hint until the first copy, Preview mode macOS: macOS saves the file when its floating thumbnail goes away",
+      "comment" : "Popover status row under Copying on, Preview mode macOS while the one-time offer shows: macOS saves the file when its floating thumbnail goes away",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6812,6 +7017,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Quitter"
+          }
+        }
+      }
+    },
+    "Recent screenshots" : {
+      "comment" : "VoiceOver label of the strip of earlier screenshots under the latest card",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recent screenshots"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nedávne snímky"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nedávné snímky"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Letzte Bildschirmfotos"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capturas recientes"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Captures récentes"
           }
         }
       }
@@ -7545,8 +7791,49 @@
         }
       }
     },
+    "Screenshot, %@" : {
+      "comment" : "VoiceOver label of one earlier screenshot in the popover: its relative age",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Screenshot, %@"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snímka, %@"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snímek, %@"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bildschirmfoto, %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Captura, %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capture, %@"
+          }
+        }
+      }
+    },
     "Screenshots are ready to paste at once" : {
-      "comment" : "Popover hint until the first copy, Preview mode ClipShot or None: the copy lands the moment the screenshot is taken",
+      "comment" : "Popover status row under Copying on, Preview mode ClipShot or None: the copy lands the moment the screenshot is taken",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -8472,6 +8759,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Activer la copie"
+          }
+        }
+      }
+    },
+    "Undo" : {
+      "comment" : "Puts the screenshot just moved to the Trash back",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undo"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Odvolať"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Odvolat"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Widerrufen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deshacer"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annuler"
           }
         }
       }

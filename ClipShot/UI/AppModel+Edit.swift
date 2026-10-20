@@ -70,9 +70,12 @@ extension AppModel {
         case failed
     }
 
-    struct TrashedScreenshot {
-        let original: URL
+    struct TrashedScreenshot: Equatable {
+        /// The screenshot as it was shown, for its thumbnail while Undo is offered.
+        let file: CaptureFile
         let inTrash: URL
+
+        var original: URL { file.url }
     }
 
     /// Moves a screenshot to the Trash: only a file in the ledger, only a direct child of the
@@ -113,20 +116,39 @@ extension AppModel {
             throw error
         }
         await ledger.remove(path: path, resourceID: file.resourceID)
-        lastTrashed = inTrash.map { TrashedScreenshot(original: file.url, inTrash: $0) }
+        offerUndo(inTrash.map { TrashedScreenshot(file: file, inTrash: $0) })
         previews.dismiss(file: file, .trash)
+        screenshotLeft(file)
         preferences.totals.trashed += 1
         let ext = file.url.pathExtension.lowercased()
         let log = log
         Task { await log.info("trashed ext=\(ext)") }
     }
 
-    /// Puts the screenshot last moved to the Trash back where it was, and back in the ledger.
-    /// False when there is nothing to undo, or its place is taken.
+    /// Offers Undo for `trashed` for `undoLifetime`, in place of any earlier one. A trash
+    /// whose place in the Trash is unknown offers none, and ends the earlier one too, so Undo
+    /// never brings back a file other than the one just moved.
+    private func offerUndo(_ trashed: TrashedScreenshot?) {
+        undoGeneration += 1
+        undoable = trashed
+        guard trashed != nil else { return }
+        let generation = undoGeneration
+        let lifetime = undoLifetime
+        Task { [weak self] in
+            try? await Task.sleep(for: lifetime)
+            guard let self, self.undoGeneration == generation else { return }
+            self.undoable = nil
+        }
+    }
+
+    /// Puts the screenshot last moved to the Trash back where it was, back in the ledger and
+    /// back on show. False when no Undo is on offer (none, or its time is up), or its place
+    /// is taken.
     @discardableResult
     func undoTrash() async -> Bool {
-        guard let trashed = lastTrashed else { return false }
-        lastTrashed = nil
+        guard let trashed = undoable else { return false }
+        undoGeneration += 1
+        undoable = nil
         let restored = await Task.detached(priority: .userInitiated) { () -> CaptureFile? in
             guard !FileManager.default.fileExists(atPath: trashed.original.path) else { return nil }
             do {
@@ -139,6 +161,7 @@ extension AppModel {
         guard let restored else { return false }
         await ledger.adopt([restored])
         preferences.totals.trashed = max(0, preferences.totals.trashed - 1)
+        refreshRecent()
         return true
     }
 }

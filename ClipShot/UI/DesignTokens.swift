@@ -100,6 +100,17 @@ enum Design {
         /// Moments after the copy the badge bounces, with the menu bar flash.
         static let badgeDelay: Duration = .milliseconds(120)
 
+        // The popover's recent screenshots (A5, A6). Reduce Motion: `quick` crossfades.
+
+        /// A screenshot slides into the strip and its neighbours make room or close a gap.
+        static let stripSpring = Spring(duration: 0.32, bounce: 0.18)
+        static let strip: Animation = .spring(stripSpring)
+        /// A screenshot leaves the strip: it shrinks and drops, the Trash's nod.
+        static let stripLeave: Animation = .easeIn(duration: 0.2)
+        /// The Undo row drops in from just above; it leaves by fading, faster.
+        static let undoIn: Animation = .spring(duration: 0.3, bounce: 0.22)
+        static let undoDrop: CGFloat = 8
+
         /// A swipe released at `velocity` (points per second) flings out along `distance`
         /// with that speed, then settles without bounce.
         static func fling(velocity: CGFloat, distance: CGFloat) -> Animation {

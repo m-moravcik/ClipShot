@@ -77,6 +77,20 @@ actor ScreenshotLedger {
         save(map)
     }
 
+    /// A screenshot open in Markup was saved by replacing it: a new inode at the same path.
+    /// The coordinator calls this only while that file's edit session is open, so the entry
+    /// follows the edited file (keeping its original time). A rename, or a replace outside a
+    /// session, still leaves the ledger. A replacement without the screenshot marker is not
+    /// followed: the ledger only ever holds screenshots.
+    func followEdit(_ file: CaptureFile) {
+        guard file.isScreenshot else { return }
+        var map = load()
+        let path = FolderGuard.canonicalPath(file.url)
+        guard let old = map[path], old.resourceID != file.resourceID else { return }
+        map[path] = LedgerEntry(path: path, resourceID: file.resourceID, created: old.created, size: file.size)
+        save(map)
+    }
+
     /// Keeps an entry only while `existing` returns the same screenshot at the same path.
     /// A file that is gone, renamed, replaced or no longer marked drops its entry.
     func prune(existing: @Sendable (LedgerEntry) -> CaptureFile?) {

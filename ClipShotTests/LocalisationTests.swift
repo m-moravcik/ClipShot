@@ -68,7 +68,7 @@ struct CatalogPluralTests {
         #expect(text(Copy.Retention.days(5), "sk", keepNoBreak: true) == "5\(nbsp)dní")
         #expect(text(Copy.Retention.wouldMove(3, "1 MB"), "cs", keepNoBreak: true)
             == "Do Koše by teď šly 3\(nbsp)snímky (1 MB)")
-        #expect(text(Copy.Onboarding.tidyBody(30), "sk", keepNoBreak: true).contains("po 30\(nbsp)dňoch"))
+        #expect(text(Copy.Summary.olderGo(30), "sk", keepNoBreak: true).contains("ako 30\(nbsp)dní"))
     }
 
     @Test func everyLanguageShips() throws {

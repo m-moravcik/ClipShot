@@ -350,8 +350,6 @@ enum RetentionMode: Equatable {
 }
 
 struct RetentionSettings: View {
-    private enum Period: Hashable { case preset(Int), custom }
-
     private struct Offer: Equatable {
         let count: Int
         let bytes: Int64
@@ -435,22 +433,13 @@ struct RetentionSettings: View {
     @ViewBuilder
     private func periodPicker(preferences: Preferences) -> some View {
         let days = preferences.retention.days
-        let selection = Binding<Period>(
-            get: { customPeriod || !RetentionPolicy.presets.contains(days) ? .custom : .preset(days) },
-            set: { choice in
-                switch choice {
-                case .custom:
-                    customPeriod = true
-                case .preset(let value):
-                    customPeriod = false
-                    preferences.retention.days = value
-                }
-            })
+        let selection = Binding<RetentionPeriod>(
+            get: { .of(days: days, customRequested: customPeriod) },
+            set: { customPeriod = RetentionPeriod.choose($0, preferences: preferences) })
         Picker(selection: selection) {
-            ForEach(RetentionPolicy.presets, id: \.self) { preset in
-                Text(Copy.Retention.days(preset)).tag(Period.preset(preset))
+            ForEach(RetentionPeriod.choices, id: \.self) { choice in
+                Text(choice.title).tag(choice)
             }
-            Text(Copy.Retention.custom).tag(Period.custom)
         } label: {
             Text(Copy.Retention.period)
         }

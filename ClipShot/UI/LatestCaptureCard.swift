@@ -1,3 +1,4 @@
+import AppKit
 import ImageIO
 import SwiftUI
 
@@ -39,12 +40,30 @@ enum Thumbnailer {
     }
 }
 
-/// The latest screenshot, or a quiet line before the first copy. Swaps cards with a
-/// crossfade only once the new thumbnail is decoded, so it never flashes empty.
+/// The latest screenshot, or a quiet line before the first one, then the strip of earlier
+/// ones (A5), with the Undo row on top for 5 s after a move to the Trash (A6). Swaps cards
+/// with a crossfade only once the new thumbnail is decoded, so it never flashes empty.
 struct LatestCaptureSection: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        VStack(spacing: Design.Spacing.m) {
+            if let trashed = model.undoable {
+                UndoRow(trashed: trashed)
+                    .transition(UndoRow.transition(reduceMotion: reduceMotion))
+            }
+            card
+            if !model.recent.isEmpty {
+                RecentStrip()
+                    .transition(.opacity)
+            }
+        }
+        .animation(reduceMotion ? Design.Motion.quick : Design.Motion.strip, value: model.undoable != nil)
+        .animation(reduceMotion ? Design.Motion.quick : Design.Motion.strip, value: model.recent.isEmpty)
+    }
+
+    private var card: some View {
         ZStack {
             if let latest = model.latest {
                 LatestCaptureCard(capture: latest)
@@ -90,22 +109,33 @@ struct LatestCaptureCard: View {
                         .font(Design.Typography.cardTitle)
                         .lineLimit(1)
                         .truncationMode(.middle)
-                    HStack(spacing: Design.Spacing.s) {
-                        age
-                        Text(verbatim: "·")
-                        Text(verbatim: size)
+                        .help(Text(verbatim: capture.file.url.lastPathComponent))
+                    // Age and size on one line, or one under the other when a long "Just
+                    // now" leaves no room next to the Move to Trash button.
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: Design.Spacing.s) {
+                            age
+                            Text(verbatim: "·")
+                            Text(verbatim: size)
+                        }
+                        .fixedSize()
+                        VStack(alignment: .leading, spacing: 1) {
+                            age.fixedSize(horizontal: false, vertical: true)
+                            Text(verbatim: size)
+                        }
                     }
                     .font(Design.Typography.cardSubtitle)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
                 }
                 Spacer(minLength: 0)
+                trashButton
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(Copy.Latest.accessibility(
                 age: capture.file.created.formatted(.relative(presentation: .named)), size: size)))
             .accessibilityAddTraits(.isImage)
             .accessibilityAction(named: Text(Copy.Preview.editWithMarkup)) { model.markup(capture.file) }
+            .accessibilityAction(named: Text(Copy.Retention.moveToTrash)) { trash() }
 
             // A translation can make the two buttons wider than the card; then they stack, at
             // the same full width, rather than truncate. The symbols stay: Copy again shows
@@ -137,11 +167,32 @@ struct LatestCaptureCard: View {
             .frame(maxWidth: stacked ? .infinity : nil, alignment: .leading)
         }
         .fixedSize(horizontal: !stacked, vertical: true)
-        Button { model.revealLast() } label: {
+        Button { model.reveal(capture.file) } label: {
             Label { Text(Copy.Action.showInFinder) } icon: { Image(systemName: "folder") }
                 .frame(maxWidth: stacked ? .infinity : nil, alignment: .leading)
         }
         .fixedSize(horizontal: !stacked, vertical: true)
+    }
+
+    /// Move to Trash, with no confirmation: the Undo row above puts it back for 5 s.
+    private var trashButton: some View {
+        Button { trash() } label: {
+            Image(systemName: "trash")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .frame(width: 20, height: 20)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(Text(Copy.Retention.moveToTrash))
+        .accessibilityLabel(Text(Copy.Retention.moveToTrash))
+    }
+
+    private func trash() {
+        let file = capture.file
+        Task {
+            do { try await model.trash(file) } catch { NSSound.beep() }
+        }
     }
 
     /// "Just now" for the first minute, then the live relative age. The timeline wakes once,

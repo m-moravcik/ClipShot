@@ -85,14 +85,20 @@ struct RetentionSummaryTests {
         var policy = RetentionPolicy.default
         #expect(RetentionSummary.of(policy: policy, refusal: nil) == .off)
         policy.enabled = true
-        #expect(RetentionSummary.of(policy: policy, refusal: nil) == .keeps(days: 30))
+        #expect(RetentionSummary.of(policy: policy, refusal: nil) == .on(days: 30))
         #expect(RetentionSummary.of(policy: policy, refusal: .notConfirmed) == .paused)
         #expect(RetentionSummary.of(policy: policy, refusal: .noTrash) == .offForFolder)
         #expect(RetentionSummary.of(policy: policy, refusal: .systemOrBroad) == .offForFolder)
         #expect(en(RetentionSummary.offForFolder.title) == "Retention is off for this folder")
         #expect(en(RetentionSummary.paused.title) == "Retention is paused")
-        #expect(en(RetentionSummary.keeps(days: 30).title) == "Keeps 30 days")
-        #expect(en(RetentionSummary.keeps(days: 1).title) == "Keeps 1 day")
+    }
+
+    /// The popover's quiet row (A7): off says so; on says the period in the tour's sentence
+    /// shape.
+    @Test func retentionRowOffAndOnText() {
+        #expect(en(RetentionSummary.off.title) == "Retention is off")
+        #expect(en(RetentionSummary.on(days: 30).title) == "Older than 30 days go to the Trash")
+        #expect(en(RetentionSummary.on(days: 1).title) == "Older than 1 day go to the Trash")
     }
 
     @Test func lastCleanupSaysTodayOrTheDate() throws {
@@ -204,5 +210,27 @@ struct TrailingActionLayoutTests {
         }
         #expect(height(action: 100) == 20, "beside the text, as tall as the button")
         #expect(height(action: 200) > 20 + Design.Spacing.s + 12, "under the text")
+    }
+}
+
+/// The popover's status row (no app name): the three states, each with its one line.
+struct HeaderStatusTests {
+    @Test func stateTitleAndDetail() {
+        let on = HeaderStatus.of(state: .copied, previewMode: .clipShot, showsThumbnailWait: false, attentions: 0)
+        #expect(on.state == .idle && on.detail == .pasteAtOnce)
+        #expect(en(on.title) == "Copying on")
+        #expect(en(on.detailText) == "Screenshots are ready to paste at once")
+        #expect(HeaderStatus.of(state: .idle, previewMode: .macOS, showsThumbnailWait: true, attentions: 0).detail == .thumbnailWait)
+        #expect(HeaderStatus.of(state: .idle, previewMode: .macOS, showsThumbnailWait: false, attentions: 0).detail
+            == .pasteAfterThumbnail)
+
+        let paused = HeaderStatus.of(state: .paused, previewMode: .clipShot, showsThumbnailWait: false, attentions: 0)
+        #expect(en(paused.title) == "Paused")
+        #expect(en(paused.detailText) == "New screenshots are not copied")
+
+        let attention = HeaderStatus.of(state: .attention, previewMode: .macOS, showsThumbnailWait: true, attentions: 2)
+        #expect(attention.tint == .orange)
+        #expect(en(attention.detailText) == "2 issues to fix")
+        #expect(en(HeaderStatus(state: .attention, detail: .issues(1)).detailText) == "1 issue to fix")
     }
 }

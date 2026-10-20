@@ -14,6 +14,7 @@ final class AppModel {
     static let flashTolerance: TimeInterval = 0.025
     static let markupTipAfterCopies = 3
     static let previewDebounce: Duration = .milliseconds(300)
+    nonisolated static let defaultUndoLifetime: Duration = .seconds(5)
 
     let preferences: Preferences
 
@@ -44,9 +45,19 @@ final class AppModel {
     private(set) var appliesFromNextScreenshot = false
     /// Why the last folder change was refused; nil after a successful one.
     private(set) var folderError: FolderValidation?
-    /// `lastCopied` with its decoded thumbnail. Follows `lastCopied` once the thumbnail is
-    /// decoded (or failed to), so the card swaps in one step.
+    /// The latest card with its decoded thumbnail: `lastCopied` while it exists, else the
+    /// newest screenshot in the ledger (Addendum A5). Changes once the thumbnail is decoded
+    /// (or failed to), so the card swaps in one step.
     private(set) var latest: LatestCapture?
+    /// The previous screenshots under the card, newest first, at most
+    /// `RecentScreenshots.count`, existing files only. Empty hides the strip.
+    private(set) var recent: [CaptureFile] = []
+    /// Decoded thumbnails of the card and the strip, so a file that moves from one to the
+    /// other, or a popover that opens, never waits for a decode.
+    private(set) var thumbnails: [CaptureFile: CGImage] = [:]
+    /// The screenshot just moved to the Trash while its Undo is offered (Addendum A6). One at
+    /// a time: a newer trash replaces it.
+    var undoable: TrashedScreenshot?
     /// ClipShot's floating previews (Addendum A2); only filled in Preview mode ClipShot.
     let previews: FloatingPreviews
 
@@ -69,7 +80,7 @@ final class AppModel {
         isWatching && previewModeKnown && !preferences.previewModeApplied && previewMode == .macOS
     }
 
-    /// Preview mode macOS, after the offer: a quiet line in the header says copying waits.
+    /// Preview mode macOS, after the offer: the header's status row says copying waits.
     var showsThumbnailWait: Bool {
         isWatching && previewModeKnown && previewMode == .macOS && !showsPreviewOffer
     }
@@ -97,10 +108,6 @@ final class AppModel {
         if path.hasPrefix(home + "/") { return "~" + path.dropFirst(home.count) }
         return path
     }
-
-    /// The first-copy hint (when a screenshot can be pasted in this Preview mode), until the
-    /// first copy.
-    var showFirstCopyHint: Bool { !preferences.firstCopyDone }
 
     /// The one-time Markup tip, from the third copy until dismissed.
     var showMarkupTip: Bool {
@@ -135,6 +142,7 @@ final class AppModel {
     @ObservationIgnored private let coordinator: CopyCoordinator
     @ObservationIgnored let edits: EditSession
     @ObservationIgnored let trasher: any Trashing
+    @ObservationIgnored let undoLifetime: Duration
     @ObservationIgnored private let makePreviewHost: @MainActor (AppModel) -> AnyObject?
     @ObservationIgnored let openMarkup: @MainActor (URL, @escaping @MainActor (MarkupResult) -> Void) -> Void
     @ObservationIgnored private let pass: RetentionPass
@@ -149,8 +157,10 @@ final class AppModel {
     /// The latest retention run, also when it moved nothing, for "Clean up now".
     @ObservationIgnored private var lastRun: RetentionResult?
     @ObservationIgnored private var runCount = 0
-    /// The capture whose thumbnail is being decoded for `latest`.
-    @ObservationIgnored private var thumbnailFor: CaptureFile?
+    /// Names the latest `refreshRecent()`, so an older one that finishes later is dropped.
+    @ObservationIgnored private var recentGeneration = 0
+    /// Names the Undo on offer, so the timer of a replaced one does not end the newer one.
+    @ObservationIgnored var undoGeneration = 0
     @ObservationIgnored private var flash = CopiedFlash()
     @ObservationIgnored private var flashTimer: (any FlashTimer)?
     @ObservationIgnored private var statusTask: Task<Void, Never>?
@@ -165,8 +175,6 @@ final class AppModel {
     /// The pasteboard's change count right after ClipShot's last write: when it differs, the
     /// clipboard holds something else and the preview offers Copy again.
     @ObservationIgnored var changeCountAfterCopy: Int?
-    /// The last screenshot moved to the Trash from a preview, for Undo.
-    @ObservationIgnored var lastTrashed: TrashedScreenshot?
 
     init(dependencies d: AppDependencies) {
         preferences = d.preferences
@@ -194,6 +202,7 @@ final class AppModel {
         trasher = d.trasher
         makePreviewHost = d.makePreviewHost
         openMarkup = d.openMarkup
+        undoLifetime = d.undoLifetime
         previews = FloatingPreviews(lifetime: d.previewLifetime)
         let settings = CaptureSettings(prefs: d.screencapturePrefs, home: d.home, backup: d.backup, log: d.log)
         self.settings = settings
@@ -244,6 +253,8 @@ final class AppModel {
                 // Not held across the sleep, so a released model ends the loop.
                 guard let model = self else { return }
                 model.refreshStatus()
+                // A screenshot deleted or renamed in Finder leaves the card and the strip.
+                model.refreshRecent()
                 try? await Task.sleep(for: statusInterval)
             }
         }
@@ -297,12 +308,13 @@ final class AppModel {
     // MARK: - Copy
 
     private func coordinatorChanged() {
+        let copiedChanged = lastCopied != coordinator.lastCopied
         lastCopied = coordinator.lastCopied
-        updateLatest()
         watchError = coordinator.watchError
         let folderChanged = watchedFolder != coordinator.watchedFolder
         watchedFolder = coordinator.watchedFolder
         recomputeAttentions()
+        if copiedChanged || folderChanged { refreshRecent() }
         if folderChanged {
             refreshStatus()
             if retentionPreview != nil { refreshPreview() }
@@ -312,7 +324,7 @@ final class AppModel {
     private func copied(_ file: CaptureFile) {
         changeCountAfterCopy = pasteboard.changeCount
         lastCopied = file
-        updateLatest()
+        refreshRecent()
         if previewModeKnown, previewMode.showsOwnPreview { showPreview(file) }
         preferences.totals.copied += 1
         preferences.firstCopyDone = true
@@ -338,23 +350,58 @@ final class AppModel {
         previews.addExtraDisplay(file)
     }
 
-    /// Decodes the thumbnail off the main actor, then moves `latest` to `lastCopied`.
-    private func updateLatest() {
-        guard let file = lastCopied else {
-            thumbnailFor = nil
-            latest = nil
-            return
-        }
-        guard latest?.file != file, thumbnailFor != file else { return }
-        thumbnailFor = file
+    // MARK: - Card and recent screenshots
+
+    /// Re-reads which screenshots the card and the strip show, and decodes the thumbnails
+    /// they lack, off the main actor. Then both change in one step. Called after a copy, a
+    /// move to the Trash, an Undo, a cleanup, a folder change and when the popover opens.
+    func refreshRecent() {
+        recentGeneration += 1
+        let generation = recentGeneration
+        let lastCopied = lastCopied
+        let folder = isWatching ? watchedFolder : nil
+        let cached = Set(thumbnails.keys)
+        let ledger = ledger
         Task { [weak self] in
-            let thumbnail = await Task.detached(priority: .utility) {
-                Thumbnailer.decode(file.url, maxPixelSize: LatestCapture.thumbnailPixels)
+            let entries = folder == nil ? [] : await ledger.entries()
+            let (shots, decoded) = await Task.detached(priority: .utility) {
+                let shots = RecentScreenshots.select(lastCopied: lastCopied, ledger: entries, folder: folder)
+                var decoded: [CaptureFile: CGImage] = [:]
+                for file in [shots.card].compactMap({ $0 }) + shots.recent where !cached.contains(file) {
+                    decoded[file] = Thumbnailer.decode(file.url, maxPixelSize: LatestCapture.thumbnailPixels)
+                }
+                return (shots, decoded)
             }.value
-            guard let self, self.thumbnailFor == file else { return }
-            self.thumbnailFor = nil
-            self.latest = LatestCapture(file: file, thumbnail: thumbnail)
+            guard let self, generation == self.recentGeneration else { return }
+            self.show(shots, decoded: decoded)
         }
+    }
+
+    private func show(_ shots: RecentScreenshots, decoded: [CaptureFile: CGImage]) {
+        var images = thumbnails.merging(decoded) { old, _ in old }
+        // Only what is on show, plus the file an Undo may bring back.
+        let keep = Set([shots.card, undoable?.file].compactMap { $0} + shots.recent)
+        images = images.filter { keep.contains($0.key) }
+        if images != thumbnails { thumbnails = images }
+        if recent != shots.recent { recent = shots.recent }
+        let card = shots.card.map { LatestCapture(file: $0, thumbnail: images[$0]) }
+        if latest != card { latest = card }
+    }
+
+    /// `file` left the folder (moved to the Trash): it leaves the card and the strip at once,
+    /// the strip's newest moving up into the card, before the folder is read again.
+    func screenshotLeft(_ file: CaptureFile) {
+        let path = file.url.standardizedFileURL.path
+        recent.removeAll { $0.url.standardizedFileURL.path == path }
+        if latest?.file.url.standardizedFileURL.path == path {
+            if recent.isEmpty {
+                latest = nil
+            } else {
+                let next = recent.removeFirst()
+                latest = LatestCapture(file: next, thumbnail: thumbnails[next])
+            }
+        }
+        refreshRecent()
     }
 
     private func copyFailed(_ file: CaptureFile) {
@@ -430,11 +477,6 @@ final class AppModel {
             try? FileManager.default.url(for: .trashDirectory, in: .userDomainMask, appropriateFor: folder, create: false)
         }.value
         if let trash { workspace.open(trash) }
-    }
-
-    func revealLast() {
-        guard let file = lastCopied else { return }
-        workspace.reveal(file.url)
     }
 
     func openFolder() {
@@ -597,6 +639,7 @@ final class AppModel {
         let count = files.count
         Task { await log.info("adopted \(count) older screenshots") }
         refreshPreview()
+        refreshRecent()
         return count
     }
 
@@ -615,6 +658,7 @@ final class AppModel {
             preferences.totals.trashed += result.moved
             preferences.totals.freedBytes += result.movedBytes
             if retentionPreview != nil { refreshPreview() }
+            if result.moved > 0 { refreshRecent() }
         }
         refreshStatus()
     }
