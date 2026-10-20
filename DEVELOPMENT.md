@@ -256,16 +256,18 @@ scripts/release.sh
    Sparkle's nested helpers re-signed, every signable item checked for Developer
    ID, hardened runtime, timestamp and no debug entitlements, universal binary,
    notarized, stapled, zipped to `artifacts/ClipShot-<version>.zip`.
-3. Verify what will be published: `lipo -archs` is `x86_64 arm64`, no
-   `get-task-allow`, `spctl -a -vv` says Notarized Developer ID and `stapler
-   validate` passes, for the built app and the app inside the ZIP.
+3. Verify what will be published: `lipo -archs` is `x86_64 arm64`, signed by
+   the expected team, no `get-task-allow`, `spctl -a -vv` says Notarized
+   Developer ID and `stapler validate` passes, for the built app and the app
+   inside the ZIP.
 4. Rehearse the appcast on the local ZIP into a temporary feed, with both
    signatures verified. Any appcast or key problem, and the keychain prompt,
    comes up here, while nothing is public.
 5. Commit "Release X" (empty), tag `vX`, push both atomically.
 6. `gh release create` with the ZIP and the notes file.
 7. Download the asset back from GitHub and compare it byte for byte with the
-   local ZIP, build the appcast from those bytes (`scripts/make-appcast.sh`
+   local ZIP (without a local ZIP, the asset itself gets every check of step 3,
+   Team ID included), build the appcast from those bytes (`scripts/make-appcast.sh`
    signs the feed and verifies the enclosure signature and the feed signature),
    commit and push `appcast.xml`.
 8. Fetch the feed and the asset as a client would: verify the feed's own
@@ -286,8 +288,11 @@ scripts/release.sh --resume-from appcast
 
 That mode skips the build, the tag and the GitHub release. It requires the tag
 on origin and the release with its asset, downloads the asset again, and
-continues from step 7 (when the local ZIP is still there, the download is
-compared with it). The other preflight checks still run, except the tests, the
+continues from step 7. Nothing is signed into the feed unverified: when the local
+ZIP is still there, the download must match it byte for byte; otherwise the
+downloaded app is unpacked and must be universal, signed by the expected team
+(`TEAM_ID`), free of `get-task-allow`, notarized Developer ID for Gatekeeper and
+stapled. The other preflight checks still run, except the tests, the
 notarytool check and the build-number check against the feed, which may already
 hold this release.
 

@@ -26,6 +26,7 @@
 #   SPARKLE_EDDSA_PRIVATE_KEY_PATH  EdDSA key file instead of the keychain
 #   TAP_DIR                         the Homebrew tap working copy,
 #                                   default ~/Projects/homebrew-clipshot
+#   TEAM_ID                         the Developer ID team releases are signed by
 
 set -euo pipefail
 
@@ -60,6 +61,10 @@ TAP_DIR="${TAP_DIR:-$HOME/Projects/homebrew-clipshot}"
 CASK="$TAP_DIR/Casks/clipshot.rb"
 DERIVED_DATA="$REPO_ROOT/build"
 APP="$DERIVED_DATA/Build/Products/Release/ClipShot.app"
+# The team in the Developer ID certificate that signs ClipShot (and its siblings).
+# Fixed here rather than read from the keychain, so a resume on a Mac without the
+# certificate still knows whose signature to expect.
+TEAM_ID="${TEAM_ID:-7TM9VA58W5}"
 
 # Empty when the key comes from the keychain. Always expanded as
 # ${SIGN_ARGS[@]+"${SIGN_ARGS[@]}"}: /bin/bash on macOS is 3.2, where an empty
@@ -123,6 +128,27 @@ find_sign_update() {
     SIGN_UPDATE="$(find "$DERIVED_DATA/SourcePackages/artifacts" -name sign_update -type f -perm +111 -print -quit 2>/dev/null || true)"
   fi
   [ -n "$SIGN_UPDATE" ] || die "sign_update not found under $DERIVED_DATA"
+}
+
+# Everything a published app must be, checked on one bundle; refuses on any
+# mismatch. Output is captured and then matched, never piped into `grep -q`:
+# under pipefail an early grep exit fails the pipeline through SIGPIPE.
+verify_app() {
+  local app="$1" archs info entitlements assessment
+  [ -d "$app" ] || die "no app at $app"
+  archs="$(lipo -archs "$app/Contents/MacOS/ClipShot" 2>&1 || true)"
+  [ "$archs" = "x86_64 arm64" ] || die "$app is not universal: lipo -archs says '$archs'"
+  info="$(codesign -dv --verbose=4 "$app" 2>&1 || true)"
+  grep -qx "TeamIdentifier=$TEAM_ID" <<<"$info" \
+    || die "$app is not signed by team $TEAM_ID: $(grep '^TeamIdentifier=' <<<"$info" || echo 'no team')"
+  entitlements="$(codesign -d --entitlements - --xml "$app" 2>/dev/null || true)"
+  if [[ "$entitlements" == *get-task-allow* ]]; then die "$app carries get-task-allow"; fi
+  assessment="$(spctl -a -vv "$app" 2>&1 || true)"
+  printf '%s\n' "$assessment"
+  [[ "$assessment" == *"source=Notarized Developer ID"* ]] \
+    || die "Gatekeeper does not see $app as notarized Developer ID"
+  xcrun stapler validate "$app" || die "no valid stapled ticket on $app"
+  echo "verified: $archs, team $TEAM_ID, no get-task-allow, notarized and stapled"
 }
 
 # The highest sparkle:version in a feed file, or nothing when it has no items.
@@ -210,23 +236,10 @@ if [ -z "$RESUME" ]; then
   # -------------------------------------------------------------------------
   step "Verify the artifact"
 
-  ARCHS="$(lipo -archs "$APP/Contents/MacOS/ClipShot")"
-  [ "$ARCHS" = "x86_64 arm64" ] || die "not universal: lipo -archs says '$ARCHS'"
-  echo "lipo: $ARCHS"
-
-  ENTITLEMENTS="$(codesign -d --entitlements - --xml "$APP" 2>/dev/null || true)"
-  if [[ "$ENTITLEMENTS" == *get-task-allow* ]]; then die "the app carries get-task-allow"; fi
-  echo "entitlements: no get-task-allow"
-
+  verify_app "$APP"
   UNPACKED="$(mktemp -d "${TMPDIR:-/tmp}/clipshot-release.XXXXXX")"
   ditto -x -k "$ZIP" "$UNPACKED"
-  for app in "$APP" "$UNPACKED/ClipShot.app"; do
-    assessment="$(spctl -a -vv "$app" 2>&1 || true)"
-    printf '%s\n' "$assessment"
-    [[ "$assessment" == *"source=Notarized Developer ID"* ]] \
-      || die "Gatekeeper does not see $app as notarized Developer ID"
-    xcrun stapler validate "$app" || die "no valid stapled ticket on $app"
-  done
+  verify_app "$UNPACKED/ClipShot.app"
 
   # -------------------------------------------------------------------------
   # 4. Rehearse the appcast on the local ZIP. The asset GitHub serves later is
@@ -270,9 +283,18 @@ step "Appcast"
 DOWNLOAD="$(mktemp -d "${TMPDIR:-/tmp}/clipshot-asset.XXXXXX")"
 gh release download "$TAG" --repo "$REPO" --pattern "$ASSET" --dir "$DOWNLOAD"
 PUBLISHED="$DOWNLOAD/$ASSET"
+# Nothing is signed into the feed unverified. With the local ZIP (verified in
+# step 3), the asset must be byte for byte that ZIP; without it (a resume on
+# another Mac, or after the ZIP was replaced), the asset itself gets the full
+# step 3 check.
 if [ -f "$ZIP" ]; then
   cmp -s "$PUBLISHED" "$ZIP" || die "the downloaded asset differs from $ZIP"
   echo "the published asset is byte for byte the ZIP that was verified"
+else
+  echo "no local $ZIP: verifying the published asset itself"
+  PUBLISHED_APP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/clipshot-published.XXXXXX")"
+  ditto -x -k "$PUBLISHED" "$PUBLISHED_APP_DIR"
+  verify_app "$PUBLISHED_APP_DIR/ClipShot.app"
 fi
 
 # Builds the feed from the published bytes, signs it, and verifies the enclosure
