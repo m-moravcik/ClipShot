@@ -157,6 +157,27 @@ enum Copy {
             "Moved to the Trash", comment: "Popover row for 5 seconds after Move to Trash, before its Undo button")
         static let undo = LocalizedStringResource(
             "Undo", comment: "Puts the screenshot just moved to the Trash back")
+        static let putBack = LocalizedStringResource(
+            "Put back from the Trash", comment: "VoiceOver announcement after Undo put a screenshot back")
+    }
+
+    /// A Move to Trash or Undo that did not happen: said where the user acted, for 5 s.
+    enum Failure {
+        static let notTracked = LocalizedStringResource(
+            "Not moved: ClipShot only moves screenshots taken while it runs.",
+            comment: "Move to Trash refused: ClipShot did not see this screenshot being taken")
+        static let outsideFolder = LocalizedStringResource(
+            "Not moved: the file is no longer in the screenshot folder.",
+            comment: "Move to Trash refused: the file left the screenshot folder")
+        static let noTrash = LocalizedStringResource(
+            "Not moved: this disk has no Trash.",
+            comment: "Move to Trash refused: the volume has no Trash, and ClipShot never deletes")
+        static let trashFailed = LocalizedStringResource(
+            "Not moved: the file changed, or the Trash refused it.",
+            comment: "Move to Trash failed: the file was replaced since, or the system refused the move")
+        static let undoFailed = LocalizedStringResource(
+            "Not put back: Undo has run out, or another file has its name now.",
+            comment: "Undo failed: its 5 seconds are up, or a file with the same name is in its place")
     }
 
     static let copyToClipboard = LocalizedStringResource("Copy to clipboard")
@@ -255,12 +276,16 @@ enum Copy {
         static let notDirectory = LocalizedStringResource("That is not a folder.")
         static let notWritable = LocalizedStringResource("ClipShot cannot write to that folder.")
         static let forbidden = LocalizedStringResource("Choose a folder outside system locations and apps.")
+        static let backupFailed = LocalizedStringResource(
+            "ClipShot could not back up your screenshot settings, so it changed nothing.",
+            comment: "Settings > Capture: the one-time backup of the macOS screenshot settings failed, so no setting was written")
         static func folderError(_ error: FolderValidation) -> LocalizedStringResource {
             switch error {
             case .notFound, .ok: notFound
             case .notDirectory: notDirectory
             case .notWritable: notWritable
             case .forbidden: forbidden
+            case .backupFailed: backupFailed
             }
         }
         static let preview = LocalizedStringResource(

@@ -84,6 +84,8 @@ final class CopyCoordinator {
     /// Passes and polls finished; tests wait on them instead of sleeping.
     private(set) var passesFinished = 0
     private(set) var pollsFinished = 0
+    /// Folder events handled since `start()`.
+    private(set) var eventsHandled = 0
 
     /// No pass running or queued and no rescan left: what a test waits for before it says
     /// that nothing happened.
@@ -307,6 +309,7 @@ final class CopyCoordinator {
 
     private func folderChanged(generation gen: Int) {
         guard running, gen == generation else { return }
+        eventsHandled += 1
         // Rescans first: the event's own pass must not count as the last rescan.
         scheduleRescans()
         requestPass()

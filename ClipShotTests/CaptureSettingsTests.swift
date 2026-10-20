@@ -97,7 +97,7 @@ struct CaptureSettingsTests {
     @Test func showThumbnailDefaultsTrueWhenKeyMissing() {
         let (prefs, settings, _) = make()
         #expect(settings.showThumbnail)
-        settings.showThumbnail = false
+        #expect(settings.setShowThumbnail(false))
         #expect(prefs["show-thumbnail"] as? Bool == false)
         #expect(!settings.showThumbnail)
     }
@@ -129,9 +129,10 @@ struct CaptureSettingsTests {
         let backup = PrefsBackup(fileURL: blocker.appendingPathComponent("sub/backup.plist"))
         let settings = CaptureSettings(prefs: prefs, home: home, backup: backup, log: try RT.testLog())
 
-        #expect(throws: FolderValidation.notWritable) { try settings.setFolder(dir) }
-        settings.showThumbnail = false
-        settings.fixDestination()
+        // Said as what it is, not as a folder ClipShot cannot write to (C-2).
+        #expect(throws: FolderValidation.backupFailed) { try settings.setFolder(dir) }
+        #expect(!settings.setShowThumbnail(false))
+        #expect(!settings.fixDestination())
         #expect(prefs["location"] as? String == "/orig")
         #expect(prefs["location-screenshot"] == nil)
         #expect(prefs["show-thumbnail"] == nil)

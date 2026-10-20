@@ -172,7 +172,7 @@ enum ScreenshotHarness {
             try FileManager.default.createDirectory(at: trash, withIntermediateDirectories: true)
             let inTrash = trash.appendingPathComponent(moved.url.lastPathComponent)
             try FileManager.default.moveItem(at: moved.url, to: inTrash)
-            scene.model.undoable = AppModel.TrashedScreenshot(file: moved, inTrash: inTrash)
+            scene.model.showUndoForHarness(AppModel.TrashedScreenshot(file: moved, inTrash: inTrash))
             scene.model.screenshotLeft(moved)
             // The strip fills up again from the fifth earlier screenshot.
             DemoScene.wait { scene.model.recent.count == RecentScreenshots.count && !scene.model.recent.contains(moved) }
@@ -181,7 +181,15 @@ enum ScreenshotHarness {
                 try shots.write(popoverWindow(capturePanel(PopoverPanel(scheme: scheme) { MenuContent() }
                     .harnessEnvironment(scene.model, updater: updater), scheme: scheme), scheme: scheme), "popover-undo", scheme)
             }
-            scene.model.undoable = nil
+            // A move that could not happen, said in the Undo row's place.
+            scene.model.showUndoForHarness(nil)
+            scene.model.showNoteForHarness(.trash(.failed))
+            DemoScene.settle(0.4)
+            for scheme in ColorScheme.allCases {
+                try shots.write(popoverWindow(capturePanel(PopoverPanel(scheme: scheme) { MenuContent() }
+                    .harnessEnvironment(scene.model, updater: updater), scheme: scheme), scheme: scheme), "popover-note", scheme)
+            }
+            scene.model.showNoteForHarness(nil)
         }
 
         // General just after "Replay welcome tour": the tour waits in the popover.
@@ -326,13 +334,24 @@ enum ScreenshotHarness {
         DemoScene.wait { tidy.model.retentionPreview != nil }
         steps.append(("3-tidy", WelcomeTour(step: .tidy), tidy))
 
+        // Step 3 on a fresh install: nothing ClipShot saw being taken is old yet, but the
+        // folder already holds older screenshots, offered as Settings offers them (U3).
+        let tidyFresh = try DemoScene(in: scratch, onboardingShown: false)
+        try awaitTask { try await tidyFresh.oldScreenshots(24, days: 60, tracked: false) }
+        guard tidyFresh.start() else { fail("the demo folder was not watched") }
+        tidyFresh.model.refreshPreview()
+        DemoScene.wait {
+            if case .success(let scan) = tidyFresh.model.retentionPreview { scan.olderNotTracked > 0 } else { false }
+        }
+        steps.append(("3-tidy-fresh", WelcomeTour(step: .tidy), tidyFresh))
+
         for scheme in ColorScheme.allCases {
             for (name, step, scene) in steps {
                 try shots.write(popoverWindow(capturePanel(tourPanel(step, scheme: scheme).harnessEnvironment(scene.model), scheme: scheme),
                                               scheme: scheme), "onboarding-\(name)", scheme)
             }
         }
-        for scene in [fresh, trying, tidy] { scene.stop() }
+        for scene in [fresh, trying, tidy, tidyFresh] { scene.stop() }
     }
 
     /// ClipShot's floating preview (Addendum A2): one preview, the hover state, a stack of
@@ -353,6 +372,23 @@ enum ScreenshotHarness {
                     .padding(PreviewCardMetrics.screenInset)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
             }.harnessEnvironment(scene.model), scheme: scheme), "preview-hover", scheme)
+            // Moved to the Trash from the preview: Undo in its place (A6); and a move that
+            // failed, said on the preview.
+            var trashed = single
+            trashed.trashed = true
+            var failed = single
+            failed.failure = .trash(.noTrash)
+            try shots.write(capture(PreviewDesktop(
+                scheme: scheme,
+                height: PreviewCardMetrics.maxSize.height * 2 + PreviewCardMetrics.spacing + PreviewCardMetrics.margin * 2 + 20
+            ) {
+                VStack(alignment: .trailing, spacing: PreviewCardMetrics.spacing) {
+                    PreviewCard(item: failed, actions: .inert)
+                    PreviewCard(item: trashed, actions: .inert)
+                }
+                .padding(PreviewCardMetrics.screenInset)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            }.harnessEnvironment(scene.model), scheme: scheme), "preview-undo", scheme)
         }
 
         // Three in a row, the newest a two-display capture.

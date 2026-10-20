@@ -2889,13 +2889,13 @@
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Klikni na miniatúru macOS alebo na obrázok tu a dopíš poznámky. ClipShot skopíruje upravený obrázok."
+            "value" : "Klikni na miniatúru macOS alebo na obrázok vyššie a otvoria sa anotácie. ClipShot skopíruje upravený obrázok."
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Klikni na miniaturu macOS nebo na obrázek tady a dopiš poznámky. ClipShot zkopíruje upravený obrázek."
+            "value" : "Klikni na miniaturu macOS nebo na obrázek výše a otevřou se anotace. ClipShot zkopíruje upravený obrázek."
           }
         },
         "de" : {
@@ -2930,13 +2930,13 @@
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Klikni na obrázok tu a dopíš poznámky. ClipShot skopíruje upravený obrázok."
+            "value" : "Klikni na obrázok vyššie a otvoria sa anotácie. ClipShot skopíruje upravený obrázok."
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Klikni na obrázek tady a dopiš poznámky. ClipShot zkopíruje upravený obrázek."
+            "value" : "Klikni na obrázek výše a otevřou se anotace. ClipShot zkopíruje upravený obrázek."
           }
         },
         "de" : {
@@ -2971,13 +2971,13 @@
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Klikni na náhľad alebo na obrázok tu a dopíš poznámky. ClipShot skopíruje upravený obrázok."
+            "value" : "Klikni na náhľad alebo na obrázok vyššie a otvoria sa anotácie. ClipShot skopíruje upravený obrázok."
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Klikni na náhled nebo na obrázek tady a dopiš poznámky. ClipShot zkopíruje upravený obrázek."
+            "value" : "Klikni na náhled nebo na obrázek výše a otevřou se anotace. ClipShot zkopíruje upravený obrázek."
           }
         },
         "de" : {
@@ -3012,13 +3012,13 @@
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kliknutím dopíšeš poznámky"
+            "value" : "Kliknutím otvoríš anotácie"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kliknutím dopíšeš poznámky"
+            "value" : "Kliknutím otevřeš anotace"
           }
         },
         "de" : {
@@ -3158,6 +3158,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ClipShot ne peut pas écrire dans ce dossier."
+          }
+        }
+      }
+    },
+    "ClipShot could not back up your screenshot settings, so it changed nothing." : {
+      "comment" : "Settings > Capture: the one-time backup of the macOS screenshot settings failed, so no setting was written",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot could not back up your screenshot settings, so it changed nothing."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot nevedel zálohovať tvoje nastavenia snímok obrazovky, a tak nič nezmenil."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot nedokázal zálohovat tvoje nastavení snímků obrazovky, a tak nic nezměnil."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot konnte deine Bildschirmfoto-Einstellungen nicht sichern und hat daher nichts geändert."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot no pudo guardar una copia de tus ajustes de capturas, así que no cambió nada."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClipShot n’a pas pu sauvegarder vos réglages de capture d’écran, il n’a donc rien modifié."
           }
         }
       }
@@ -4395,13 +4436,13 @@
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dopísať poznámky"
+            "value" : "Upraviť v anotáciách"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dopsat poznámky"
+            "value" : "Upravit v anotacích"
           }
         },
         "de" : {
@@ -6306,6 +6347,211 @@
         }
       }
     },
+    "Not moved: ClipShot only moves screenshots taken while it runs." : {
+      "comment" : "Move to Trash refused: ClipShot did not see this screenshot being taken",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not moved: ClipShot only moves screenshots taken while it runs."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nepresunuté: ClipShot presúva len snímky urobené, kým beží."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nepřesunuto: ClipShot přesouvá jen snímky pořízené, když běží."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht verschoben: ClipShot verschiebt nur Bildschirmfotos, die bei laufendem ClipShot entstanden sind."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se movió: ClipShot solo mueve capturas hechas mientras está abierto."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non déplacée : ClipShot ne déplace que les captures prises pendant qu’il tourne."
+          }
+        }
+      }
+    },
+    "Not moved: the file changed, or the Trash refused it." : {
+      "comment" : "Move to Trash failed: the file was replaced since, or the system refused the move",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not moved: the file changed, or the Trash refused it."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nepresunuté: súbor sa zmenil alebo ho Kôš neprijal."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nepřesunuto: soubor se změnil nebo ho Koš nepřijal."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht verschoben: Die Datei hat sich geändert oder der Papierkorb hat sie abgelehnt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se movió: el archivo cambió o la Papelera no lo aceptó."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non déplacée : le fichier a changé ou la Corbeille l’a refusé."
+          }
+        }
+      }
+    },
+    "Not moved: the file is no longer in the screenshot folder." : {
+      "comment" : "Move to Trash refused: the file left the screenshot folder",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not moved: the file is no longer in the screenshot folder."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nepresunuté: súbor už nie je v priečinku na snímky."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nepřesunuto: soubor už není ve složce pro snímky."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht verschoben: Die Datei liegt nicht mehr im Bildschirmfoto-Ordner."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se movió: el archivo ya no está en la carpeta de capturas."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non déplacée : le fichier n’est plus dans le dossier des captures."
+          }
+        }
+      }
+    },
+    "Not moved: this disk has no Trash." : {
+      "comment" : "Move to Trash refused: the volume has no Trash, and ClipShot never deletes",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not moved: this disk has no Trash."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nepresunuté: tento disk nemá Kôš."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nepřesunuto: tento disk nemá Koš."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht verschoben: Dieses Laufwerk hat keinen Papierkorb."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se movió: este disco no tiene Papelera."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non déplacée : ce disque n’a pas de Corbeille."
+          }
+        }
+      }
+    },
+    "Not put back: Undo has run out, or another file has its name now." : {
+      "comment" : "Undo failed: its 5 seconds are up, or a file with the same name is in its place",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not put back: Undo has run out, or another file has its name now."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nevrátené: čas na odvolanie vypršal alebo jeho názov už má iný súbor."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nevráceno: čas na odvolání vypršel nebo jeho název už má jiný soubor."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht zurückgelegt: Die Zeit zum Widerrufen ist abgelaufen oder eine andere Datei trägt jetzt ihren Namen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se devolvió: se acabó el tiempo para deshacer o ya hay otro archivo con su nombre."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non remise en place : le délai pour annuler est écoulé ou un autre fichier porte désormais son nom."
+          }
+        }
+      }
+    },
     "Nothing to move." : {
       "localizations" : {
         "en" : {
@@ -6667,13 +6913,13 @@
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vložiť môžeš hneď: ClipShot ukáže vlastný náhľad namiesto miniatúry macOS, ktorá súbor o pár sekúnd zdrží. Klikni na náhľad a dopíš poznámky."
+            "value" : "Vložiť môžeš hneď: ClipShot ukáže vlastný náhľad namiesto miniatúry macOS, ktorá súbor o pár sekúnd zdrží. Kliknutím na náhľad otvoríš anotácie."
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vložit můžeš hned: ClipShot ukáže vlastní náhled místo miniatury macOS, která soubor o pár sekund zdrží. Klikni na náhled a dopiš poznámky."
+            "value" : "Vložit můžeš hned: ClipShot ukáže vlastní náhled místo miniatury macOS, která soubor o pár sekund zdrží. Kliknutím na náhled otevřeš anotace."
           }
         },
         "de" : {
@@ -6749,13 +6995,13 @@
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vložiť sa dá, keď plávajúca miniatúra zmizne. Ak na ňu klikneš, môžeš do snímky najprv dopísať poznámky: ClipShot skopíruje upravený obrázok."
+            "value" : "Vložiť sa dá, keď plávajúca miniatúra zmizne. Ak na ňu najprv klikneš, otvoria sa anotácie: ClipShot skopíruje upravený obrázok."
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vložit jde, jakmile plovoucí miniatura zmizí. Když na ni klikneš, můžeš do snímku nejdřív dopsat poznámky: ClipShot zkopíruje upravený obrázek."
+            "value" : "Vložit jde, jakmile plovoucí miniatura zmizí. Když na ni nejdřív klikneš, otevřou se anotace: ClipShot zkopíruje upravený obrázek."
           }
         },
         "de" : {
@@ -6897,6 +7143,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aperçu"
+          }
+        }
+      }
+    },
+    "Put back from the Trash" : {
+      "comment" : "VoiceOver announcement after Undo put a screenshot back",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Put back from the Trash"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vrátené z Koša"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vráceno z Koše"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aus dem Papierkorb zurückgelegt"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Devuelta desde la Papelera"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remise en place depuis la Corbeille"
           }
         }
       }

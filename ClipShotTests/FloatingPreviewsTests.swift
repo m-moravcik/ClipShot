@@ -25,6 +25,20 @@ struct FloatingPreviewsTests {
         #expect(previews.visible.count == 3)
     }
 
+    /// U9: only the newest preview says Copied; an Undo preview never does.
+    @Test func onlyTheNewestSaysCopied() throws {
+        let previews = FloatingPreviews()
+        let shots = try files(3)
+        for shot in shots { previews.show(shot, image: nil) }
+        let ids = previews.visible.map(\.id)
+        #expect(previews.newestCopiedID == ids[2])
+        previews.offerUndo(ids[2])
+        #expect(previews.visible.count == 3, "the Undo preview stays")
+        #expect(previews.newestCopiedID == ids[1])
+        previews.endUndo(file: shots[2])
+        #expect(previews.visible.map(\.id) == Array(ids.prefix(2)))
+    }
+
     @Test func previewLeavesAfterItsLifetimeUnlessHovered() async throws {
         let previews = FloatingPreviews(lifetime: .milliseconds(300))
         let shots = try files(2)

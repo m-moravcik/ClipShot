@@ -62,7 +62,7 @@ struct RecentTests {
         try h.shoot("Only.png")
         #expect(await eventually { await h.model.latest?.file.url.lastPathComponent == "Only.png" })
         h.model.refreshRecent()
-        try await Task.sleep(for: .milliseconds(200))
+        #expect(await h.recentSettled())
         #expect(h.model.recent.isEmpty, "the strip is hidden: the only screenshot is the card")
         #expect(RecentScreenshots.select(lastCopied: nil, ledger: [], folder: h.folder) == .init(card: nil, recent: []))
     }
@@ -92,8 +92,10 @@ struct RecentTests {
         // Paused: a new screenshot is not copied, but the strip's Copy still is.
         h.preferences.copyEnabled = false
         let writes = h.pasteboard.writes.count
+        #expect(await eventually { await !h.model.copyEnabledInPipeline })
+        let events = h.model.copyEventsHandled
         try h.shoot("D.png", size: 23)
-        try await Task.sleep(for: .milliseconds(300))
+        #expect(await h.copySettled(after: events))
         #expect(h.pasteboard.writes.count == writes, "paused: nothing is copied on its own")
         #expect(h.model.flashPhase == 0, "paused: no copy animation on its own")
         let b = try #require(h.model.recent.first { $0.url.lastPathComponent == "B.png" })
@@ -150,7 +152,8 @@ struct RecentTests {
         #expect(h.model.latest?.file.url.lastPathComponent == "Earlier.png")
         #expect(h.model.recent.isEmpty)
         #expect(h.model.previews.visible.isEmpty)
-        try await Task.sleep(for: .milliseconds(300))
+        h.model.refreshRecent()
+        #expect(await h.recentSettled())
         #expect(h.model.latest?.file.url.lastPathComponent == "Earlier.png", "a refresh does not bring it back")
 
         #expect(await h.model.undoTrash())
@@ -216,12 +219,13 @@ struct RecentTests {
         #expect(await eventually { await h.ledger.contains(path: FolderGuard.canonicalPath(url), resourceID: file.resourceID) })
 
         // No edit session: an older file put in its place is not ClipShot's screenshot.
+        let events = h.model.copyEventsHandled
         let old = Date().addingTimeInterval(-3_600)
         let replacement = try Fixtures.write(
             named: "Screenshot 1.png", contents: Fixtures.pngImage(size: 30), in: h.folder, created: old, modified: old)
         let replaced = try #require(CaptureFile.inspect(replacement))
-        // Past the event pass and its first rescans.
-        try await Task.sleep(for: .milliseconds(1_200))
+        // Past the event's pass and all its rescans.
+        #expect(await h.copySettled(after: events))
         #expect(await !h.ledger.contains(path: FolderGuard.canonicalPath(url), resourceID: replaced.resourceID))
         await #expect(throws: AppModel.TrashError.notTracked) { try await h.model.trash(replaced) }
         #expect(RT.exists(url))
@@ -233,8 +237,11 @@ struct RecentTests {
         h.markupResult = .openedInPreview
         h.model.markup(file2)
         let renamed = h.folder.appendingPathComponent("Kept.png")
+        let renameEvents = h.model.copyEventsHandled
         try FileManager.default.moveItem(at: url2, to: renamed)
-        try await Task.sleep(for: .milliseconds(1_200))
+        // The session keeps a poll pass running; the rename's own pass and rescans are what
+        // matter.
+        #expect(await h.copySettled(after: renameEvents))
         #expect(await !h.ledger.contains(path: FolderGuard.canonicalPath(renamed), resourceID: file2.resourceID))
     }
 
@@ -248,7 +255,7 @@ struct RecentTests {
         try await tracked(h, [("Adopted.png", 30)], adopted: true)
         #expect(await h.start())
         h.model.refreshRecent()
-        try await Task.sleep(for: .milliseconds(300))
+        #expect(await h.recentSettled())
         #expect(h.model.latest == nil, "only an adopted file: No screenshot copied yet")
         #expect(names(h.model.recent) == ["Adopted.png"], "the strip still lists it")
 
@@ -302,7 +309,8 @@ struct RecentTests {
         try await h.model.trash(card)
         #expect(h.model.latest?.file.url.lastPathComponent == "Seen.png", "at once, skipping the adopted file")
         #expect(names(h.model.recent) == ["Adopted.png"])
-        try await Task.sleep(for: .milliseconds(300))
+        h.model.refreshRecent()
+        #expect(await h.recentSettled())
         #expect(h.model.latest?.file.url.lastPathComponent == "Seen.png")
         #expect(names(h.model.recent) == ["Adopted.png"])
 
@@ -326,7 +334,7 @@ struct RecentTests {
         #expect(await h.start())
         #expect(await eventually { await h.model.latest?.file.url.lastPathComponent == "Writing.png" })
         h.model.refreshRecent()
-        try await Task.sleep(for: .milliseconds(300))
+        #expect(await h.recentSettled())
         #expect(h.model.latest?.thumbnail == nil, "a file not written yet has no thumbnail")
 
         // The rest of the file lands in place: the same file, a new version.

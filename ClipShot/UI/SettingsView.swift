@@ -249,6 +249,9 @@ struct CaptureSettingsPane: View {
     /// scroll.
     private var nativeSection: some View {
         Section {
+            if model.settingsBackupFailed {
+                Note(text: Copy.Capture.backupFailed, systemImage: "exclamationmark.triangle.fill", tint: .red)
+            }
             VStack(alignment: .leading, spacing: Design.Spacing.s) {
                 Picker(selection: Binding(
                     get: { model.previewMode },
@@ -356,7 +359,7 @@ enum RetentionMode: Equatable {
         switch refusal {
         case nil: return .on
         case .notConfirmed: return .folderChanged
-        case .noTrash, .systemOrBroad: return .refused
+        case .noTrash, .systemOrBroad, .folderMissing: return .refused
         }
     }
 
@@ -527,6 +530,13 @@ struct RetentionSettings: View {
             Note(
                 text: Copy.Attention.noTrash(folderName),
                 systemImage: "exclamationmark.triangle.fill", tint: .orange)
+        case .failure(.folderMissing):
+            Note(
+                text: Copy.Attention.folderMissing(model.configuredFolder.map(AttentionPresentation.displayName) ?? ""),
+                systemImage: "exclamationmark.triangle.fill", tint: .orange
+            ) {
+                Button { chooseFolder() } label: { Text(Copy.Action.chooseFolder) }
+            }
         case .failure(.notConfirmed), nil:
             HStack(spacing: Design.Spacing.m) {
                 ProgressView().controlSize(.small)
@@ -537,6 +547,15 @@ struct RetentionSettings: View {
 
     private var folderName: String {
         model.screenshotFolder.map(AttentionPresentation.displayName) ?? ""
+    }
+
+    /// The folder is missing: choose another, as the popover's attention row offers.
+    private func chooseFolder() {
+        guard let url = FolderPicker.choose(startingAt: model.screenshotFolder) else { return }
+        Task {
+            try? await model.setFolder(url)
+            model.refreshPreview()
+        }
     }
 
     @ViewBuilder

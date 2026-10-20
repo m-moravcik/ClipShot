@@ -481,6 +481,15 @@ private struct TidyStep: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var customPeriod = false
     @State private var menuAnchor = MenuAnchor()
+    /// The older screenshots the confirmation asks about, while it is open.
+    @State private var adoptOffer: AdoptOffer?
+
+    /// What "Also clean up N older screenshots" counted.
+    struct AdoptOffer: Equatable {
+        let count: Int
+        let bytes: Int64
+        var size: String { bytes.formatted(.byteCount(style: .file)) }
+    }
 
     private var scan: RetentionScan? {
         if case .success(let scan) = model.retentionPreview { scan } else { nil }
@@ -492,12 +501,15 @@ private struct TidyStep: View {
             StepHeader(symbol: "trash", title: Copy.Onboarding.tidyTitle, text: Copy.Onboarding.tidyBody)
 
             VStack(alignment: .leading, spacing: Design.Spacing.xs) {
-                previewLine
-                    .padding(.horizontal, Design.Spacing.l)
-                    .padding(.vertical, Design.Spacing.m)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.cardFill))
-                    .padding(.bottom, Design.Spacing.xs)
+                VStack(alignment: .leading, spacing: Design.Spacing.s) {
+                    previewLine
+                    adoptLink
+                }
+                .padding(.horizontal, Design.Spacing.l)
+                .padding(.vertical, Design.Spacing.m)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.cardFill))
+                .padding(.bottom, Design.Spacing.xs)
 
                 periodRow(retention)
                 if RetentionPeriod.of(days: retention.days, customRequested: customPeriod) == .custom {
@@ -521,6 +533,40 @@ private struct TidyStep: View {
             .animation(Design.Motion.quick, value: customPeriod)
         }
         .onAppear { model.refreshPreview() }
+        .confirmationDialog(
+            adoptOffer.map { Text(Copy.Retention.adoptTitle($0.count, $0.size)) } ?? Text(verbatim: ""),
+            isPresented: Binding(get: { adoptOffer != nil }, set: { if !$0 { adoptOffer = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button { Task { await adopt() } } label: { Text(Copy.Retention.adoptConfirm) }
+            Button(role: .cancel) {} label: { Text(Copy.Retention.cancel) }
+        } message: {
+            Text(Copy.Retention.adoptMessage)
+        }
+    }
+
+    /// A fresh install has seen no screenshot being taken, so the preview alone would always
+    /// say nothing goes. The ones already in the folder are offered as Settings offers them,
+    /// with their own count and a confirmation (U3).
+    @ViewBuilder
+    private var adoptLink: some View {
+        if let scan, scan.olderNotTracked > 0 {
+            Button {
+                adoptOffer = AdoptOffer(count: scan.olderNotTracked, bytes: scan.olderNotTrackedBytes)
+            } label: {
+                Text(Copy.Retention.adoptButton(
+                    scan.olderNotTracked, scan.olderNotTrackedBytes.formatted(.byteCount(style: .file))))
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .buttonStyle(.link)
+            .font(Design.Typography.body)
+            .transition(.opacity)
+        }
+    }
+
+    private func adopt() async {
+        await model.adoptOlderScreenshotsTurningOnCleanup()
     }
 
     /// The sentence with its period link, and the switch, laid out as `SwitchRow`.
@@ -635,6 +681,8 @@ private struct TidyStep: View {
             warning(Copy.Retention.broad(folderName))
         case .failure(.noTrash):
             warning(Copy.Attention.noTrash(folderName))
+        case .failure(.folderMissing):
+            warning(Copy.Attention.folderMissing(model.configuredFolder.map(AttentionPresentation.displayName) ?? ""))
         case .failure(.notConfirmed), nil:
             HStack(spacing: Design.Spacing.m) {
                 ProgressView().controlSize(.small)

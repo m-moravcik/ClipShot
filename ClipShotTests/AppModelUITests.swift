@@ -111,7 +111,7 @@ struct AppModelUITests {
         let url = try RT.shot("old.png", in: h.folder, age: 40 * RT.day, now: Date())
         await h.ledger.record(RT.file(url))
         #expect(await h.start())
-        try? await Task.sleep(for: .milliseconds(300))
+        #expect(await h.model.cleanUpNow() == nil, "off: the start run, and this one, do nothing")
         #expect(h.preferences.lastRetention == nil, "off at launch: nothing recorded")
         h.preferences.retention = RT.policy(h.folder)
 
@@ -163,7 +163,7 @@ struct AppModelUITests {
         h.screencaptureUIRunning = true
         await h.model.setPreviewMode(.macOS)
         #expect(h.model.appliesFromNextScreenshot)
-        try? await Task.sleep(for: .milliseconds(300))
+        #expect(await h.statusRead())
         #expect(h.model.appliesFromNextScreenshot, "stays while screencaptureui runs")
 
         h.screencaptureUIRunning = false

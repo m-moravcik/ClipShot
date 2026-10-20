@@ -8,6 +8,9 @@ enum Refusal: Error, Equatable, Sendable {
     case noTrash
     /// The user has not seen a preview for this folder.
     case notConfirmed
+    /// The screenshot folder does not exist. Only the preview reports it, so Settings and
+    /// the tour say the folder is missing rather than that it has no Trash (C-1).
+    case folderMissing
 }
 
 /// Refuses folders retention must never clean. Paths are resolved with realpath(3) first,

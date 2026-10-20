@@ -37,7 +37,7 @@ enum Attention: Hashable, Identifiable, Sendable {
         switch retentionRefusal {
         case .noTrash: result.append(.noTrash(folder))
         case .notConfirmed: result.append(.retentionFolderChanged(folder))
-        case .systemOrBroad, nil: break
+        case .systemOrBroad, .folderMissing, nil: break
         }
         return result
     }

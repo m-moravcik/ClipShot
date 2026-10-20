@@ -81,6 +81,8 @@ struct AppDependencies {
     var makeFlashTimer: MakeFlashTimer
     var reduceMotion: @MainActor () -> Bool
     var announce: @MainActor (LocalizedStringResource) -> Void
+    /// The system alert sound, with every failure note (never instead of one).
+    var alert: @MainActor () -> Void = { NSSound.beep() }
     var workspace: any WorkspaceActions
     /// Whether the per-capture `screencaptureui` process is alive; a native setting written
     /// meanwhile applies from the next screenshot (spike F10).

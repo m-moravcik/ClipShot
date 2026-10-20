@@ -132,7 +132,9 @@ struct EditSessionCopyTests {
         // The editor has written half the file: the poll's passes see it and must not give up.
         let edited = CoordinatorHarness.png(54)
         try rewriteInPlace(url, with: edited.prefix(edited.count / 2))
-        try await Task.sleep(for: .milliseconds(700))
+        // Several of the poll's passes, counted, not timed.
+        let passes = h.coordinator.passesFinished
+        #expect(await eventually { await h.coordinator.passesFinished >= passes + 4 })
         #expect(h.failures == 0)
         #expect(h.writes.isEmpty)
 
@@ -151,9 +153,10 @@ struct EditSessionCopyTests {
         // Another file is being edited; this one is not.
         h.edits.begin(try #require(CaptureFile.inspect(other)))
         try rewriteInPlace(url, with: CoordinatorHarness.png(53))
-        // A folder event, so a pass certainly runs.
+        // A folder event, so a pass certainly runs: wait for it and all its rescans.
+        let events = h.coordinator.eventsHandled
         try Data("x".utf8).write(to: h.folder.appendingPathComponent("note.txt"))
-        try await Task.sleep(for: .milliseconds(1_500))
+        #expect(await h.settled(after: events))
         #expect(h.writes.isEmpty)
     }
 }

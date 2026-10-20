@@ -118,8 +118,8 @@ enum Peg {
 
     static func pose(at t: TimeInterval) -> Pose {
         var p = Pose()
-        // Up to open, down to shut, then a little bounce as the clamp lands: it bites past
-        // its rest, squashing, and springs back.
+        // Open (its jaw lifts off the card), shut, then a little bounce as the clamp lands:
+        // it bites past its rest, squashing, and springs back.
         let bounce = Curve.wobble(Curve.progress(t, Beat.clampBounce), cycles: 1.5)
         p.pegLift = 1.3 * Curve.easeOut(Curve.progress(t, Beat.pegOpen))
             * (1 - Curve.easeIn(Curve.progress(t, Beat.pegShut)))
@@ -133,16 +133,33 @@ enum Peg {
 
         let slide = Curve.easeOut(Curve.progress(t, Beat.slideIn))
         p.sag = 1.5 * Curve.wobble(Curve.progress(t, Beat.bob), cycles: 1.3)
+        let angle = -18 * (1 - slide) + 20 * Curve.wobble(Curve.progress(t, Beat.swing), cycles: 1.6)
+        // Pegged, the card bobs with the line, but never so far that its swinging lower
+        // corner leaves the frame: the menu bar would clip it.
+        let bob = slide < 1 ? 0.9 * p.sag : min(0.9 * p.sag, bottomRoom - cornerDrop(angle))
         p.card = Card(
             dx: 13 * (1 - slide),
-            dy: 0.9 * p.sag,
-            angle: -18 * (1 - slide) + 20 * Curve.wobble(Curve.progress(t, Beat.swing), cycles: 1.6),
+            dy: bob,
+            angle: angle,
             fill: Curve.easeInOut(Curve.progress(t, Beat.develop))
                 - Curve.easeInOut(Curve.progress(t, Beat.drain)),
             check: Curve.easeOut(Curve.progress(t, Beat.checkOn))
                 - Curve.easeIn(Curve.progress(t, Beat.checkOff)),
             opacity: t < Beat.slideIn.lowerBound ? 0 : 1)
         return p
+    }
+
+    /// How far the resting card's outline may move down and stay inside the frame.
+    static let bottomRoom = canvas.height - (card.maxY + stroke / 2)
+
+    /// How far the lower corners of the card, turned `angle` degrees around the pivot, sink
+    /// below where they rest.
+    static func cornerDrop(_ angle: Double) -> CGFloat {
+        let theta = angle * .pi / 180
+        let y = card.maxY - pivot.y
+        return [card.minX - pivot.x, card.maxX - pivot.x]
+            .map { x in x * CGFloat(sin(theta)) + y * CGFloat(cos(theta)) - y }
+            .max() ?? 0
     }
 
     // MARK: Drawing
@@ -171,8 +188,14 @@ enum Peg {
         drawCard(pose.card, in: context)
 
         // The peg, in front: a gap around it, the body, the spring hole.
-        var pegTransform = CGAffineTransform(translationX: 0, y: -pose.pegLift)
-            .concatenating(scale(1, pose.pegSquash, around: CGPoint(x: 11, y: peg.maxY - pose.pegLift)))
+        // Opening lifts the clamp's jaw off the card: the peg shortens from below while its
+        // top stays put, so it never rises past the frame (a lift of the whole peg poked
+        // 0.75 pt out of it and was clipped). Biting (a negative lift, the clamp's bounce)
+        // moves it down and squashes it from below.
+        let open = max(0, pose.pegLift), bite = max(0, -pose.pegLift)
+        var pegTransform = scale(1, (peg.height - open) / peg.height, around: CGPoint(x: 11, y: peg.minY))
+            .concatenating(CGAffineTransform(translationX: 0, y: bite))
+            .concatenating(scale(1, pose.pegSquash, around: CGPoint(x: 11, y: peg.maxY + bite)))
         let body = CGPath(roundedRect: peg, cornerWidth: pegRadius, cornerHeight: pegRadius,
                           transform: &pegTransform)
         erase(body.copy(strokingWithWidth: pegGap, lineCap: .round, lineJoin: .round, miterLimit: 10), in: context)

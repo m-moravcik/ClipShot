@@ -343,6 +343,10 @@ struct PillLabel: View {
 struct PillButtonStyle: ButtonStyle {
     static let font: Font = .system(size: 11, weight: .medium)
     static let radius: CGFloat = 5
+    /// The strip's compact pill: narrow enough that three leave a margin inside the 64 pt
+    /// thumbnail, while each still takes clicks over at least 20 pt (`compactHitOutset`).
+    static let compactHorizontalPadding: CGFloat = 3
+    static let compactHitOutset: CGFloat = 1
 
     var compact = false
     var onImage = false
@@ -372,7 +376,7 @@ struct PillButtonStyle: ButtonStyle {
 
         var body: some View {
             configuration.label
-                .padding(.horizontal, compact ? 4 : 8)
+                .padding(.horizontal, compact ? PillButtonStyle.compactHorizontalPadding : 8)
                 .padding(.vertical, 3)
                 .background {
                     ZStack {
@@ -384,7 +388,7 @@ struct PillButtonStyle: ButtonStyle {
                     if onImage { shape.strokeBorder(Color.primary.opacity(0.2), lineWidth: 0.5) }
                 }
                 .shadow(color: .black.opacity(onImage ? 0.3 : 0), radius: 1.5, y: 0.5)
-                .contentShape(shape)
+                .contentShape(shape.inset(by: compact ? -PillButtonStyle.compactHitOutset : 0))
                 .contentShape(.focusEffect, shape)
                 .opacity(isEnabled ? 1 : 0.5)
                 .onHover { hovering = $0 }

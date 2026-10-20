@@ -46,7 +46,7 @@ struct PreviewModeModelTests {
         // The user turns "Show Floating Thumbnail" on in Cmd+Shift+5 > Options.
         h.prefs["show-thumbnail"] = true
         #expect(await eventually { await h.model.previewMode == .macOS })
-        try await Task.sleep(for: .milliseconds(400))
+        #expect(await h.statusRead())
         #expect(h.prefs["show-thumbnail"] as? Bool == true, "never written back")
         #expect(h.model.previewMode == .macOS)
         #expect(h.preferences.previewMode == .clipShot, "the choice is kept, only overridden")
@@ -72,7 +72,7 @@ struct PreviewModeModelTests {
         defer { h.tearDown() }
         #expect(await h.start())
         #expect(await eventually { await h.model.showsPreviewOffer })
-        try await Task.sleep(for: .milliseconds(300))
+        #expect(await h.statusRead())
         #expect(h.prefs["show-thumbnail"] == nil, "nothing written")
         #expect(backup(h) == nil)
         #expect(h.model.previewMode == .macOS)
@@ -80,9 +80,10 @@ struct PreviewModeModelTests {
         #expect(!h.model.showsThumbnailWait, "the offer row says it; the header line waits")
 
         // No preview while the macOS thumbnail is on.
+        let events = h.model.copyEventsHandled
         try h.shoot("Screenshot 1.png")
         #expect(await eventually { await h.pasteboard.writes.count == 1 })
-        try await Task.sleep(for: .milliseconds(200))
+        #expect(await h.copySettled(after: events))
         #expect(h.model.previews.items.isEmpty)
     }
 
@@ -123,7 +124,7 @@ struct PreviewModeModelTests {
         h.model.stopWatching()
         #expect(await h.start())
         #expect(await eventually { await h.model.previewModeKnown })
-        try await Task.sleep(for: .milliseconds(200))
+        #expect(await h.statusRead())
         #expect(!h.model.showsPreviewOffer, "never offered again")
         #expect(h.prefs["show-thumbnail"] as? Bool == true)
     }
@@ -175,7 +176,7 @@ struct PreviewModeModelTests {
         #expect(await h.model.restorePreviousSettings())
         #expect(h.prefs["show-thumbnail"] as? Bool == true)
         #expect(await eventually { await h.model.previewMode == .macOS })
-        try await Task.sleep(for: .milliseconds(300))
+        #expect(await h.statusRead())
         #expect(h.prefs["show-thumbnail"] as? Bool == true, "restore is not undone")
     }
 
@@ -185,9 +186,10 @@ struct PreviewModeModelTests {
         h.prefs["show-thumbnail"] = false
         h.preferences.previewMode = .none
         #expect(await h.start())
+        let events = h.model.copyEventsHandled
         try h.shoot("Screenshot 1.png", size: 20)
         #expect(await eventually { await h.pasteboard.writes.count == 1 })
-        try await Task.sleep(for: .milliseconds(200))
+        #expect(await h.copySettled(after: events))
         #expect(h.model.previews.items.isEmpty)
 
         await h.model.setPreviewMode(.clipShot)
@@ -199,4 +201,33 @@ struct PreviewModeModelTests {
         await h.model.setPreviewMode(.none)
         #expect(await eventually { await h.model.previews.items.isEmpty })
     }
+
+    /// C-2: when the one-time backup cannot be written, nothing changes, the picker keeps
+    /// the mode in effect (it never flips back later on its own), and Settings says why.
+    @Test func aFailedBackupChangesNothingAndSaysSo() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        h.prefs["show-thumbnail"] = true
+        #expect(await h.start())
+        #expect(await eventually { await h.model.previewMode == .macOS })
+        // The backup goes next to the home folder's files; a read-only home refuses it.
+        #expect(chmod(h.home.path, 0o555) == 0)
+        defer { chmod(h.home.path, 0o755) }
+
+        await h.model.setPreviewMode(.clipShot)
+        #expect(h.prefs["show-thumbnail"] as? Bool == true, "nothing written")
+        #expect(h.model.previewMode == .macOS, "the picker shows what is in effect")
+        #expect(h.model.settingsBackupFailed)
+        await h.model.fixDestination()
+        #expect(h.model.settingsBackupFailed)
+        await #expect(throws: FolderValidation.backupFailed) { try await h.model.setFolder(h.folder) }
+        #expect(h.model.folderError == .backupFailed)
+
+        chmod(h.home.path, 0o755)
+        await h.model.setPreviewMode(.clipShot)
+        #expect(h.prefs["show-thumbnail"] as? Bool == false)
+        #expect(!h.model.settingsBackupFailed, "a write that succeeds clears the note")
+        #expect(h.model.previewMode == .clipShot)
+    }
 }
+

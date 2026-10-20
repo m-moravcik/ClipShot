@@ -23,6 +23,9 @@ the reviewer and the date here when that happens.
 - Product names (ClipShot, Finder, Homebrew) and keyboard symbols (⇧⌘4, ⌘V) stay as they are.
 - macOS terms aim to match the system's own wording (check against macOS when reviewing): Trash is Kôš / Koš / Papierkorb / Papelera /
   Corbeille; the floating thumbnail is miniatúra / miniatura / Miniatur / miniatura / vignette.
+  Markup is Anotácie / Anotace in sk and cs, as Preview names it there ("Zobraziť panel
+  anotácií", "Zobrazit anotační nástroje"), so "Upraviť v anotáciách" / "Upravit v anotacích";
+  Markierungen / Marcación / Annoter in de, es, fr.
 - The retention feature reads as "cleanup" in every translation (Upratovanie, Úklid,
   Aufräumen, Limpieza, Nettoyage), which is how people talk about it.
 - Counts use plural variations with every CLDR category of the language: one, few, many and

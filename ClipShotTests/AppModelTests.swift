@@ -81,6 +81,10 @@ final class ModelHarness {
     let logFile: URL
     private(set) var timers: [ManualFlashTimer] = []
     private(set) var announcements = 0
+    /// The keys of what VoiceOver was told, in order.
+    private(set) var announced: [String] = []
+    /// How often the alert sound played.
+    private(set) var alerts = 0
     private(set) var loginReconciles = 0
     /// What `setLoginItem` was asked, in order.
     private(set) var loginItemSets: [Bool] = []
@@ -144,7 +148,10 @@ final class ModelHarness {
                 return timer
             },
             reduceMotion: { box.harness?.reduceMotion ?? false },
-            announce: { _ in box.harness?.announcements += 1 },
+            announce: { message in
+                box.harness?.announcements += 1
+                box.harness?.announced.append(message.key)
+            },
             workspace: workspace,
             screencaptureUIRunning: { box.harness?.screencaptureUIRunning ?? false },
             reconcileLoginItem: { intent in
@@ -158,6 +165,7 @@ final class ModelHarness {
             log: Log(fileURL: logFile), logFile: logFile,
             appVersion: "0.9.0 (1)", osVersion: "Version 26.0 (Build 25A1)")
         deps.edits = edits
+        deps.alert = { box.harness?.alerts += 1 }
         deps.previewLifetime = previewLifetime
         deps.undoLifetime = undoLifetime
         deps.locateTrash = locateTrash
@@ -189,6 +197,31 @@ final class ModelHarness {
     }
 
     var timer: ManualFlashTimer? { timers.last }
+
+    // Deterministic waits (R-9): each returns once the work a "nothing happened" check is
+    // about has run, never after a guessed time.
+
+    /// Waits until a folder event after `events` was handled and every pass and rescan it
+    /// asked for has run (the last rescan is 3 s after it).
+    func copySettled(after events: Int) async -> Bool {
+        await eventually(timeout: .seconds(10)) { await self.isCopySettled(after: events) }
+    }
+
+    private func isCopySettled(after events: Int) -> Bool {
+        model.copyEventsHandled > events && model.copyIdle
+    }
+
+    /// Waits until the newest `refreshRecent()` has shown its result.
+    func recentSettled() async -> Bool {
+        await eventually { await self.model.recentSettled }
+    }
+
+    /// Waits until a status read that started after this call has finished.
+    func statusRead() async -> Bool {
+        let reads = model.statusReads
+        model.refreshStatus()
+        return await eventually { await self.model.statusReads > reads + 1 }
+    }
 }
 
 @MainActor
@@ -208,9 +241,12 @@ struct AppModelTests {
         #expect(h.model.watchedFolder == nil)
         #expect(h.model.retentionPreview == nil)
         #expect(h.model.attentions.isEmpty)
-        #expect(h.model.iconState == .idle)
+        // Nothing is copied yet: the icon and its VoiceOver label say paused, not "copying on".
+        #expect(h.model.iconState == .paused)
+        #expect(h.model.iconState.accessibilityLabel.key == Copy.StatusItem.paused.key)
         // Onboarding step 2.
         #expect(await h.start())
+        #expect(h.model.iconState == .idle)
         #expect(h.events.starts == 1)
         // A first tour does not reconcile at Start copying: its end decides (LoginItem).
         #expect(h.loginReconciles == 0)
@@ -279,7 +315,7 @@ struct AppModelTests {
         defer { h.tearDown() }
         h.preferences.retention = RT.policy(h.folder)
         #expect(await h.start())
-        try? await Task.sleep(for: .milliseconds(300))
+        #expect(await h.statusRead())
         #expect(h.model.attentions.isEmpty)
         let other = h.home.appendingPathComponent("Other", isDirectory: true)
         try FileManager.default.createDirectory(at: other, withIntermediateDirectories: true)
@@ -540,8 +576,8 @@ struct AppModelTests {
             await h.ledger.record(RT.file(url))
         }
         #expect(await h.start())
-        // Off at launch: the start run does nothing.
-        try? await Task.sleep(for: .milliseconds(300))
+        // Off at launch: the start run does nothing. Clean up now runs after it, still off.
+        #expect(await h.model.cleanUpNow() == nil)
         #expect(h.trasher.trashed.isEmpty)
         h.preferences.retention = RT.policy(h.folder)
         await h.model.cleanUpNow()
@@ -558,7 +594,8 @@ struct AppModelTests {
         let url = try RT.shot("old.png", in: h.folder, age: 40 * RT.day, now: Date())
         await h.ledger.record(RT.file(url))
         #expect(await h.start())
-        try? await Task.sleep(for: .milliseconds(300))
+        // The start run, still off, is over before retention turns on.
+        #expect(await h.model.cleanUpNow() == nil)
         h.preferences.retention = RT.policy(h.folder)
         h.wake.send()
         #expect(await eventually { await h.preferences.totals.trashed == 1 })
@@ -570,8 +607,10 @@ struct AppModelTests {
         #expect(await h.start())
         h.preferences.copyEnabled = false
         #expect(await eventually { await h.model.iconState == .paused })
+        #expect(await eventually { await !h.model.copyEnabledInPipeline })
+        let events = h.model.copyEventsHandled
         try h.shoot("While off.png")
-        try? await Task.sleep(for: .milliseconds(1_500))
+        #expect(await h.copySettled(after: events))
         #expect(h.pasteboard.writes.isEmpty)
     }
 

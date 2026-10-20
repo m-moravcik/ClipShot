@@ -59,14 +59,20 @@ enum Thumbnailer {
 }
 
 /// The latest screenshot, or a quiet line before the first one, then the strip of earlier
-/// ones (A5), with the Undo row on top for 5 s after a move to the Trash (A6). Swaps cards
-/// with a crossfade only once the new thumbnail is decoded, so it never flashes empty.
+/// ones (A5), with the Undo row on top for 5 s after a move to the Trash (A6), and in its
+/// place why a Move to Trash or an Undo from here did not happen. Swaps cards with a
+/// crossfade only once the new thumbnail is decoded, so it never flashes empty.
 struct LatestCaptureSection: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: Design.Spacing.m) {
+            if let note = model.actionNote {
+                ActionNoteRow(message: note.failure.message)
+                    .id(note.generation)
+                    .transition(UndoRow.transition(reduceMotion: reduceMotion))
+            }
             if let trashed = model.undoable {
                 UndoRow(trashed: trashed)
                     .transition(UndoRow.transition(reduceMotion: reduceMotion))
@@ -78,6 +84,7 @@ struct LatestCaptureSection: View {
             }
         }
         .animation(reduceMotion ? Design.Motion.quick : Design.Motion.strip, value: model.undoable != nil)
+        .animation(reduceMotion ? Design.Motion.quick : Design.Motion.strip, value: model.actionNote)
         .animation(reduceMotion ? Design.Motion.quick : Design.Motion.strip, value: model.recent.isEmpty)
     }
 
@@ -124,7 +131,7 @@ struct LatestCaptureCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Design.Spacing.m) {
             HStack(spacing: Design.Spacing.m) {
-                MarkupThumbnail(image: capture.thumbnail, file: capture.file)
+                CardThumbnail(file: capture.file, image: capture.thumbnail, menu: menuItems)
                 VStack(alignment: .leading, spacing: 1) {
                     // Two lines before anything is cut, so the time at the end of a
                     // screenshot's name, which tells screenshots apart, stays whole.
@@ -174,6 +181,17 @@ struct LatestCaptureCard: View {
         .padding(.vertical, Design.Spacing.m)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.cardFill))
+        .onDisappear { checkTask?.cancel() }
+    }
+
+    /// The picture's right-click menu: the strip's, so both offer the same.
+    private func menuItems() -> [CardMenuItem] {
+        [
+            CardMenuItem(title: capture.isLastCopied ? Copy.Action.copyAgain : Copy.Preview.copy, action: copyAgain),
+            CardMenuItem(title: Copy.Preview.editWithMarkup, action: { model.markup(capture.file) }),
+            CardMenuItem(title: Copy.Action.showInFinder, action: { model.reveal(capture.file) }),
+            CardMenuItem(title: Copy.Retention.moveToTrash, action: trash, separatorBefore: true),
+        ]
     }
 
     /// Copy again for the screenshot just copied; Copy for one shown in its place. The symbol
@@ -207,9 +225,7 @@ struct LatestCaptureCard: View {
 
     private func trash() {
         let file = capture.file
-        Task {
-            do { try await model.trash(file) } catch { NSSound.beep() }
-        }
+        Task { await model.moveToTrash(file) }
     }
 
     /// "Just now" for the first minute, then the age in words ("41 minutes ago", "Yesterday"),
@@ -243,6 +259,78 @@ struct LatestCaptureCard: View {
             guard !Task.isCancelled else { return }
             withAnimation(Design.Motion.quick) { showCheck = false }
         }
+    }
+}
+
+/// The card's picture, as the strip's and the preview's: a click opens Markup, a drag
+/// carries the file into another app, a right click offers the menu. A pencil on hover or
+/// keyboard focus says the picture is the thing to click; Space or Return opens Markup.
+private struct CardThumbnail: View {
+    let file: CaptureFile
+    let image: CGImage?
+    let menu: () -> [CardMenuItem]
+
+    @Environment(AppModel.self) private var model
+    @State private var hovering = false
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        ZStack {
+            CaptureThumbnail(image: image)
+            CardInteraction(
+                file: file, image: image, toolTip: String(localized: Copy.Preview.markupHint),
+                onClick: { model.markup(file) }, onHover: { hovering = $0 }, onDraggedOut: {}, menu: menu)
+            if hovering || focused {
+                Image(systemName: "pencil.tip.crop.circle.fill")
+                    .font(.system(size: 18))
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(.white, Color.accentColor)
+                    .shadow(color: .black.opacity(0.3), radius: 2)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
+        }
+        .frame(width: Design.Layout.thumbnailSize.width, height: Design.Layout.thumbnailSize.height)
+        .focusable()
+        .focused($focused)
+        .focusEffectDisabled()
+        .overlay {
+            if focused {
+                RoundedRectangle(cornerRadius: Design.Radius.chip, style: .continuous)
+                    .strokeBorder(Color.accentColor, lineWidth: 2)
+                    .allowsHitTesting(false)
+            }
+        }
+        .onKeyPress(keys: [.space, .return]) { _ in
+            model.markup(file)
+            return .handled
+        }
+        .animation(Design.Motion.quick, value: hovering)
+    }
+}
+
+/// Why something the user asked for in the popover did not happen: a Move to Trash or an
+/// Undo (in the Undo row's place, for 5 s, with the alert sound as well), or a macOS setting
+/// ClipShot could not change.
+struct ActionNoteRow: View {
+    let message: LocalizedStringResource
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Design.Spacing.m) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 12))
+                .foregroundStyle(.orange)
+                .frame(width: Design.Layout.iconColumn)
+                .accessibilityHidden(true)
+            Text(message)
+                .font(Design.Typography.body)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, Design.Spacing.l)
+        .padding(.vertical, Design.Spacing.s + 2)
+        .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.cardFill))
+        .accessibilityElement(children: .combine)
     }
 }
 

@@ -18,6 +18,7 @@
 # (every row at once, so long translations reach the height cap), attention-* (one per
 # attention row), settings-{general,capture,retention,about}, settings-general-replayed,
 # settings-retention-{cleaned,trash-not-opened,nothing-moved} (just after Clean up now),
+# onboarding-3-tidy-fresh (step 3 on a fresh install, offering the older screenshots),
 # settings-retention-older (the offer for screenshots from before ClipShot ran),
 # settings-capture-attention (the destination guard), onboarding-* (every tour step, and
 # Try it blocked by an attention), hero (popover under the menu bar, README) and banner
@@ -31,7 +32,10 @@
 # Move to Trash buttons, and popover-recent-hover-white / -dark-shot the same over a white
 # and over a dark screenshot; popover-pill-hover has the pointer on the card's Show in
 # Finder pill;
-# popover-undo is the popover just after Move to Trash, with its Undo row. Popover and tour
+# popover-undo is the popover just after Move to Trash, with its Undo row, and popover-note
+# the same place saying why a Move to Trash did not happen; preview-undo is a preview that
+# moved its screenshot to the Trash (Undo on the preview) above one whose move failed,
+# saying why on the preview. Popover and tour
 # pictures carry the window's rounded corners and shadow on a transparent margin.
 #
 # CLIPSHOT_SCREENSHOTS_LIVE=1 takes the popover pictures from a window on screen through
@@ -97,7 +101,6 @@ for LANG_CODE in "${LANGS[@]}"; do
         -AppleLocale "$LOCALE" \
         -AppleICUForce24HourTime "$HOURS24" \
         -clipshot.copyEnabled YES \
-        -clipshot.copySound NO \
         -clipshot.markupTipShown YES \
         -clipshot.launchAtLoginIntent YES; then
         failed+=("$LANG_CODE")

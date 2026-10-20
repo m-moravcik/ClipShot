@@ -393,7 +393,11 @@ Swift Testing. Pure logic is tested; views are not, except their layout rules. T
 | `StatusIconStateTests`, `CopiedFlashTests`, `PopoverLayoutTests` | The menu bar label is never scaled and fits its frame; every state has its own silhouette; Peg matches the siblings' height, width and stroke; the copy animation starts and ends at rest, one timer tick per frame and none after; Reduce Motion holds the copied pose; the popover's bottom soft scroll edge. |
 
 Tests never touch real preferences (`make guards` refuses `UserDefaults` in
-tests) and use temporary folders.
+tests) and use temporary folders. A check that something did *not* happen waits
+for the work it is about to finish (the coordinator's `passesFinished`,
+`eventsHandled` and `isIdle`, the model's `recentSettled` and `statusReads`), not
+for a fixed sleep that could end first and pass for nothing. The sleeps left
+time real run-loop timers and real-clock deadlines on purpose.
 
 ## Safety notes
 

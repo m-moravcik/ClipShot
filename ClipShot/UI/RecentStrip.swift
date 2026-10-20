@@ -163,9 +163,13 @@ struct RecentItem: View {
         .accessibilityAction(named: Text(Copy.Retention.moveToTrash)) { trash() }
     }
 
+    /// Between the strip's pills: with `PillButtonStyle`'s compact padding, three pills keep
+    /// at least 4 pt from the thumbnail's sides (`RecentItemLayoutTests`).
+    static let barSpacing: CGFloat = 1
+
     /// The latest card's three actions, as small symbol pills over the picture.
     private var actionBar: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: Self.barSpacing) {
             Button(action: copy) {
                 PillLabel(symbol: showCheck ? "checkmark" : "doc.on.doc")
                     .contentTransition(reduceMotion ? .opacity : .symbolEffect(.replace))
@@ -215,9 +219,8 @@ struct RecentItem: View {
     }
 
     private func trash() {
-        Task {
-            do { try await model.trash(file) } catch { NSSound.beep() }
-        }
+        let file = file
+        Task { await model.moveToTrash(file) }
     }
 }
 
@@ -243,7 +246,7 @@ struct UndoRow: View {
                 .font(Design.Typography.body)
                 .fixedSize(horizontal: false, vertical: true)
             Button {
-                Task { if await !model.undoTrash() { NSSound.beep() } }
+                Task { await model.putBack() }
             } label: {
                 Text(Copy.Recent.undo)
             }

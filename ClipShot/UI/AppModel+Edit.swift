@@ -1,6 +1,7 @@
 import AppKit
 
-/// Markup and Move to Trash, the actions on a screenshot that ClipShot shows (Addendum A4, A6).
+/// Markup, the editing action on a screenshot that ClipShot shows (Addendum A4). Move to
+/// Trash and Undo (A6) live in AppModel.swift, beside the state only they may change (R-3).
 extension AppModel {
     // MARK: - Markup
 
@@ -42,129 +43,30 @@ extension AppModel {
         }
     }
 
-    /// The editor returned an edited copy instead of writing the file: copy that image, unless
-    /// copying is paused (then nothing ClipShot does on its own writes the clipboard).
+    /// The editor returned an edited copy instead of writing the file: copy that image, as a
+    /// save in place would be copied, so not while copying is paused (`CopyOrigin.edited`).
     private func copyEdited(_ data: Data) {
         guard preferences.copyEnabled else { return }
         Task { [weak self] in
             let png = await Task.detached(priority: .userInitiated) { PNGConverter.pngData(fromImageData: data) }.value
-            guard let self, self.preferences.copyEnabled, let png, self.pasteboard.writePNG(png) else { return }
-            self.changeCountAfterCopy = self.pasteboard.changeCount
-            self.startFlash()
-            self.announce(Copy.screenshotCopied)
+            guard let self, let png else { return }
+            _ = self.writeClipboard(png, .edited)
         }
     }
+}
 
-    // MARK: - Trash
+/// A Move to Trash or an Undo that did not happen, and why, in the user's words.
+enum ScreenshotActionFailure: Equatable, Sendable {
+    case trash(AppModel.TrashError)
+    case undo
 
-    enum TrashError: Error, Equatable {
-        /// Not a screenshot ClipShot saw being taken (or one the user adopted).
-        case notTracked
-        /// Not a direct child of the screenshot folder, or the folder is one ClipShot never
-        /// touches.
-        case outsideFolder
-        /// The folder's volume has no Trash; ClipShot never deletes instead.
-        case noTrash
-        /// The file changed since, or the Trash refused it.
-        case failed
-    }
-
-    struct TrashedScreenshot: Equatable {
-        /// The screenshot as it was shown, for its thumbnail while Undo is offered.
-        let file: CaptureFile
-        let inTrash: URL
-        /// Its ledger entry was an adopted older file, not one ClipShot saw being taken.
-        var adopted = false
-
-        var original: URL { file.url }
-    }
-
-    /// Moves a screenshot to the Trash: only a file in the ledger, only a direct child of the
-    /// watched folder, with retention's folder guard (realpath, not a broad folder, the volume
-    /// has a Trash), and only through `FileManager.trashItem`. No confirmation: it can be put
-    /// back.
-    func trash(_ file: CaptureFile) async throws(TrashError) {
-        guard let folder = watchedFolder else { throw .outsideFolder }
-        let path = FolderGuard.canonicalPath(file.url)
-        // A screenshot copied a moment ago may still be on its way into the ledger.
-        await ledgerSettled()
-        guard await ledger.contains(path: path, resourceID: file.resourceID) else { throw .notTracked }
-        let home = home
-        let trasher = trasher
-        let hasTrash = hasTrash
-        let outcome = await Task.detached(priority: .userInitiated) { () -> Result<URL?, TrashError> in
-            // The folder resolves, passes retention's guard, and is the file's resolved
-            // parent: a direct child, whatever spelling the URL had.
-            guard let resolved = FolderGuard.strictRealPath(folder.path),
-                  (path as NSString).deletingLastPathComponent == resolved
-            else { return .failure(.outsideFolder) }
-            switch FolderGuard.refusal(resolvedPath: resolved, home: home, hasTrash: hasTrash) {
-            case .systemOrBroad?, .notConfirmed?: return .failure(.outsideFolder)
-            case .noTrash?: return .failure(.noTrash)
-            case nil: break
-            }
-            guard let current = CaptureFile.inspect(file.url), current.resourceID == file.resourceID else {
-                return .failure(.failed)
-            }
-            do {
-                return .success(try trasher.trash(current.url))
-            } catch {
-                return .failure(.failed)
-            }
-        }.value
-        let inTrash: URL?
-        do throws(TrashError) {
-            inTrash = try outcome.get()
-        } catch {
-            throw error
+    var message: LocalizedStringResource {
+        switch self {
+        case .trash(.notTracked): Copy.Failure.notTracked
+        case .trash(.outsideFolder): Copy.Failure.outsideFolder
+        case .trash(.noTrash): Copy.Failure.noTrash
+        case .trash(.failed): Copy.Failure.trashFailed
+        case .undo: Copy.Failure.undoFailed
         }
-        let entry = await ledger.remove(path: path, resourceID: file.resourceID)
-        offerUndo(inTrash.map { TrashedScreenshot(file: file, inTrash: $0, adopted: entry?.adopted ?? false) })
-        previews.dismiss(file: file, .trash)
-        screenshotLeft(file)
-        preferences.totals.trashed += 1
-        let ext = file.url.pathExtension.lowercased()
-        let log = log
-        Task { await log.info("trashed ext=\(ext)") }
-    }
-
-    /// Offers Undo for `trashed` for `undoLifetime`, in place of any earlier one. A trash
-    /// whose place in the Trash is unknown offers none, and ends the earlier one too, so Undo
-    /// never brings back a file other than the one just moved.
-    private func offerUndo(_ trashed: TrashedScreenshot?) {
-        undoGeneration += 1
-        undoable = trashed
-        guard trashed != nil else { return }
-        let generation = undoGeneration
-        let lifetime = undoLifetime
-        Task { [weak self] in
-            try? await Task.sleep(for: lifetime)
-            guard let self, self.undoGeneration == generation else { return }
-            self.undoable = nil
-        }
-    }
-
-    /// Puts the screenshot last moved to the Trash back where it was, back in the ledger and
-    /// back on show. False when no Undo is on offer (none, or its time is up), or its place
-    /// is taken.
-    @discardableResult
-    func undoTrash() async -> Bool {
-        guard let trashed = undoable else { return false }
-        undoGeneration += 1
-        undoable = nil
-        let restored = await Task.detached(priority: .userInitiated) { () -> CaptureFile? in
-            guard !FileManager.default.fileExists(atPath: trashed.original.path) else { return nil }
-            do {
-                try FileManager.default.moveItem(at: trashed.inTrash, to: trashed.original)
-            } catch {
-                return nil
-            }
-            return CaptureFile.inspect(trashed.original)
-        }.value
-        guard let restored else { return false }
-        await ledger.restore(restored, adopted: trashed.adopted)
-        preferences.totals.trashed = max(0, preferences.totals.trashed - 1)
-        refreshRecent()
-        return true
     }
 }

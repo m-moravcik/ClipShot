@@ -46,6 +46,9 @@ final class AppModel {
     private(set) var appliesFromNextScreenshot = false
     /// Why the last folder change was refused; nil after a successful one.
     private(set) var folderError: FolderValidation?
+    /// The last Preview or destination change wrote nothing because the one-time backup of
+    /// the macOS settings failed (C-2). Cleared by the next write that succeeds.
+    private(set) var settingsBackupFailed = false
     /// The latest card with its decoded thumbnail: `lastCopied` while it exists, else the
     /// newest screenshot in the ledger (Addendum A5). Changes once the thumbnail is decoded
     /// (or failed to), so the card swaps in one step.
@@ -58,7 +61,10 @@ final class AppModel {
     private(set) var thumbnails: [CaptureFile: CGImage] = [:]
     /// The screenshot just moved to the Trash while its Undo is offered (Addendum A6). One at
     /// a time: a newer trash replaces it.
-    var undoable: TrashedScreenshot?
+    private(set) var undoable: TrashedScreenshot?
+    /// A Move to Trash or Undo from the popover that failed, said in the Undo row's place for
+    /// `undoLifetime` (Addendum A6). One at a time.
+    private(set) var actionNote: ActionNote?
     /// ClipShot's floating previews (Addendum A2); only filled in Preview mode ClipShot.
     let previews: FloatingPreviews
 
@@ -86,8 +92,10 @@ final class AppModel {
         isWatching && previewModeKnown && previewMode == .macOS && !showsPreviewOffer
     }
 
+    /// Paused until watching starts (the tour's Start copying, or a launch after the tour):
+    /// nothing is copied before then, so the icon and its VoiceOver label do not say it is.
     var iconState: StatusIconState {
-        .resolve(copyEnabled: preferences.copyEnabled, attentions: attentions, flashing: flashPhase > 0)
+        .resolve(copyEnabled: preferences.copyEnabled && isWatching, attentions: attentions, flashing: flashPhase > 0)
     }
 
     /// The popover header: copying on, paused or needs attention. Never the brief copied state.
@@ -123,15 +131,16 @@ final class AppModel {
     @ObservationIgnored private let settings: CaptureSettings
     @ObservationIgnored private let screencapturePrefs: any ScreencapturePreferences
     @ObservationIgnored private let backup: PrefsBackup
-    @ObservationIgnored let home: URL
-    @ObservationIgnored let pasteboard: any PasteboardWriting
-    @ObservationIgnored let ledger: ScreenshotLedger
-    @ObservationIgnored let hasTrash: FolderGuard.TrashLookup
+    @ObservationIgnored private let home: URL
+    @ObservationIgnored private let pasteboard: any PasteboardWriting
+    @ObservationIgnored private let ledger: ScreenshotLedger
+    @ObservationIgnored private let hasTrash: FolderGuard.TrashLookup
     @ObservationIgnored private let clock: @Sendable () -> Date
     @ObservationIgnored private let statusInterval: Duration
     @ObservationIgnored private let makeFlashTimer: AppDependencies.MakeFlashTimer
     @ObservationIgnored private let reduceMotion: @MainActor () -> Bool
-    @ObservationIgnored let announce: @MainActor (LocalizedStringResource) -> Void
+    @ObservationIgnored private let announce: @MainActor (LocalizedStringResource) -> Void
+    @ObservationIgnored private let alert: @MainActor () -> Void
     @ObservationIgnored let workspace: any WorkspaceActions
     @ObservationIgnored private let screencaptureUIRunning: @MainActor () -> Bool
     @ObservationIgnored private let reconcileLoginItem: @MainActor (Bool?) -> Bool
@@ -142,8 +151,8 @@ final class AppModel {
     @ObservationIgnored private let osVersion: String
     @ObservationIgnored private let coordinator: CopyCoordinator
     @ObservationIgnored let edits: EditSession
-    @ObservationIgnored let trasher: any Trashing
-    @ObservationIgnored let undoLifetime: Duration
+    @ObservationIgnored private let trasher: any Trashing
+    @ObservationIgnored private let undoLifetime: Duration
     @ObservationIgnored private let locateTrash: AppDependencies.LocateTrash
     @ObservationIgnored private let makePreviewHost: @MainActor (AppModel) -> AnyObject?
     @ObservationIgnored let openMarkup: @MainActor (URL, @escaping @MainActor (MarkupResult) -> Void) -> Void
@@ -161,6 +170,10 @@ final class AppModel {
     @ObservationIgnored private var runCount = 0
     /// Names the latest `refreshRecent()`, so an older one that finishes later is dropped.
     @ObservationIgnored private var recentGeneration = 0
+    /// The generation of the last refresh that was shown.
+    @ObservationIgnored private var recentShown = 0
+    /// Status reads finished since watching started; tests wait on it.
+    @ObservationIgnored private(set) var statusReads = 0
     /// Thumbnail decodes in flight, so overlapping refreshes share them.
     @ObservationIgnored private var decoding: [CaptureFile: Task<CGImage?, Never>] = [:]
     /// The strip's files the user adopted for cleanup, which never move up into the card.
@@ -170,7 +183,9 @@ final class AppModel {
     /// a file that was still being written is decoded again once it changes.
     @ObservationIgnored private var undecodable: Set<CaptureFile> = []
     /// Names the Undo on offer, so the timer of a replaced one does not end the newer one.
-    @ObservationIgnored var undoGeneration = 0
+    @ObservationIgnored private var undoGeneration = 0
+    /// Names the note on show, so the timer of a replaced one does not end the newer one.
+    @ObservationIgnored private var noteGeneration = 0
     @ObservationIgnored private var flash = CopiedFlash()
     @ObservationIgnored private var flashTimer: (any FlashTimer)?
     @ObservationIgnored private var statusTask: Task<Void, Never>?
@@ -187,7 +202,7 @@ final class AppModel {
     @ObservationIgnored private var previewHost: AnyObject?
     /// The pasteboard's change count right after ClipShot's last write: when it differs, the
     /// clipboard holds something else and the preview offers Copy again.
-    @ObservationIgnored var changeCountAfterCopy: Int?
+    @ObservationIgnored private var changeCountAfterCopy: Int?
 
     init(dependencies d: AppDependencies) {
         preferences = d.preferences
@@ -202,6 +217,7 @@ final class AppModel {
         makeFlashTimer = d.makeFlashTimer
         reduceMotion = d.reduceMotion
         announce = d.announce
+        alert = d.alert
         workspace = d.workspace
         screencaptureUIRunning = d.screencaptureUIRunning
         reconcileLoginItem = d.reconcileLoginItem
@@ -360,13 +376,47 @@ final class AppModel {
         }
     }
 
+    /// Where a clipboard write came from. Every write ClipShot makes, whatever started it,
+    /// ends in `didWriteClipboard` (R-2): PNG data only, the menu bar's copy animation, the
+    /// VoiceOver announcement, and one more in the copied total.
+    ///
+    /// Paused (Copy to clipboard off) stops what ClipShot does on its own: a new screenshot
+    /// (`observed`) and an edited image Markup hands back (`edited`). An explicit Copy on the
+    /// card, the strip, the preview or an attention row (`again`) still works.
+    enum CopyOrigin: Equatable {
+        case observed(CaptureFile)
+        case again(CaptureFile)
+        case edited
+
+        var isExplicit: Bool { if case .again = self { true } else { false } }
+    }
+
     private func copied(_ file: CaptureFile) {
+        didWriteClipboard(.observed(file))
+    }
+
+    /// Writes `png` for `origin`; false when paused (for what ClipShot does on its own) or
+    /// when the pasteboard refused it.
+    func writeClipboard(_ png: Data, _ origin: CopyOrigin) -> Bool {
+        guard origin.isExplicit || preferences.copyEnabled, pasteboard.writePNG(png) else { return false }
+        didWriteClipboard(origin)
+        return true
+    }
+
+    private func didWriteClipboard(_ origin: CopyOrigin) {
         changeCountAfterCopy = pasteboard.changeCount
-        lastCopied = file
-        refreshRecent()
-        if previewModeKnown, previewMode.showsOwnPreview { showPreview(file) }
         preferences.totals.copied += 1
-        clearCopyFailure()
+        switch origin {
+        case .observed(let file):
+            lastCopied = file
+            refreshRecent()
+            if previewModeKnown, previewMode.showsOwnPreview { showPreview(file) }
+            clearCopyFailure()
+        case .again(let file):
+            if file == failedCapture { clearCopyFailure() }
+        case .edited:
+            break
+        }
         startFlash()
         announce(Copy.screenshotCopied)
     }
@@ -410,8 +460,23 @@ final class AppModel {
             let images = await self.thumbnails(for: [shots.card].compactMap { $0 } + shots.recent)
             guard generation == self.recentGeneration else { return }
             self.show(shots, images: images)
+            self.recentShown = generation
         }
     }
+
+    // MARK: - Test hooks
+    //
+    // Completion signals, so a test that says "nothing (else) happened" waits for the work it
+    // is about instead of a fixed sleep that may end first (R-9).
+
+    /// The newest `refreshRecent()` has shown its result.
+    var recentSettled: Bool { recentShown == recentGeneration }
+    /// Folder events the copy pipeline has handled.
+    var copyEventsHandled: Int { coordinator.eventsHandled }
+    /// No copy pass running or queued, and no rescan left.
+    var copyIdle: Bool { coordinator.isIdle }
+    /// Whether the copy pipeline copies now (it follows the Copy to clipboard switch).
+    var copyEnabledInPipeline: Bool { coordinator.isEnabled }
 
     /// The thumbnails of `files`: from the cache, or decoded off the main actor. A decode
     /// already running for a file (from an earlier refresh) is awaited, not repeated, and a
@@ -535,7 +600,7 @@ final class AppModel {
         let outcome = await Task.detached(priority: .userInitiated) { PNGConverter.convert(file.url) }.value
         let ext = file.url.pathExtension.lowercased()
         let log = log
-        guard case .png(let png) = outcome, pasteboard.writePNG(png) else {
+        guard case .png(let png) = outcome, writeClipboard(png, .again(file)) else {
             if case .refused(let refusal) = outcome {
                 Task { await log.info("copy again refused, \(refusal.rawValue) ext=\(ext)") }
             } else {
@@ -544,10 +609,6 @@ final class AppModel {
             return false
         }
         Task { await log.info("copied again ext=\(ext)") }
-        changeCountAfterCopy = pasteboard.changeCount
-        if file == failedCapture { clearCopyFailure() }
-        startFlash()
-        announce(Copy.screenshotCopied)
         return true
     }
 
@@ -598,8 +659,13 @@ final class AppModel {
 
     func fixDestination() async {
         let settings = settings
-        await Task.detached { settings.fixDestination() }.value
-        nativeSettingChanged()
+        let written = await Task.detached { settings.fixDestination() }.value
+        settingsWritten(written)
+        if written { nativeSettingChanged() }
+    }
+
+    private func settingsWritten(_ written: Bool) {
+        if settingsBackupFailed != !written { settingsBackupFailed = !written }
     }
 
     /// The upgrade offer's Copy at once.
@@ -612,11 +678,13 @@ final class AppModel {
         preferences.previewModeApplied = true
     }
 
-    /// Settings > Capture > Preview. Writes `show-thumbnail` through the backup-once path.
+    /// Settings > Capture > Preview. Writes `show-thumbnail` through the backup-once path;
+    /// the choice is kept only once that write succeeded, so the picker never shows a mode
+    /// that is not in effect, and never flips back later on its own.
     func setPreviewMode(_ mode: PreviewMode) async {
+        guard await writeShowThumbnail(mode.showsSystemThumbnail) else { return }
         preferences.previewMode = mode
         preferences.previewModeApplied = true
-        await writeShowThumbnail(mode.showsSystemThumbnail)
         if !mode.showsOwnPreview { previews.dismissAll() }
     }
 
@@ -630,7 +698,12 @@ final class AppModel {
         let settings = settings
         let current = await Task.detached { settings.showThumbnail }.value
         if current != wanted {
-            await writeShowThumbnail(wanted)
+            guard await writeShowThumbnail(wanted) else {
+                // Nothing changed: the mode stays what the system has, and the one-time
+                // offer stays for later.
+                showThumbnail = current
+                return
+            }
             let log = log
             Task { await log.info("preview mode applied, thumbnail \(wanted ? "on" : "off")") }
         } else {
@@ -639,13 +712,16 @@ final class AppModel {
         preferences.previewModeApplied = true
     }
 
-    private func writeShowThumbnail(_ on: Bool) async {
+    /// False when the backup failed and nothing was written; Settings > Capture says so.
+    @discardableResult
+    private func writeShowThumbnail(_ on: Bool) async -> Bool {
         let settings = settings
-        await Task.detached { settings.showThumbnail = on }.value
-        // At once, so the picker does not flip back until the next read; that read corrects
-        // it if the write was refused.
-        showThumbnail = on
+        let written = await Task.detached { settings.setShowThumbnail(on) }.value
+        settingsWritten(written)
+        guard written else { return false }
+        if showThumbnail != on { showThumbnail = on }
         nativeSettingChanged()
+        return true
     }
 
     func clearFolderError() {
@@ -743,6 +819,17 @@ final class AppModel {
         return count
     }
 
+    /// The tour's "Add to cleanup": they go with the next cleanup, so cleanup turns on for
+    /// the folder the preview showed, as the tour's switch would, then they are adopted.
+    /// Returns how many were adopted; 0, and cleanup unchanged, when the folder changed.
+    @discardableResult
+    func adoptOlderScreenshotsTurningOnCleanup() async -> Int {
+        if !preferences.retention.enabled {
+            guard await turnOnRetention() else { return 0 }
+        }
+        return await adoptOlderScreenshots()
+    }
+
     private func runRetention() async {
         let policy = preferences.retention
         guard isWatching, policy.enabled else { return }
@@ -824,9 +911,11 @@ final class AppModel {
         home: URL, hasTrash: FolderGuard.TrashLookup
     ) -> Result<RetentionScan, Refusal> {
         let folder = settings.folder()
+        // A missing folder has no volume to ask about a Trash: say what is wrong instead.
+        guard let confirmed = ConfirmedFolder.of(folder) else { return .failure(.folderMissing) }
         var asIfOn = policy
         asIfOn.enabled = true
-        asIfOn.confirmed = ConfirmedFolder.of(folder)
+        asIfOn.confirmed = confirmed
         return RetentionScanner.scan(
             folder: folder, policy: asIfOn, ledger: ledger, now: now, home: home, hasTrash: hasTrash)
     }
@@ -863,6 +952,7 @@ final class AppModel {
                     showThumbnail: settings.showThumbnail, format: settings.captureFormat())
             }.value
             statusInFlight = false
+            statusReads += 1
             if isWatching {
                 // Compared first: every assignment notifies, and the closed popover's views
                 // would lay out again every 5 s (P2).
@@ -945,4 +1035,192 @@ final class AppModel {
         let lines = await Task.detached(priority: .userInitiated) { IssueReport.lastLines(of: logFile) }.value
         return IssueReport.url(title: title, osVersion: osVersion, appVersion: appVersion, logLines: lines)
     }
+}
+
+// MARK: - Move to Trash and Undo (Addendum A6)
+
+/// In this file so `undoable`, the note and their generations stay `private(set)` or
+/// `private`: only these methods keep Undo one at a time and generation-guarded (R-3).
+extension AppModel {
+    // MARK: - Trash
+
+    enum TrashError: Error, Equatable {
+        /// Not a screenshot ClipShot saw being taken (or one the user adopted).
+        case notTracked
+        /// Not a direct child of the screenshot folder, or the folder is one ClipShot never
+        /// touches.
+        case outsideFolder
+        /// The folder's volume has no Trash; ClipShot never deletes instead.
+        case noTrash
+        /// The file changed since, or the Trash refused it.
+        case failed
+    }
+
+    struct TrashedScreenshot: Equatable {
+        /// The screenshot as it was shown, for its thumbnail while Undo is offered.
+        let file: CaptureFile
+        let inTrash: URL
+        /// Its ledger entry was an adopted older file, not one ClipShot saw being taken.
+        var adopted = false
+
+        var original: URL { file.url }
+    }
+
+    /// A popover note: which failure, and which one it is, so the timer of a replaced note
+    /// does not end the newer one.
+    struct ActionNote: Equatable {
+        let failure: ScreenshotActionFailure
+        let generation: Int
+    }
+
+    /// Move to Trash as the card, the strip and a floating preview (`preview`) ask for it. A
+    /// refusal is said where the user acted, in words, with the alert sound as well: on the
+    /// preview, or in the popover's Undo row place.
+    func moveToTrash(_ file: CaptureFile, fromPreview preview: UUID? = nil) async {
+        do throws(TrashError) {
+            try await trash(file, fromPreview: preview)
+        } catch {
+            actionFailed(.trash(error), preview: preview)
+        }
+    }
+
+    /// Undo, from the popover's Undo row or a preview's. `file`: the screenshot that preview
+    /// moved, so a preview never brings back a newer one; nil for the popover row.
+    func putBack(_ file: CaptureFile? = nil, fromPreview preview: UUID? = nil) async {
+        if await !undoTrash(expecting: file, fromPreview: preview) { actionFailed(.undo, preview: preview) }
+    }
+
+    private func actionFailed(_ failure: ScreenshotActionFailure, preview: UUID?) {
+        alert()
+        announce(failure.message)
+        if let preview {
+            previews.showFailure(failure, on: preview)
+            return
+        }
+        noteGeneration += 1
+        let note = ActionNote(failure: failure, generation: noteGeneration)
+        actionNote = note
+        let lifetime = undoLifetime
+        Task { [weak self] in
+            try? await Task.sleep(for: lifetime)
+            guard let self, self.actionNote == note else { return }
+            self.actionNote = nil
+        }
+    }
+
+    /// Moves a screenshot to the Trash: only a file in the ledger, only a direct child of the
+    /// watched folder, with retention's folder guard (realpath, not a broad folder, the volume
+    /// has a Trash), and only through `FileManager.trashItem`. No confirmation: it can be put
+    /// back, from the popover or, when `preview` moved it, from that preview itself.
+    func trash(_ file: CaptureFile, fromPreview preview: UUID? = nil) async throws(TrashError) {
+        guard let folder = watchedFolder else { throw .outsideFolder }
+        let path = FolderGuard.canonicalPath(file.url)
+        // A screenshot copied a moment ago may still be on its way into the ledger.
+        await ledgerSettled()
+        guard await ledger.contains(path: path, resourceID: file.resourceID) else { throw .notTracked }
+        let home = home
+        let trasher = trasher
+        let hasTrash = hasTrash
+        let outcome = await Task.detached(priority: .userInitiated) { () -> Result<URL?, TrashError> in
+            // The folder resolves, passes retention's guard, and is the file's resolved
+            // parent: a direct child, whatever spelling the URL had.
+            guard let resolved = FolderGuard.strictRealPath(folder.path),
+                  (path as NSString).deletingLastPathComponent == resolved
+            else { return .failure(.outsideFolder) }
+            switch FolderGuard.refusal(resolvedPath: resolved, home: home, hasTrash: hasTrash) {
+            case .systemOrBroad?, .notConfirmed?, .folderMissing?: return .failure(.outsideFolder)
+            case .noTrash?: return .failure(.noTrash)
+            case nil: break
+            }
+            guard let current = CaptureFile.inspect(file.url), current.resourceID == file.resourceID else {
+                return .failure(.failed)
+            }
+            do {
+                return .success(try trasher.trash(current.url))
+            } catch {
+                return .failure(.failed)
+            }
+        }.value
+        let inTrash: URL?
+        do throws(TrashError) {
+            inTrash = try outcome.get()
+        } catch {
+            throw error
+        }
+        let entry = await ledger.remove(path: path, resourceID: file.resourceID)
+        let trashed = inTrash.map { TrashedScreenshot(file: file, inTrash: $0, adopted: entry?.adopted ?? false) }
+        offerUndo(trashed)
+        if let preview, trashed != nil {
+            previews.offerUndo(preview)
+            previews.dismiss(file: file, .trash, except: preview)
+        } else {
+            previews.dismiss(file: file, .trash)
+        }
+        screenshotLeft(file)
+        announce(Copy.Recent.moved)
+        preferences.totals.trashed += 1
+        let ext = file.url.pathExtension.lowercased()
+        let log = log
+        Task { await log.info("trashed ext=\(ext)") }
+    }
+
+    /// Offers Undo for `trashed` for `undoLifetime`, in place of any earlier one. A trash
+    /// whose place in the Trash is unknown offers none, and ends the earlier one too, so Undo
+    /// never brings back a file other than the one just moved.
+    private func offerUndo(_ trashed: TrashedScreenshot?) {
+        undoGeneration += 1
+        if let earlier = undoable { previews.endUndo(file: earlier.file) }
+        undoable = trashed
+        guard let trashed else { return }
+        let generation = undoGeneration
+        let lifetime = undoLifetime
+        Task { [weak self] in
+            try? await Task.sleep(for: lifetime)
+            guard let self, self.undoGeneration == generation else { return }
+            self.undoable = nil
+            self.previews.endUndo(file: trashed.file)
+        }
+    }
+
+    /// Puts the screenshot last moved to the Trash back where it was, back in the ledger and
+    /// back on show. False when no Undo is on offer (none, or its time is up), when it is for
+    /// another screenshot than `file` (when given), or when its place is taken. Its Undo
+    /// previews leave either way, except `preview`, which says why it failed.
+    @discardableResult
+    func undoTrash(expecting file: CaptureFile? = nil, fromPreview preview: UUID? = nil) async -> Bool {
+        guard let trashed = undoable, file == nil || trashed.file == file else { return false }
+        undoGeneration += 1
+        undoable = nil
+        let restored = await Task.detached(priority: .userInitiated) { () -> CaptureFile? in
+            guard !FileManager.default.fileExists(atPath: trashed.original.path) else { return nil }
+            do {
+                try FileManager.default.moveItem(at: trashed.inTrash, to: trashed.original)
+            } catch {
+                return nil
+            }
+            return CaptureFile.inspect(trashed.original)
+        }.value
+        guard let restored else {
+            previews.endUndo(file: trashed.file, except: preview)
+            return false
+        }
+        previews.endUndo(file: trashed.file)
+        await ledger.restore(restored, adopted: trashed.adopted)
+        preferences.totals.trashed = max(0, preferences.totals.trashed - 1)
+        refreshRecent()
+        announce(Copy.Recent.putBack)
+        return true
+    }
+
+    #if DEBUG
+    /// The render harness draws the Undo row without a real Trash (its demo Trash refuses).
+    func showUndoForHarness(_ trashed: TrashedScreenshot?) {
+        undoable = trashed
+    }
+
+    /// The render harness draws a failure note.
+    func showNoteForHarness(_ failure: ScreenshotActionFailure?) {
+        actionNote = failure.map { ActionNote(failure: $0, generation: 0) }
+    }
+    #endif
 }

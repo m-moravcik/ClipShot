@@ -168,4 +168,30 @@ struct StatusIconStateTests {
         let siblingStroke = GlyphInk.leftStroke(ejectGuardImage, atHeight: 0.75)
         #expect(stroke > 0 && abs(stroke - siblingStroke) <= 1, "outline \(stroke) px, Eject Guard \(siblingStroke) px")
     }
+
+    /// Every frame of the copy animation, drawn with room to spare: the peg never rises past
+    /// the frame's top (the menu bar would clip it), and once the new card has slid in, the
+    /// whole drawing stays inside the 22 x 16 pt frame, within a pixel of anti-aliasing.
+    @Test func copyAnimationStaysInTheFrame() throws {
+        let pad: CGFloat = 8
+        let scale = GlyphInk.scale
+        let frame = (minX: Int(pad * scale), minY: Int(pad * scale),
+                     maxX: Int((pad + Peg.canvas.width) * scale) - 1, maxY: Int((pad + Peg.canvas.height) * scale) - 1)
+        for phase in 1..<CopiedFlash.steps {
+            let t = CopiedFlash.time(phase: phase)
+            let pose = Peg.pose(at: t)
+            let image = try #require(GlyphInk.unclipped(pose, pad: pad))
+            let box = try #require(GlyphInk.inkBox(image))
+            #expect(box.minY >= frame.minY - 1, "t \(t): ink \(frame.minY - box.minY) px above the frame")
+            var pegOnly = pose
+            pegOnly.card.opacity = 0
+            pegOnly.old = nil
+            let pegImage = try #require(GlyphInk.unclipped(pegOnly, pad: pad))
+            let peg = try #require(GlyphInk.inkBox(pegImage))
+            #expect(peg.minY >= frame.minY - 1, "t \(t): the peg is \(frame.minY - peg.minY) px above the frame")
+            guard t >= Peg.Beat.slideIn.upperBound else { continue }
+            #expect(box.minX >= frame.minX - 1 && box.maxX <= frame.maxX + 1, "t \(t): ink outside the frame's sides")
+            #expect(box.maxY <= frame.maxY + 1, "t \(t): ink \(box.maxY - frame.maxY) px below the frame")
+        }
+    }
 }

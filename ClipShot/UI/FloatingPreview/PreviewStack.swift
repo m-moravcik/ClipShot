@@ -20,8 +20,9 @@ struct PreviewStack: View {
 
     var body: some View {
         VStack(alignment: .trailing, spacing: PreviewCardMetrics.spacing) {
+            let newest = previews.newestCopiedID
             ForEach(previews.items) { item in
-                PreviewCard(item: item, actions: actions(for: item))
+                PreviewCard(item: item, actions: actions(for: item), isNewest: item.id == newest)
                     .transition(transition(for: item))
             }
         }
@@ -68,7 +69,8 @@ struct PreviewStack: View {
             },
             copy: { files.copy(file) },
             reveal: { files.reveal(file) },
-            trash: { files.trash(file) },
+            trash: { files.trash(file, id) },
+            undo: { files.undo(file, id) },
             close: { previews.dismiss(id, .close) },
             swipedAway: { previews.dismiss(id, .swipe) },
             draggedOut: { previews.dismiss(id, .close) },
@@ -84,7 +86,10 @@ struct PreviewFileActions {
     let markup: @MainActor (CaptureFile) -> Void
     let copy: @MainActor (CaptureFile) -> Void
     let reveal: @MainActor (CaptureFile) -> Void
-    let trash: @MainActor (CaptureFile) -> Void
+    /// Moves the file to the Trash; the preview with that id then offers Undo, or says why not.
+    let trash: @MainActor (CaptureFile, UUID) -> Void
+    /// Puts back the file that preview moved, and only that one.
+    let undo: @MainActor (CaptureFile, UUID) -> Void
     let clipboardChanged: @MainActor () -> Bool
 
     static func model(_ model: AppModel) -> PreviewFileActions {
@@ -95,11 +100,13 @@ struct PreviewFileActions {
                 Task { await model.copyAgain(file: file) }
             },
             reveal: { [weak model] in model?.reveal($0) },
-            trash: { [weak model] file in
+            trash: { [weak model] file, id in
                 guard let model else { return }
-                Task {
-                    do { try await model.trash(file) } catch { NSSound.beep() }
-                }
+                Task { await model.moveToTrash(file, fromPreview: id) }
+            },
+            undo: { [weak model] file, id in
+                guard let model else { return }
+                Task { await model.putBack(file, fromPreview: id) }
             },
             clipboardChanged: { [weak model] in model?.clipboardChangedSinceCopy ?? true })
     }

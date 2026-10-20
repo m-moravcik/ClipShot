@@ -53,7 +53,7 @@ struct OnboardingTests {
         // The note's button turns copying back on; then Try it waits, and gets the copy.
         h.preferences.copyEnabled = true
         #expect(tour.tryState(h.model) == .waiting)
-        try await Task.sleep(for: .milliseconds(200))
+        #expect(await eventually { await h.model.copyEnabledInPipeline })
         try h.shoot("Screenshot 1.png")
         let trying = tour
         #expect(await eventually {
@@ -263,6 +263,43 @@ struct OnboardingTests {
         #expect(await !h.model.turnOnRetention())
         #expect(!h.preferences.retention.enabled)
         #expect(h.preferences.retention.confirmed == nil)
+    }
+
+    /// U3: on a fresh install the ledger is empty, so step 3 offers the screenshots already
+    /// in the folder, as Settings does; "Add to cleanup" turns cleanup on for the folder the
+    /// preview showed and adopts exactly those.
+    @Test func step3OffersTheOlderScreenshotsOnAFreshInstall() async throws {
+        let h = try ModelHarness(onboardingShown: false)
+        defer { h.tearDown() }
+        let now = Date()
+        for name in ["Old 1.png", "Old 2.png"] { _ = try RT.shot(name, in: h.folder, age: 40 * RT.day, now: now) }
+        #expect(await h.start())
+        h.model.refreshPreview()
+        #expect(await eventually {
+            if case .success(let scan) = await h.model.retentionPreview { scan.olderNotTracked == 2 } else { false }
+        })
+        guard case .success(let scan) = h.model.retentionPreview else { return }
+        #expect(scan.expired.isEmpty, "nothing ClipShot saw being taken is old yet")
+
+        #expect(await h.model.adoptOlderScreenshotsTurningOnCleanup() == 2)
+        #expect(h.preferences.retention.enabled)
+        #expect(h.preferences.retention.confirmed?.path == scan.folder.path)
+        #expect(await h.ledger.entries().filter(\.adopted).count == 2)
+    }
+
+    /// C-1: a screenshot folder that does not exist is said to be missing, not to have no
+    /// Trash.
+    @Test func retentionPreviewForAMissingFolderSaysNotFound() async throws {
+        let h = try ModelHarness(onboardingShown: false)
+        defer { h.tearDown() }
+        #expect(await h.start())
+        h.prefs["location"] = h.home.appendingPathComponent("Gone", isDirectory: true).path
+        #expect(await eventually { await h.model.configuredFolder?.lastPathComponent == "Gone" })
+        h.model.refreshPreview()
+        #expect(await eventually {
+            if case .failure(.folderMissing) = await h.model.retentionPreview { true } else { false }
+        })
+        #expect(await !h.model.turnOnRetention(), "nothing to confirm")
     }
 
     /// Step 3's period is a choice (Addendum A7): picking one in the sentence's pop-up drives

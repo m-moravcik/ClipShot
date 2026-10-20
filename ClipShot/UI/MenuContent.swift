@@ -1,8 +1,8 @@
 import AppKit
 import SwiftUI
 
-/// The popover, in the spec's order: header, attention rows, latest screenshot, the copy
-/// toggle, the retention summary, the update row, then the native-menu footer.
+/// The popover, in the spec's order: header, attention rows, the update row, latest
+/// screenshot, the copy toggle, the retention summary, then the native-menu footer.
 ///
 /// Motion is opacity-led and quiet, as in the siblings: rows fade (never slide, the window
 /// would clip them), hover fills switch without animation, and nothing animates in when the
@@ -89,6 +89,16 @@ struct MenuContent: View {
     private var middle: some View {
         VStack(spacing: Design.Spacing.m) {
             attentionRows
+            if model.settingsBackupFailed {
+                ActionNoteRow(message: Copy.Capture.backupFailed)
+                    .transition(.opacity)
+            }
+            // Near the top, under what needs fixing, as in VibeRes and Eject Guard: it asks
+            // for a click, and at the bottom of a full popover it sat below the fold.
+            if updateStatus.isUpdateReady {
+                UpdateReadyCard { updater?.installUpdate() }
+                    .transition(.opacity)
+            }
             if model.showsPreviewOffer {
                 PreviewOfferRow()
                     .transition(.opacity)
@@ -100,10 +110,6 @@ struct MenuContent: View {
             }
             CopyToggleRow()
             RetentionSummaryRow()
-            if updateStatus.isUpdateReady {
-                UpdateReadyCard { updater?.installUpdate() }
-                    .transition(.opacity)
-            }
         }
         .padding(.horizontal, Design.Spacing.m)
         .padding(.bottom, FooterSeparator.inset)
@@ -366,7 +372,7 @@ enum RetentionSummary: Equatable {
         switch refusal {
         case nil: return .on(days: policy.days)
         case .notConfirmed: return .paused
-        case .noTrash, .systemOrBroad: return .offForFolder
+        case .noTrash, .systemOrBroad, .folderMissing: return .offForFolder
         }
     }
 

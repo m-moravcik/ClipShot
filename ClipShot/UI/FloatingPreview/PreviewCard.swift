@@ -54,6 +54,8 @@ struct PreviewActions {
     var copy: () -> Void
     var reveal: () -> Void
     var trash: () -> Void
+    /// Undo on a preview that moved its screenshot to the Trash.
+    var undo: () -> Void
     var close: () -> Void
     var swipedAway: () -> Void
     var draggedOut: () -> Void
@@ -66,17 +68,21 @@ extension PreviewActions {
     /// Does nothing: for the render harness.
     static var inert: PreviewActions {
         PreviewActions(
-            markup: {}, copy: {}, reveal: {}, trash: {}, close: {}, swipedAway: {}, draggedOut: {},
+            markup: {}, copy: {}, reveal: {}, trash: {}, undo: {}, close: {}, swipedAway: {}, draggedOut: {},
             hover: { _ in }, clipboardChanged: { true })
     }
 }
 
-/// One floating preview: the screenshot, a Copied badge, "+N" for more displays, and on
-/// hover Close, Copy again and Move to Trash. Click opens Markup, a drag carries the file
-/// out, a swipe towards the screen edge dismisses it.
+/// One floating preview: the screenshot, a Copied badge (on the newest only: older ones are
+/// no longer on the clipboard), "+N" for more displays, and on hover the Markup pencil,
+/// Close, Copy again and Move to Trash. Click opens Markup, a drag carries the file out, a
+/// swipe towards the screen edge dismisses it. Moved to the Trash from here, it turns into
+/// "Moved to the Trash" with Undo while the Undo lasts; a failed action says why on it.
 struct PreviewCard: View {
     let item: PreviewItem
     let actions: PreviewActions
+    /// The newest screenshot on show: its copy is the one on the clipboard.
+    var isNewest = true
     /// The image's scale, fixed; for the render harness's key frames.
     private let imageScale: CGFloat?
 
@@ -89,9 +95,13 @@ struct PreviewCard: View {
 
     /// `hovering` and `imageScale` exist for the render harness, which draws the hover state
     /// and animation key frames.
-    init(item: PreviewItem, actions: PreviewActions, hovering: Bool = false, imageScale: CGFloat? = nil) {
+    init(
+        item: PreviewItem, actions: PreviewActions, isNewest: Bool = true, hovering: Bool = false,
+        imageScale: CGFloat? = nil
+    ) {
         self.item = item
         self.actions = actions
+        self.isNewest = isNewest
         self.imageScale = imageScale
         _hovering = State(initialValue: hovering)
         _offerCopy = State(initialValue: hovering)
@@ -107,10 +117,24 @@ struct PreviewCard: View {
 
     var body: some View {
         ZStack {
+            if item.trashed {
+                TrashedPreview(failure: item.failure, undo: actions.undo)
+                    .transition(.opacity)
+            } else {
+                card
+                    .transition(.opacity)
+            }
+        }
+        .animation(Design.Motion.quick, value: item.trashed)
+    }
+
+    private var card: some View {
+        ZStack {
             picture
             CardInteraction(
                 overhang: PreviewCardMetrics.hoverOverhang,
                 file: item.file, image: item.image,
+                toolTip: String(localized: Copy.Preview.markupHint),
                 onClick: actions.markup,
                 onHover: hoverChanged,
                 onSwipeChanged: { dragX = PreviewCardMetrics.rubberBand($0) },
@@ -167,20 +191,41 @@ struct PreviewCard: View {
                     .clipShape(shape)
                     .transition(.opacity)
             }
-            CopiedBadge(bounce: badgeBounce)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                .padding(6)
+            // Only the newest says Copied; an older one fades it out, and its hover offers
+            // Copy again. A failed action says why in the same place.
+            if let failure = item.failure {
+                FailureBadge(failure: failure)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                    .padding(6)
+                    .transition(.opacity)
+            } else {
+                CopiedBadge(bounce: badgeBounce)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                    .padding(6)
+                    .opacity(isNewest ? 1 : 0)
+                    .animation(Design.Motion.quick, value: isNewest)
+            }
             if item.extraDisplays > 0 {
                 ExtraDisplaysChip(count: item.extraDisplays)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .padding(6)
             }
             if hovering {
+                // The picture is the Markup button, as on the card and the strip.
+                Image(systemName: "pencil.tip.crop.circle.fill")
+                    .font(.system(size: 22))
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(.white, Color.accentColor)
+                    .shadow(color: .black.opacity(0.3), radius: 2)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                    .transition(.opacity)
                 hoverButtons
                     .transition(.opacity)
             }
         }
         .animation(Design.Motion.quick, value: hovering)
+        .animation(Design.Motion.quick, value: item.failure)
     }
 
     private var hoverButtons: some View {
@@ -271,6 +316,69 @@ private struct CopiedBadge: View {
         .padding(.vertical, 3)
         .background(Capsule().fill(.regularMaterial))
         .accessibilityHidden(true)
+    }
+}
+
+/// Why an action on this preview did not happen, in place of the Copied badge.
+private struct FailureBadge: View {
+    let failure: ScreenshotActionFailure
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 3) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .accessibilityHidden(true)
+            Text(failure.message)
+                .lineLimit(4)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .font(.system(size: 10, weight: .semibold))
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(.regularMaterial))
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// A preview whose screenshot it moved to the Trash: "Moved to the Trash" and Undo, at the
+/// spot the preview was, while the Undo lasts (Addendum A6). Undo puts it back without
+/// opening the popover.
+private struct TrashedPreview: View {
+    let failure: ScreenshotActionFailure?
+    let undo: () -> Void
+
+    private var icon: some View {
+        Image(systemName: failure == nil ? "trash" : "exclamationmark.triangle.fill")
+            .font(.system(size: 12))
+            .foregroundStyle(failure == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.orange))
+            .accessibilityHidden(true)
+    }
+
+    var body: some View {
+        // Undo beside the words, or under them when a translation makes it too wide.
+        TrailingActionLayout(hasIcon: true, iconSpacing: Design.Spacing.m) {
+            icon
+            Text(failure?.message ?? Copy.Recent.moved)
+                .font(.system(size: 11, weight: .medium))
+                .fixedSize(horizontal: false, vertical: true)
+            if failure == nil {
+                Button(action: undo) { Text(Copy.Recent.undo) }
+                    .buttonStyle(PillButtonStyle())
+                    .fixedSize()
+            } else {
+                Color.clear.frame(width: 0, height: 0)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(width: PreviewCardMetrics.maxSize.width)
+        .background(
+            RoundedRectangle(cornerRadius: PreviewCardMetrics.radius, style: .continuous).fill(.regularMaterial))
+        .overlay(
+            RoundedRectangle(cornerRadius: PreviewCardMetrics.radius, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.18), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.28), radius: 10, y: 4)
+        .accessibilityElement(children: .contain)
     }
 }
 

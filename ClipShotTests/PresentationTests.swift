@@ -341,6 +341,7 @@ struct LatestAgeTests {
 
 /// The strip's keyboard: Space and Return open Markup from the thumbnail only, never while
 /// one of its buttons has focus (that button takes the key).
+@MainActor
 struct RecentItemKeyTests {
     @Test func onlyTheThumbnailOpensMarkup() {
         #expect(RecentItem.keyOpensMarkup(focus: .thumbnail))
@@ -370,5 +371,29 @@ struct HeaderStatusTests {
         #expect(attention.tint == .orange)
         #expect(en(attention.detailText) == "2 issues to fix")
         #expect(en(HeaderStatus(state: .attention, detail: .issues(1)).detailText) == "1 issue to fix")
+    }
+}
+
+/// The strip's hover pills (Task 12f leftover): three fit inside the 64 pt thumbnail with
+/// at least 4 pt on each side, and each still takes clicks over at least 20 x 20 pt.
+@MainActor
+struct RecentItemLayoutTests {
+    private func compactPill(_ symbol: String) -> CGSize {
+        NSHostingView(rootView: Button {} label: { PillLabel(symbol: symbol) }
+            .buttonStyle(PillButtonStyle(compact: true, onImage: true))).fittingSize
+    }
+
+    @Test func threePillsKeepAMarginInsideTheThumbnail() {
+        let widths = ["doc.on.doc", "checkmark", "folder", "trash"].map { compactPill($0).width }
+        let widest = widths.max() ?? 0
+        let bar = widest * 3 + RecentItem.barSpacing * 2
+        #expect((Design.Layout.thumbnailSize.width - bar) / 2 >= 4, "bar \(bar) pt in \(Design.Layout.thumbnailSize.width)")
+    }
+
+    @Test func eachPillStillTakesTwentyPointClicks() {
+        let size = compactPill("trash")
+        let outset = PillButtonStyle.compactHitOutset * 2
+        #expect(size.width + outset >= 20)
+        #expect(size.height + outset >= 20)
     }
 }

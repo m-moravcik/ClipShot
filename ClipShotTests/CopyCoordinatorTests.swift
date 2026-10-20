@@ -65,6 +65,22 @@ final class CoordinatorHarness {
         return await eventually { await self.coordinator.watchedFolder?.path == path }
     }
 
+    /// Waits until every pass and rescan the events so far asked for has run (the last
+    /// rescan is 3 s after an event): what a "nothing else happened" check waits for, rather
+    /// than a fixed sleep that may end before the pass it is about (R-9).
+    func settled() async -> Bool {
+        await eventually(timeout: .seconds(10)) { await self.coordinator.isIdle }
+    }
+
+    /// `settled()`, once a folder event after `events` was handled.
+    func settled(after events: Int) async -> Bool {
+        await eventually(timeout: .seconds(10)) { await self.isSettled(after: events) }
+    }
+
+    private func isSettled(after events: Int) -> Bool {
+        coordinator.eventsHandled > events && coordinator.isIdle
+    }
+
     var writes: [Data] { pasteboard.writes }
 
     func ledgerNames() async -> [String] {
@@ -76,8 +92,6 @@ final class CoordinatorHarness {
 
 @MainActor
 struct CopyCoordinatorTests {
-    /// Longer than the last rescan, so a wrong late copy would have happened.
-    private func settle() async { try? await Task.sleep(for: .milliseconds(3_400)) }
 
     @Test func copiesNewScreenshot() async throws {
         let h = try CoordinatorHarness()
@@ -102,7 +116,7 @@ struct CopyCoordinatorTests {
         let shot = CoordinatorHarness.png(23)
         try Fixtures.write(named: "Screenshot.png", contents: shot, in: h.folder)
         #expect(await eventually { await h.writes.count == 1 })
-        await settle()
+        #expect(await h.settled())
         #expect(h.writes == [shot])
         #expect(await h.ledgerNames() == ["Screenshot.png"])
     }
@@ -115,7 +129,7 @@ struct CopyCoordinatorTests {
         let fresh = CoordinatorHarness.png(25)
         try Fixtures.write(named: "New.png", contents: fresh, in: h.folder)
         #expect(await eventually { await h.writes.count == 1 })
-        await settle()
+        #expect(await h.settled())
         #expect(h.writes == [fresh])
         #expect(await h.ledgerNames() == ["New.png"])
     }
@@ -131,7 +145,7 @@ struct CopyCoordinatorTests {
         let after = CoordinatorHarness.png(27)
         try Fixtures.write(named: "After.png", contents: after, in: h.folder)
         #expect(await eventually { await h.writes.count == 1 })
-        await settle()
+        #expect(await h.settled())
         #expect(h.writes == [after])
     }
 
@@ -145,7 +159,7 @@ struct CopyCoordinatorTests {
             try Fixtures.write(named: "Burst \(i).png", contents: data, in: h.folder)
         }
         #expect(await eventually { await h.writes.count == 3 })
-        await settle()
+        #expect(await h.settled())
         #expect(h.writes == shots)
         #expect(h.coordinator.lastCopied?.url.lastPathComponent == "Burst 2.png")
     }
@@ -164,7 +178,7 @@ struct CopyCoordinatorTests {
         #expect(rename(temp.path, url.path) == 0)
         Fixtures.mark(url)
         #expect(await eventually { await h.writes.count == 2 })
-        await settle()
+        #expect(await h.settled())
         #expect(h.writes == [original, edited])
     }
 
@@ -182,7 +196,7 @@ struct CopyCoordinatorTests {
             let written = await h.writes.count
             return recorded == 2 && written >= 1
         })
-        await settle()
+        #expect(await h.settled())
         #expect(h.writes == [main])
         #expect(await h.ledgerNames() == ["Screenshot 1 (2).png", "Screenshot 1.png"])
     }
@@ -221,7 +235,7 @@ struct CopyCoordinatorTests {
         let data = CoordinatorHarness.png(38)
         try Fixtures.write(named: "New place.png", contents: data, in: other)
         #expect(await eventually { await h.writes.count == 1 })
-        await settle()
+        #expect(await h.settled())
         #expect(h.writes == [data])
     }
 
@@ -279,7 +293,7 @@ struct CopyCoordinatorTests {
         #expect(await h.start())
         try Fixtures.write(named: "Screenshot.png", contents: CoordinatorHarness.png(41), in: h.folder)
         #expect(await eventually { await h.ledgerNames() == ["Screenshot.png"] })
-        await settle()
+        #expect(await h.settled())
         #expect(h.writes.isEmpty)
         #expect(await h.ledgerNames() == ["Screenshot.png"])
     }
@@ -293,7 +307,7 @@ struct CopyCoordinatorTests {
         #expect(await eventually { await h.failures == 1 })
         #expect(h.coordinator.lastFailure != nil)
         #expect(h.writes.isEmpty)
-        await settle()
+        #expect(await h.settled())
         #expect(h.failures == 1)
     }
 
@@ -306,7 +320,7 @@ struct CopyCoordinatorTests {
         #expect(await eventually { await h.failures == 1 })
         #expect(h.coordinator.lastFailure != nil)
         #expect(h.coordinator.lastCopied == nil)
-        await settle()
+        #expect(await h.settled())
         #expect(h.failures == 1)
     }
 
@@ -322,7 +336,7 @@ struct CopyCoordinatorTests {
         try await Task.sleep(for: .milliseconds(120))
         try full.write(to: url)
         #expect(await eventually { await h.writes == [full] })
-        await settle()
+        #expect(await h.settled())
         #expect(h.writes == [full])
         #expect(h.failures == 0)
         #expect(h.coordinator.lastFailure == nil)
@@ -342,7 +356,7 @@ struct CopyCoordinatorTests {
         try await Task.sleep(for: .milliseconds(60))
         Fixtures.mark(mainURL, kind: "display")
         #expect(await eventually { await h.writes.count >= 1 })
-        await settle()
+        #expect(await h.settled())
         #expect(h.writes == [main])
         #expect(await h.ledgerNames() == ["Screenshot 2 (2).png", "Screenshot 2.png"])
     }
@@ -369,7 +383,7 @@ struct CopyCoordinatorTests {
         #expect(await h.start())
         h.coordinator.stop()
         try Fixtures.write(named: "Screenshot.png", contents: CoordinatorHarness.png(47), in: h.folder)
-        await settle()
+        #expect(await h.settled())
         #expect(h.writes.isEmpty)
         #expect(await h.ledgerNames().isEmpty)
         #expect(h.coordinator.watchedFolder == nil)
@@ -387,7 +401,7 @@ struct CopyCoordinatorTests {
         let data = CoordinatorHarness.png(49)
         try Fixtures.write(named: "New.png", contents: data, in: other)
         #expect(await eventually { await h.writes.count == 1 })
-        await settle()
+        #expect(await h.settled())
         #expect(h.writes == [data])
         #expect(await h.ledgerNames() == ["New.png"])
     }

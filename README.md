@@ -109,7 +109,7 @@ If you turn the thumbnail on yourself in ⇧⌘5 > Options, ClipShot follows and
 The preview stays for about five seconds, longer while the pointer is over it.
 Several screenshots in a row stack up, three at most. On the preview:
 
-- **Click** opens the screenshot in Markup.
+- **Click** opens the screenshot in Markup; on hover a pencil says so.
 - **Drag** it into any app to drop the file there.
 - **Swipe** it to the right to dismiss it.
 - **Hover** for Close, Copy again (once something else is on the clipboard) and
@@ -124,9 +124,11 @@ Preview instead.
 
 ### The popover
 
-Click the menu bar icon. At the top, whether copying is on, and anything that
-needs fixing. Below it, the latest screenshot with Copy again, Show in Finder and
-Move to Trash, and a strip of the four screenshots before it, each with the same
+Click the menu bar icon. At the top, whether copying is on, anything that needs
+fixing, and a downloaded update when one is ready. Below it, the latest screenshot
+with Copy again, Show in Finder and Move to Trash (its picture opens Markup, drags
+out and has the same right-click menu), and a strip of the four screenshots before
+it, each with the same
 Copy, Show in Finder and Move to Trash on hover (click one for Markup, right-click
 for the menu, or drag one out). Then the Copy to clipboard
 switch, the cleanup summary, and at the bottom Open Screenshots Folder, Settings,
@@ -136,7 +138,9 @@ About and Quit.
 
 Move to Trash on the preview, the latest screenshot or the strip moves the file to
 the Trash, with no dialog. For five seconds the popover shows **Undo** (⌘Z), which
-puts it back where it was.
+puts it back where it was; moved from the floating preview, the preview itself
+turns into **Moved to the Trash** with Undo, so there is no need to open the
+popover. If a move or an Undo cannot happen, ClipShot says why where you clicked.
 
 <p align="center">
   <picture>

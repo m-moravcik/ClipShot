@@ -6,6 +6,9 @@ enum CaptureDestination: Equatable, Sendable {
 
 enum FolderValidation: Equatable, Sendable, Error {
     case ok, notFound, notDirectory, notWritable, forbidden
+    /// The folder is fine, but the one-time backup of the macOS settings could not be
+    /// written, so nothing was changed (C-2).
+    case backupFailed
 }
 
 struct CaptureSettings: Sendable {
@@ -61,21 +64,23 @@ struct CaptureSettings: Sendable {
             guard result == .ok else { throw result }
             value = url.standardizedFileURL.path
         }
-        guard saveBackup() else { throw .notWritable }
+        guard saveBackup() else { throw .backupFailed }
         for key in Self.locationKeys {
             prefs.set(value, forKey: key)
         }
     }
 
     var showThumbnail: Bool {
-        get {
-            prefs.synchronize()
-            return prefs.value(forKey: "show-thumbnail") as? Bool ?? true
-        }
-        nonmutating set {
-            guard saveBackup() else { return }
-            prefs.set(newValue, forKey: "show-thumbnail")
-        }
+        prefs.synchronize()
+        return prefs.value(forKey: "show-thumbnail") as? Bool ?? true
+    }
+
+    /// Writes `show-thumbnail`. False when the backup failed and nothing was written.
+    @discardableResult
+    func setShowThumbnail(_ on: Bool) -> Bool {
+        guard saveBackup() else { return false }
+        prefs.set(on, forKey: "show-thumbnail")
+        return true
     }
 
     /// The `type` key, lowercased: png unless the user picked another format.
@@ -96,10 +101,13 @@ struct CaptureSettings: Sendable {
         }
     }
 
-    func fixDestination() {
-        guard saveBackup() else { return }
+    /// Screenshots go to a file again. False when the backup failed and nothing was written.
+    @discardableResult
+    func fixDestination() -> Bool {
+        guard saveBackup() else { return false }
         prefs.set("file", forKey: "target")
         prefs.set("file", forKey: "target-screenshot")
+        return true
     }
 
     /// False when the first-time backup failed; the caller must then not write.

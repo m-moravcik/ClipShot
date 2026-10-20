@@ -24,10 +24,16 @@ struct PreviewItem: Identifiable, Equatable {
     var extraDisplays = 0
     /// Set just before the item is removed, so the view picks the matching transition.
     var exit: Exit?
+    /// Moved to the Trash from this preview: it shows "Moved to the Trash" and Undo in
+    /// place of the picture while the model's Undo for it lasts.
+    var trashed = false
+    /// An action on this preview failed: what to say, in place of the Copied badge.
+    var failure: ScreenshotActionFailure?
 
     static func == (a: PreviewItem, b: PreviewItem) -> Bool {
         a.id == b.id && a.file == b.file && a.image === b.image
             && a.extraDisplays == b.extraDisplays && a.exit == b.exit
+            && a.trashed == b.trashed && a.failure == b.failure
     }
 }
 
@@ -54,6 +60,10 @@ final class FloatingPreviews {
 
     /// The previews on screen, without the ones already leaving.
     var visible: [PreviewItem] { items.filter { $0.exit == nil } }
+
+    /// The newest preview of a screenshot still on show: the only one whose copy is on the
+    /// clipboard, so the only one that says "Copied".
+    var newestCopiedID: UUID? { visible.last(where: { !$0.trashed })?.id }
 
     /// Called after `items` changed, so the panel can show or hide itself.
     @ObservationIgnored var onChange: (() -> Void)?
@@ -125,11 +135,39 @@ final class FloatingPreviews {
         }
     }
 
-    /// The file went away (moved to the Trash from elsewhere).
-    func dismiss(file: CaptureFile, _ exit: PreviewItem.Exit) {
-        for item in items where item.file.url == file.url && item.exit == nil {
+    /// The file went away (moved to the Trash from elsewhere), except from preview `kept`.
+    func dismiss(file: CaptureFile, _ exit: PreviewItem.Exit, except kept: UUID? = nil) {
+        for item in items where item.file.url == file.url && item.exit == nil && item.id != kept {
             dismiss(item.id, exit)
         }
+    }
+
+    /// Preview `id` moved its screenshot to the Trash: it stays as "Moved to the Trash" with
+    /// Undo, with no clock of its own, until `endUndo(file:)` (the model's Undo ended).
+    func offerUndo(_ id: UUID) {
+        guard let index = items.firstIndex(where: { $0.id == id }), items[index].exit == nil else { return }
+        items[index].trashed = true
+        items[index].failure = nil
+        deadlines[id] = nil
+        paused[id] = nil
+        reschedule()
+    }
+
+    /// The Undo for `file` is over (used, replaced or out of time): its Undo previews leave,
+    /// except `kept`, which is saying why its Undo failed.
+    func endUndo(file: CaptureFile, except kept: UUID? = nil) {
+        for item in items where item.trashed && item.exit == nil && item.file.url == file.url && item.id != kept {
+            dismiss(item.id, .close)
+        }
+    }
+
+    /// An action on preview `id` failed: it says why, and stays at least `lifetime` for it.
+    func showFailure(_ failure: ScreenshotActionFailure, on id: UUID) {
+        guard let index = items.firstIndex(where: { $0.id == id }), items[index].exit == nil else { return }
+        items[index].failure = failure
+        guard paused[id] == nil else { return }
+        deadlines[id] = max(deadlines[id] ?? .now, .now + lifetime)
+        reschedule()
     }
 
     /// The mode changed to one without ClipShot's preview, or watching stopped.
@@ -164,7 +202,11 @@ final class FloatingPreviews {
             reschedule()
             return
         }
-        for id in due { dismiss(id, .timeout) }
+        for id in due {
+            // An Undo preview fades where it is; a screenshot's preview slides back out.
+            let trashed = items.first { $0.id == id }?.trashed ?? false
+            dismiss(id, trashed ? .close : .timeout)
+        }
     }
 
     /// `extra` is a later display written with `main` (about 10 ms apart, spike F3).

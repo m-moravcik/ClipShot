@@ -69,10 +69,11 @@ struct InstantCopyTests {
         defer { h.coordinator.stop() }
         #expect(await h.start())
         let data = CoordinatorHarness.png(70)
+        let passes = h.coordinator.passesFinished
         let url = try Fixtures.write(named: "Screenshot.png", contents: data, in: h.folder, marker: .none, captureType: false)
         #expect(await eventually { sleeper.waitingCount == 1 })
         // The event's own pass saw no marker.
-        try await Task.sleep(for: .milliseconds(100))
+        #expect(await eventually { await h.coordinator.passesFinished > passes })
         #expect(h.writes.isEmpty)
 
         Fixtures.mark(url)

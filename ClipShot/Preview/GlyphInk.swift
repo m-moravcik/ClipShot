@@ -108,6 +108,21 @@ enum GlyphInk {
         return stride(from: 3, to: pixels.count, by: 4).map { pixels[$0] }
     }
 
+    /// Where the drawn pixels are, in pixels from the top leading corner; nil when nothing is
+    /// drawn.
+    nonisolated static func inkBox(_ image: CGImage) -> (minX: Int, minY: Int, maxX: Int, maxY: Int)? {
+        let width = image.width
+        let pixels = alpha(image)
+        var minX = width, minY = image.height, maxX = -1, maxY = -1
+        for y in 0..<image.height {
+            for x in 0..<width where pixels[y * width + x] > alphaThreshold {
+                minX = min(minX, x); maxX = max(maxX, x)
+                minY = min(minY, y); maxY = max(maxY, y)
+            }
+        }
+        return maxX < 0 ? nil : (minX, minY, maxX, maxY)
+    }
+
     /// The bounding box of the drawn pixels, in pixels; (0, 0) for an empty image.
     nonisolated static func size(_ image: CGImage) -> (width: Int, height: Int) {
         let width = image.width, height = image.height

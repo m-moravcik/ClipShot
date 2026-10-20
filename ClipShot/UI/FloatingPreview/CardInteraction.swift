@@ -20,6 +20,8 @@ struct CardInteraction: NSViewRepresentable {
     var overhang: CGFloat = 0
     let file: CaptureFile
     let image: CGImage?
+    /// The tooltip on the card: SwiftUI's `.help` does not reach through this view.
+    var toolTip: String?
     let onClick: () -> Void
     let onHover: (Bool) -> Void
     /// nil: no swipe, a movement in any direction is a file drag.
@@ -42,6 +44,7 @@ struct CardInteraction: NSViewRepresentable {
         view.overhang = overhang
         view.file = file
         view.image = image
+        if view.toolTip != toolTip { view.toolTip = toolTip }
         view.onClick = onClick
         view.onHover = onHover
         view.onSwipeChanged = onSwipeChanged
