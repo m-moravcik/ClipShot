@@ -20,22 +20,35 @@ enum Peg {
 
     /// The card's outline weight, matched to the siblings' regular-weight symbols.
     static let stroke: CGFloat = 1.1
-    /// The line is a string: a touch lighter, and on whole pixels at 1x.
+    /// The card carries the glyph's weight, so it is as large as the siblings' main shapes
+    /// (Eject Guard's drive, VibeRes's front window): nearly the whole width, and most of the
+    /// height, with the peg biting deep into its top edge.
+    static let card = CGRect(x: 3.2, y: 3.9, width: 15.6, height: 10.55)
+    static let cardRadius: CGFloat = 1.8
+    /// The line is a short accent above the card, lighter than the card's outline: on whole
+    /// pixels at 1x, and drawn at `lineOpacity`.
     static let lineWeight: CGFloat = 1.0
-    static let lineY: CGFloat = 3.5
-    /// Short enough that the whole glyph is no wider than Eject Guard's drive.
-    static let lineEnds: ClosedRange<CGFloat> = 3.0...19.0
-    /// The card, hanging from the peg.
-    static let card = CGRect(x: 5.55, y: 5.0, width: 10.9, height: 9.15)
-    static let cardRadius: CGFloat = 1.6
-    /// The clothes peg, centred on the line.
-    static let peg = CGRect(x: 9.6, y: 1.5, width: 2.8, height: 5.35)
-    static let pegRadius: CGFloat = 1.25
+    static let lineY: CGFloat = 1.5
+    static let lineEnds: ClosedRange<CGFloat> = 5.5...16.5
+    static let lineOpacity: CGFloat = 0.6
+    /// The clothes peg, centred on the card, from above the line deep over the card's edge.
+    static let peg = CGRect(x: 9.5, y: 0.55, width: 3.0, height: 6.45)
+    static let pegRadius: CGFloat = 1.3
     /// The gap cut around the peg, so it reads in front of the line and the card.
     static let pegGap: CGFloat = 1.6
-    static let spring = CGPoint(x: 11, y: 3.5)
+    static let spring = CGPoint(x: 11, y: 2.6)
     /// The card swings around the peg's bite.
-    static let pivot = CGPoint(x: 11, y: 5.0)
+    static let pivot = CGPoint(x: 11, y: card.minY)
+
+    /// A point of the card's artwork, laid out on the card as a fraction of its width and
+    /// height (0...1 from its top leading corner).
+    static func onCard(_ u: CGFloat, _ v: CGFloat) -> CGPoint {
+        CGPoint(x: card.minX + u * card.width, y: card.minY + v * card.height)
+    }
+
+    /// Sizes inside the card (sun, check, exclamation mark) follow its height, so round
+    /// things stay round: 1 at the 9.15 pt card they were first drawn for.
+    static let artScale = card.height / 9.15
 
     // MARK: Poses
 
@@ -63,12 +76,16 @@ enum Peg {
         var old: Card?
     }
 
+    /// The attention card hangs askew from the peg, lifted a little so it stays in the frame.
+    static let attentionAngle: Double = 7
+    static let attentionLift: CGFloat = -0.8
+
     static func pose(_ state: StatusIconState) -> Pose {
         switch state {
         case .idle: Pose()
         case .copied: Pose(card: Card(fill: 1, check: 1))
         case .paused: Pose(card: Card(dashed: true))
-        case .attention: Pose(card: Card(angle: 17, bang: true))
+        case .attention: Pose(card: Card(dy: attentionLift, angle: attentionAngle, bang: true))
         }
     }
 
@@ -138,8 +155,11 @@ enum Peg {
         let line = CGMutablePath()
         line.move(to: CGPoint(x: lineEnds.lowerBound, y: lineY))
         line.addQuadCurve(to: CGPoint(x: lineEnds.upperBound, y: lineY),
-                          control: CGPoint(x: 11, y: lineY + 0.5 + 2 * pose.sag))
+                          control: CGPoint(x: 11, y: lineY + 0.3 + 2 * pose.sag))
+        context.saveGState()
+        context.setAlpha(lineOpacity)
         stroke(line, lineWeight, in: context)
+        context.restoreGState()
 
         if let old = pose.old { drawCard(old, in: context) }
         drawCard(pose.card, in: context)
@@ -152,7 +172,7 @@ enum Peg {
         erase(body.copy(strokingWithWidth: pegGap, lineCap: .round, lineJoin: .round, miterLimit: 10), in: context)
         context.addPath(body)
         context.fillPath()
-        let hole = CGPath(ellipseIn: CGRect(x: spring.x - 0.55, y: spring.y - 0.55, width: 1.1, height: 1.1),
+        let hole = CGPath(ellipseIn: CGRect(x: spring.x - 0.6, y: spring.y - 0.6, width: 1.2, height: 1.2),
                           transform: &pegTransform)
         erase(hole, in: context)
 
@@ -160,7 +180,8 @@ enum Peg {
         context.restoreGState()
     }
 
-    private static func drawCard(_ card: Card, in context: CGContext) {
+    /// One card, at the card's place in the canvas. The size tests measure the card on its own.
+    static func drawCard(_ card: Card, in context: CGContext) {
         guard card.opacity > 0 else { return }
         context.saveGState()
         context.setAlpha(card.opacity)
@@ -181,7 +202,9 @@ enum Peg {
         }
         stroke(outline, stroke, in: context)
         if card.bang {
-            context.addPath(bang(centerX: 11, top: 7.2, bottom: 13.0, width: 1.6))
+            let mark = onCard(0.5, 0)
+            context.addPath(bang(centerX: mark.x, top: onCard(0.5, 0.24).y, bottom: onCard(0.5, 0.874).y,
+                                 width: 1.6 * artScale))
             context.fillPath()
             return
         }
@@ -190,12 +213,13 @@ enum Peg {
         context.saveGState()
         context.addPath(outline)
         context.clip()
-        context.addEllipse(in: CGRect(x: 7.3, y: 7.3, width: 2.2, height: 2.2))
+        let sun = onCard(0.26, 0.37), sunRadius = 1.1 * artScale
+        context.addEllipse(in: CGRect(x: sun.x - sunRadius, y: sun.y - sunRadius, width: 2 * sunRadius, height: 2 * sunRadius))
         let peak = CGMutablePath()
-        peak.move(to: CGPoint(x: 6.2, y: 14.2))
-        peak.addLine(to: CGPoint(x: 11.6, y: 8.9))
-        peak.addLine(to: CGPoint(x: 16.4, y: 13.2))
-        peak.addLine(to: CGPoint(x: 16.4, y: 14.2))
+        peak.move(to: onCard(0.06, 1.05))
+        peak.addLine(to: onCard(0.555, 0.43))
+        peak.addLine(to: onCard(1.0, 0.87))
+        peak.addLine(to: onCard(1.0, 1.05))
         peak.closeSubpath()
         context.addPath(peak)
         context.fillPath()
@@ -210,11 +234,16 @@ enum Peg {
             context.restoreGState()
         }
         if card.check > 0 {
+            // The old check's proportions, scaled with the card's height around its middle.
+            let centre = onCard(0.5, 0.5)
+            func at(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+                CGPoint(x: centre.x + (x - 11) * artScale, y: centre.y + (y - 9.575) * artScale)
+            }
             let check = CGMutablePath()
-            check.move(to: CGPoint(x: 8.0, y: 10.2))
-            check.addLine(to: CGPoint(x: 10.2, y: 12.3))
-            check.addLine(to: CGPoint(x: 14.0, y: 8.2))
-            erase(trimmed(check, to: card.check).copy(strokingWithWidth: 1.6, lineCap: .round,
+            check.move(to: at(8.0, 10.2))
+            check.addLine(to: at(10.2, 12.3))
+            check.addLine(to: at(14.0, 8.2))
+            erase(trimmed(check, to: card.check).copy(strokingWithWidth: 1.6 * artScale, lineCap: .round,
                                                        lineJoin: .round, miterLimit: 10), in: context)
         }
     }

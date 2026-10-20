@@ -63,6 +63,22 @@ enum GlyphInk {
         return context.makeImage()
     }
 
+    /// The idle card alone, without the line and the peg, drawn like `unclipped`: the shape
+    /// that carries the glyph's weight, measured against the siblings' main shapes.
+    nonisolated static func cardBody(pad: CGFloat) -> CGImage? {
+        let width = Int((Peg.canvas.width + 2 * pad) * scale), height = Int((Peg.canvas.height + 2 * pad) * scale)
+        guard let context = CGContext(
+            data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { return nil }
+        context.translateBy(x: 0, y: CGFloat(height))
+        context.scaleBy(x: scale, y: -scale)
+        context.translateBy(x: pad, y: pad)
+        context.setFillColor(CGColor(gray: 0, alpha: 1))
+        Peg.drawCard(Peg.Card(), in: context)
+        return context.makeImage()
+    }
+
     /// The thickness in pixels of the first stroke met from the left, on the row at
     /// `fraction` of the ink box's height (counting pixels more than half covered).
     nonisolated static func leftStroke(_ image: CGImage, atHeight fraction: Double) -> Int {

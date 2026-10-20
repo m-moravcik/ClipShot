@@ -137,8 +137,11 @@ struct StatusIconStateTests {
 
     /// Optical size against the siblings, each drawn as the menu bar draws it, 1 px of
     /// anti-aliasing allowed:
-    /// - idle is as tall as the taller sibling (VibeRes), so a smaller Peg fails here;
-    /// - no wider than Eject Guard's drive, the widest sibling glyph;
+    /// - the card, which carries the glyph's weight, is about as large as Eject Guard's drive
+    ///   (the siblings' main shape), so the line and peg above it never shrink it again;
+    /// - the whole glyph is at least as tall as the taller sibling (VibeRes) and at most 2 px
+    ///   taller (the peg rising above the card), and about as wide as Eject Guard's drive,
+    ///   the widest sibling glyph, in every resting state;
     /// - its outline is as heavy as Eject Guard's.
     @MainActor
     @Test func idleGlyphMatchesTheSiblings() throws {
@@ -148,9 +151,19 @@ struct StatusIconStateTests {
         let ejectGuard = GlyphInk.size(ejectGuardImage)
         let vibeRes = GlyphInk.size(try #require(GlyphInk.menuBarImage(GlyphInk.vibeResLabel())))
         let tallest = max(ejectGuard.height, vibeRes.height)
-        #expect(idle.height >= tallest - 1, "idle \(idle.height) px, siblings \(ejectGuard.height) and \(vibeRes.height) px")
-        #expect(idle.height <= tallest + 1, "idle \(idle.height) px, siblings \(ejectGuard.height) and \(vibeRes.height) px")
-        #expect(idle.width <= ejectGuard.width + 1, "idle \(idle.width) px wide, Eject Guard \(ejectGuard.width) px")
+        let siblings = "Eject Guard \(ejectGuard.width) x \(ejectGuard.height) px, VibeRes \(vibeRes.width) x \(vibeRes.height) px"
+
+        let card = GlyphInk.size(try #require(GlyphInk.cardBody(pad: 8)))
+        #expect(card.height >= ejectGuard.height - 2, "card \(card.width) x \(card.height) px; \(siblings)")
+        #expect(card.width >= ejectGuard.width - 3, "card \(card.width) x \(card.height) px; \(siblings)")
+
+        #expect(idle.height >= tallest - 1, "idle \(idle.width) x \(idle.height) px; \(siblings)")
+        #expect(idle.width >= ejectGuard.width - 2, "idle \(idle.width) x \(idle.height) px; \(siblings)")
+        for state in StatusIconState.allCases {
+            let ink = GlyphInk.size(try Self.label(state))
+            #expect(ink.height <= tallest + 2, "\(state) \(ink.width) x \(ink.height) px; \(siblings)")
+            #expect(ink.width <= ejectGuard.width + 1, "\(state) \(ink.width) x \(ink.height) px; \(siblings)")
+        }
         let stroke = GlyphInk.leftStroke(idleImage, atHeight: 0.75)
         let siblingStroke = GlyphInk.leftStroke(ejectGuardImage, atHeight: 0.75)
         #expect(stroke > 0 && abs(stroke - siblingStroke) <= 1, "outline \(stroke) px, Eject Guard \(siblingStroke) px")
