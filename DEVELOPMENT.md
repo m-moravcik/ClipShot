@@ -454,6 +454,7 @@ Swift Testing. Pure logic is tested; views are not, except their layout rules. T
 | `ScreenshotLedgerTests` | Renamed files leave; edits keep their entry; gone files are pruned. |
 | `PrefsBackupTests` | Restore removes keys the backup did not have (F16). |
 | `PreviewModeTests`, `EditSessionTests`, `TrashTests` | The mode follows the system thumbnail; the Markup exemption; only ledger files in the watched folder go to the Trash, and Undo puts them back. |
+| `FloatingPreviewsTests`, `UndoAndFailureTests` | Copied, the hover's Copy again and the popover's rows follow one owner, compared by resource ID; a failed Copy, Move to Trash or Undo is said where the user acted. |
 | `UpdaterGateTests`, `SparkleConfigurationTests` | Ad-hoc and Homebrew copies never self-update; the feed and key are what releases expect. |
 | `LocalisationTests` | The l10n gate fails on the broken catalogs in `ClipShotTests/Fixtures/l10n`. |
 | `StatusIconStateTests`, `PegFlashTests`, `PopoverLayoutTests` | The menu bar label is never scaled and fits its frame; every state has its own silhouette; Peg matches the siblings' height, width and stroke; the copy animation starts and ends at rest, one timer tick per frame and none after; Reduce Motion holds the copied pose; the bounces are derived from Peg's clamp; the popover's bottom soft scroll edge. |
@@ -463,9 +464,27 @@ Swift Testing. Pure logic is tested; views are not, except their layout rules. T
 Tests never touch real preferences (`make guards` refuses `UserDefaults` in
 tests) and use temporary folders. A check that something did *not* happen waits
 for the work it is about to finish (the coordinator's `passesFinished`,
-`eventsHandled` and `isIdle`, the model's `recentSettled` and `statusReads`), not
-for a fixed sleep that could end first and pass for nothing. The sleeps left
-time real run-loop timers and real-clock deadlines on purpose.
+`eventsHandled`, `isIdle` and `refreshIdle`, the model's `recentSettled` and
+`statusReads`, the retention scheduler's `isIdle`), not for a fixed sleep that
+could end first and pass for nothing. The floating previews' lifetimes, the Undo
+offer and the failure notes run on a `TimerClock`; their tests drive a
+`ManualTimerClock` and check a moment before each deadline exactly.
+
+The sleeps left (22) are there on purpose:
+
+- real run-loop timers and "no tick after" checks of Peg's frame timer
+  (`AppModelTests`, the copy animation and Reduce Motion tests);
+- waiting for a released model to go (`AppModelTests`,
+  `FloatingPreviewsTests`), where there is no model left to ask;
+- `CopyCoordinatorStopTests`: a stalled IO queue has no completion signal;
+- spacing between writes, so files get distinct creation times or land as a
+  second display (`CopyCoordinatorTests`, `FloatingPreviewsTests`);
+- `doesNotWatchBeforeOnboardingStep2` and `editedCopyIsNotWrittenWhilePaused`:
+  nothing is running that could be waited on;
+- `multiDisplayShowsOnePreviewWithExtraCount` waits 400 ms before it says no
+  second preview appeared (a candidate for `copySettled`);
+- `PopoverLayoutTests` (layout passes) and `RetentionSchedulerTests`'
+  `runNow` ordering, where the outcome is the same either way.
 
 ## Safety notes
 
