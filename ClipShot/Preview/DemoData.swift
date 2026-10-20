@@ -182,11 +182,18 @@ final class DemoPreferenceStore: PreferenceStore {
     func object(forKey key: String) -> Any? {
         if let value = values[key] { return value }
         if cleared.contains(key) { return nil }
-        // `-key YES` arrives as a string; Preferences reads booleans as Bool.
-        switch arguments[key] as? String {
-        case "YES", "true", "1": return true
-        case "NO", "false", "0": return false
-        default: return arguments[key]
+        // `-key YES` arrives as a string; Preferences reads booleans as Bool. Only the
+        // spellings of a boolean: "1" or "0" may be a number (a retention period of 1 day).
+        return Self.coerced(arguments[key])
+    }
+
+    /// The launch argument as Preferences reads it: YES/NO and true/false become Bool,
+    /// anything else stays as it arrived.
+    static func coerced(_ value: Any?) -> Any? {
+        switch value as? String {
+        case "YES", "true": true
+        case "NO", "false": false
+        default: value
         }
     }
 
@@ -281,7 +288,7 @@ enum DemoContent {
 
     private static let fixedDate = Date(timeIntervalSince1970: 1_792_400_000)
 
-    private static var language: String { Bundle.main.preferredLocalizations.first ?? "en" }
+    static var language: String { Bundle.main.preferredLocalizations.first ?? "en" }
 
     private static var screenshotPrefix: String {
         switch language {
@@ -294,7 +301,9 @@ enum DemoContent {
         }
     }
 
-    private static func screenshotTime(_ time: String) -> String {
+    /// `time` is "HH.mm.ss". English renders run on a 12-hour clock (`scripts/screenshots.sh`),
+    /// where macOS writes "9.41.12 AM" with a narrow no-break space before the AM.
+    static func screenshotTime(_ time: String, language: String = language) -> String {
         let trimmed = time.hasPrefix("0") ? String(time.dropFirst()) : time
         switch language {
         case "sk": return "o \(trimmed)"
@@ -302,8 +311,21 @@ enum DemoContent {
         case "de": return "um \(time)"
         case "es": return "a las \(trimmed)"
         case "fr": return "à \(time)"
-        default: return "at \(time)"
+        default:
+            let parts = time.split(separator: ".")
+            guard parts.count == 3, let hour = Int(parts[0]) else { return "at \(time)" }
+            let twelve = hour % 12 == 0 ? 12 : hour % 12
+            return "at \(twelve).\(parts[1]).\(parts[2])\u{202F}\(hour < 12 ? "AM" : "PM")"
         }
+    }
+
+    /// When the popover's "Last cleanup" happened: today at 09:12, or yesterday at 09:12 when
+    /// that is not at least ten minutes ago, so the picture never shows a cleanup still to
+    /// come and does not change with the minute it is rendered.
+    static func lastCleanup(now: Date, calendar: Calendar = .current) -> Date {
+        let today = calendar.date(bySettingHour: 9, minute: 12, second: 0, of: now) ?? now
+        if today <= now.addingTimeInterval(-10 * 60) { return today }
+        return calendar.date(byAdding: .day, value: -1, to: today) ?? today.addingTimeInterval(-86_400)
     }
 
     /// An invented app window with a chart and cards: shapes only, so it reads the same in

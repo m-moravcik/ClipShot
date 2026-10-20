@@ -310,6 +310,8 @@ private struct FolderStep: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Bumped once per copy while the result shows; the result's check bounces on it.
     @State private var bounce = 0
+    /// The delay before the next bump; cancelled when the step goes away or a newer copy lands.
+    @State private var bounceTask: Task<Void, Never>?
 
     var body: some View {
         ZStack {
@@ -334,10 +336,15 @@ private struct FolderStep: View {
             guard TrySuccessMotion.bounces(
                 copiesBefore: before, copiesNow: now, showsResult: state.showsResult, reduceMotion: reduceMotion)
             else { return }
-            Task {
-                try? await Task.sleep(for: Design.Motion.successBounceDelay)
+            bounceTask?.cancel()
+            bounceTask = Task {
+                do { try await Task.sleep(for: Design.Motion.successBounceDelay) } catch { return }
                 bounce += 1
             }
+        }
+        .onDisappear {
+            bounceTask?.cancel()
+            bounceTask = nil
         }
     }
 

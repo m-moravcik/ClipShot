@@ -78,6 +78,10 @@ struct StatusIconStateTests {
                 .font(.system(size: StatusIconArt.glyphSize)))
             renderer.scale = scale
             let bare = GlyphInk.size(try #require(renderer.cgImage))
+            // The symbol itself, unclipped, fits the frame: the label's ink can only match it
+            // when nothing of it was cut off.
+            #expect(CGFloat(bare.width) <= StatusIconArt.frame.width * scale, "\(state): symbol wider than the frame")
+            #expect(CGFloat(bare.height) <= StatusIconArt.frame.height * scale, "\(state): symbol taller than the frame")
             let ink = GlyphInk.size(image)
             #expect(abs(ink.width - bare.width) <= 1, "\(state): \(ink.width) px wide, the symbol \(bare.width)")
             #expect(abs(ink.height - bare.height) <= 1, "\(state): \(ink.height) px tall, the symbol \(bare.height)")

@@ -59,10 +59,13 @@ struct PopoverLayoutTests {
 
         let app = try await layout(h.model, offscreenCapture: false)
         let harness = try await layout(h.model, offscreenCapture: true)
-        #expect(app.pockets.count == 2, "top and bottom")
-        #expect(bottom(app.pockets).count == 1)
-        #expect(harness.pockets.count == 1, "top only")
-        #expect(bottom(harness.pockets).isEmpty)
+        // Found by AppKit's private class name. If macOS renames it, every count here reads 0:
+        // look for the new name of NSScrollPocket before suspecting the layout.
+        let renamed = "If the count is 0, check whether macOS renamed NSScrollPocket."
+        #expect(app.pockets.count == 2, "top and bottom NSScrollPocket expected, found \(app.pockets.count). \(renamed)")
+        #expect(bottom(app.pockets).count == 1, "one NSScrollPocket at the bottom edge expected. \(renamed)")
+        #expect(harness.pockets.count == 1, "top NSScrollPocket only expected, found \(harness.pockets.count). \(renamed)")
+        #expect(bottom(harness.pockets).isEmpty, "no NSScrollPocket at the bottom edge off-screen")
         // The bottom bar adds no height and covers no row: both layouts are equally tall.
         #expect(app.height == harness.height)
     }

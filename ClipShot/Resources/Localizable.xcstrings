@@ -7733,19 +7733,19 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bildschirmaufnahmen landen im selben Ordner."
+            "value" : "Bildschirmaufnahmen landen auch hier."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Las grabaciones de pantalla van a la misma carpeta."
+            "value" : "Las grabaciones van a la misma carpeta."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les enregistrements d’écran vont dans le même dossier."
+            "value" : "Les enregistrements d’écran y vont aussi."
           }
         }
       }

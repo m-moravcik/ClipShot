@@ -21,6 +21,8 @@ notarization-*.json
 *.cer
 sparkle_ed25519.key
 __pycache__/
+# Coverage profiles the instrumented Debug build drops where it runs
+*.profraw
 
 # Local agent / audit artefacts
 .claude/

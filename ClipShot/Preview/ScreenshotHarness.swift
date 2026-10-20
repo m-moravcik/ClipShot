@@ -1,5 +1,6 @@
 #if DEBUG
 import AppKit
+import ScreenCaptureKit
 import SwiftUI
 
 /// Development harness: renders the popover, its attention rows, the welcome tour, the
@@ -16,6 +17,12 @@ import SwiftUI
 /// popover is full of AppKit-backed controls (switches, buttons, pickers) that
 /// `ImageRenderer` leaves blank. Only scenery around a finished panel, and the menu bar
 /// glyphs, go through `ImageRenderer`, since they are plain shapes, symbols and images.
+///
+/// Off-screen there is nothing behind a window to blur, so the popover's material is drawn
+/// as a solid fill and its bottom soft scroll edge is left out (`offscreenCapture`). With
+/// `CLIPSHOT_SCREENSHOTS_LIVE=1` the popover pictures come from the window on screen through
+/// ScreenCaptureKit instead, material and all. That needs Screen Recording for the Debug
+/// build, which the harness never asks for: without it, it stops and says so.
 @MainActor
 enum ScreenshotHarness {
     static let environmentKey = "CLIPSHOT_SCREENSHOTS"
@@ -28,12 +35,32 @@ enum ScreenshotHarness {
         return URL(fileURLWithPath: (path as NSString).expandingTildeInPath, isDirectory: true)
     }
 
+    static let scratchKey = "CLIPSHOT_SCREENSHOTS_SCRATCH"
+
+    /// Where the demo folders go, when the script names a place (build/screenshots-scratch).
+    static var requestedScratch: URL? {
+        guard let path = ProcessInfo.processInfo.environment[scratchKey], !path.isEmpty else { return nil }
+        return URL(fileURLWithPath: (path as NSString).expandingTildeInPath, isDirectory: true)
+    }
+
+    static let liveKey = "CLIPSHOT_SCREENSHOTS_LIVE"
+
+    /// Popover pictures from the window on screen (ScreenCaptureKit), not off-screen. Opt-in.
+    static var liveCapture: Bool { ProcessInfo.processInfo.environment[liveKey] == "1" }
+
+    /// Checks made while rendering (`checkCaptureMargin`); the run fails at the end when one
+    /// did not hold, after every picture is written.
+    private static var failedChecks: [String] = []
+
     static func run(into output: URL) -> Never {
         NSApplication.shared.setActivationPolicy(.accessory)
 
-        // Demo folders live in a scratch directory under the temporary directory, resolved so
-        // every path the model compares has one spelling. Left for the OS to clean up.
-        let scratch = FileManager.default.temporaryDirectory.resolvingSymlinksInPath()
+        // Demo folders live in a scratch directory: the one `scripts/screenshots.sh` names under
+        // build/, else one under the temporary directory. Resolved so every path the model
+        // compares has one spelling. The harness never deletes it; the script trashes the
+        // previous run's before it starts.
+        let scratchRoot = requestedScratch ?? FileManager.default.temporaryDirectory
+        let scratch = scratchRoot.resolvingSymlinksInPath()
             .appendingPathComponent("ClipShotScreenshots-\(UUID().uuidString)", isDirectory: true)
 
         do {
@@ -55,6 +82,7 @@ enum ScreenshotHarness {
         } catch {
             fail("\(error)")
         }
+        if !failedChecks.isEmpty { fail(failedChecks.joined(separator: "\n")) }
         exit(0)
     }
 
@@ -65,16 +93,20 @@ enum ScreenshotHarness {
     private static func renderMain(_ shots: Shots, scratch: URL, icon: NSBitmapImageRep) throws {
         let scene = try DemoScene(in: scratch)
         let now = Date()
-        // Older screenshots ClipShot never saw: Settings offers to clean them up as well.
-        try awaitTask { try await scene.oldScreenshots(3, days: 41, tracked: false) }
+        // Screenshots ClipShot saw being taken, just past 30 days: the real retention flow,
+        // what Settings > Retention says would go to the Trash now.
+        try awaitTask { try await scene.oldScreenshots(4, days: 31, tracked: true) }
         // Earlier screenshots it saw: the strip under the card.
         try awaitTask { try await scene.recentScreenshots() }
         scene.preferences.retention = RetentionPolicy(enabled: true, days: 30, confirmed: ConfirmedFolder.of(scene.folder))
-        // Today at 09:12, so the picture does not change with the time it is rendered.
-        let cleanup = Calendar.current.startOfDay(for: now).addingTimeInterval(9 * 3_600 + 12 * 60)
-        scene.preferences.lastRetention = RetentionResult(moved: 12, movedBytes: 38_400_000, failed: 0, at: cleanup)
         scene.preferences.totals = Totals(copied: 148, freedBytes: 1_640_000_000, trashed: 412)
         guard scene.start() else { fail("the demo folder was not watched") }
+        // Retention runs once at start. The demo Trash refuses every move, so the files stay
+        // for the preview; then the summary is set to an earlier cleanup that worked, always
+        // in the past and fixed to a time of day, so a re-render shows the same.
+        DemoScene.wait { (scene.preferences.lastRetention?.failed ?? 0) > 0 }
+        scene.preferences.lastRetention = RetentionResult(
+            moved: 12, movedBytes: 38_400_000, failed: 0, at: DemoContent.lastCleanup(now: now))
         try scene.copyDemoScreenshot()
         scene.model.refreshPreview()
         DemoScene.wait { scene.model.retentionPreview != nil }
@@ -82,9 +114,9 @@ enum ScreenshotHarness {
 
         let updater = DemoUpdater()
         for scheme in ColorScheme.allCases {
-            let popover = capture(PopoverPanel(scheme: scheme) { MenuContent() }
+            let popover = capturePanel(PopoverPanel(scheme: scheme) { MenuContent() }
                 .harnessEnvironment(scene.model, updater: updater), scheme: scheme)
-            try shots.write(popover, "popover", scheme)
+            try shots.write(popoverWindow(popover, scheme: scheme), "popover", scheme)
             try shots.write(render(HeroScene(popover: popover, scheme: scheme, banner: false)), "hero", scheme)
             try shots.write(render(HeroScene(popover: popover, scheme: scheme, banner: true, icon: image(icon))), "banner", scheme)
 
@@ -111,6 +143,19 @@ enum ScreenshotHarness {
             }
         }
 
+        // Screenshots from before ClipShot ran: never cleaned up unless the user adds them,
+        // so Settings offers them separately, with their own count.
+        try awaitTask { try await scene.oldScreenshots(3, days: 41, tracked: false) }
+        scene.model.refreshPreview()
+        DemoScene.wait {
+            if case .success(let scan) = scene.model.retentionPreview { scan.olderNotTracked > 0 } else { false }
+        }
+        for scheme in ColorScheme.allCases {
+            let window = capture(SettingsWindow(tab: .retention, scheme: scheme)
+                .harnessEnvironment(scene.model, updater: updater), scheme: scheme)
+            try shots.write(render(WindowShadow(window: window, scheme: scheme)), "settings-retention-older", scheme)
+        }
+
         // Just after Move to Trash on the strip's newest: Undo for 5 s, the gap closed. The
         // demo Trash refuses every move, so the file goes to a demo Trash folder by hand.
         if let moved = scene.model.recent.first {
@@ -124,8 +169,8 @@ enum ScreenshotHarness {
             DemoScene.wait { scene.model.recent.count == RecentScreenshots.count && !scene.model.recent.contains(moved) }
             DemoScene.settle(0.6)
             for scheme in ColorScheme.allCases {
-                try shots.write(capture(PopoverPanel(scheme: scheme) { MenuContent() }
-                    .harnessEnvironment(scene.model, updater: updater), scheme: scheme), "popover-undo", scheme)
+                try shots.write(popoverWindow(capturePanel(PopoverPanel(scheme: scheme) { MenuContent() }
+                    .harnessEnvironment(scene.model, updater: updater), scheme: scheme), scheme: scheme), "popover-undo", scheme)
             }
             scene.model.undoable = nil
         }
@@ -148,8 +193,8 @@ enum ScreenshotHarness {
         guard scene.start() else { fail("the demo folder was not watched") }
         DemoScene.settle()
         for scheme in ColorScheme.allCases {
-            try shots.write(capture(PopoverPanel(scheme: scheme) { MenuContent() }
-                .harnessEnvironment(scene.model), scheme: scheme), "popover-paused", scheme)
+            try shots.write(popoverWindow(capturePanel(PopoverPanel(scheme: scheme) { MenuContent() }
+                .harnessEnvironment(scene.model), scheme: scheme), scheme: scheme), "popover-paused", scheme)
         }
         scene.stop()
     }
@@ -164,11 +209,12 @@ enum ScreenshotHarness {
         _ = try scene.shoot(DemoContent.screenshotName, image: DemoContent.screenshotPNG)
         DemoScene.wait { scene.model.attentions.count == 3 }
         for scheme in ColorScheme.allCases {
-            try shots.write(capture(PopoverPanel(scheme: scheme) { MenuContent() }
-                .harnessEnvironment(scene.model), scheme: scheme), "popover-attention", scheme)
+            try shots.write(popoverWindow(capturePanel(PopoverPanel(scheme: scheme) { MenuContent() }
+                .harnessEnvironment(scene.model), scheme: scheme), scheme: scheme), "popover-attention", scheme)
             // The destination guard as Settings shows it, next to its fix.
             let window = capture(SettingsWindow(tab: .capture, scheme: scheme)
                 .harnessEnvironment(scene.model), scheme: scheme)
+            checkCaptureMargin(window, scheme: scheme)
             try shots.write(render(WindowShadow(window: window, scheme: scheme)), "settings-capture-attention", scheme)
         }
 
@@ -176,8 +222,8 @@ enum ScreenshotHarness {
         var blocked = WelcomeTour()
         blocked.advance(scene.model)
         for scheme in ColorScheme.allCases {
-            try shots.write(capture(tourPanel(blocked, scheme: scheme).harnessEnvironment(scene.model), scheme: scheme),
-                            "onboarding-2-try-attention", scheme)
+            try shots.write(popoverWindow(capturePanel(tourPanel(blocked, scheme: scheme).harnessEnvironment(scene.model), scheme: scheme),
+                                          scheme: scheme), "onboarding-2-try-attention", scheme)
         }
 
         let folder = scene.folder
@@ -217,9 +263,9 @@ enum ScreenshotHarness {
         scene.prefs["target"] = "clipboard"
         DemoScene.wait { !scene.model.attentions.isEmpty }
         for scheme in ColorScheme.allCases {
-            try shots.write(capture(PopoverPanel(scheme: scheme) { MenuContent() }
+            try shots.write(popoverWindow(capturePanel(PopoverPanel(scheme: scheme) { MenuContent() }
                 .harnessEnvironment(scene.model, updateStatus: UpdateStatus(isUpdateReady: true)), scheme: scheme),
-                "popover-full", scheme)
+                scheme: scheme), "popover-full", scheme)
         }
         scene.stop()
     }
@@ -239,8 +285,8 @@ enum ScreenshotHarness {
         DemoScene.wait { trying.model.watchedFolder != nil }
         DemoScene.settle()
         for scheme in ColorScheme.allCases {
-            try shots.write(capture(tourPanel(tour, scheme: scheme).harnessEnvironment(trying.model), scheme: scheme),
-                            "onboarding-2-try-waiting", scheme)
+            try shots.write(popoverWindow(capturePanel(tourPanel(tour, scheme: scheme).harnessEnvironment(trying.model), scheme: scheme),
+                                          scheme: scheme), "onboarding-2-try-waiting", scheme)
         }
         try trying.copyDemoScreenshot()
         steps.append(("2-try-copied", tour, trying))
@@ -255,8 +301,8 @@ enum ScreenshotHarness {
 
         for scheme in ColorScheme.allCases {
             for (name, step, scene) in steps {
-                try shots.write(capture(tourPanel(step, scheme: scheme).harnessEnvironment(scene.model), scheme: scheme),
-                                "onboarding-\(name)", scheme)
+                try shots.write(popoverWindow(capturePanel(tourPanel(step, scheme: scheme).harnessEnvironment(scene.model), scheme: scheme),
+                                              scheme: scheme), "onboarding-\(name)", scheme)
             }
         }
         for scene in [fresh, trying, tidy] { scene.stop() }
@@ -305,8 +351,8 @@ enum ScreenshotHarness {
         scene.prefs["show-thumbnail"] = true
         DemoScene.wait { scene.model.previewMode == .macOS }
         for scheme in ColorScheme.allCases {
-            try shots.write(capture(PopoverPanel(scheme: scheme) { MenuContent() }
-                .harnessEnvironment(scene.model, updater: updater), scheme: scheme), "popover-macos-mode", scheme)
+            try shots.write(popoverWindow(capturePanel(PopoverPanel(scheme: scheme) { MenuContent() }
+                .harnessEnvironment(scene.model, updater: updater), scheme: scheme), scheme: scheme), "popover-macos-mode", scheme)
             let window = capture(SettingsWindow(tab: .capture, scheme: scheme)
                 .harnessEnvironment(scene.model, updater: updater), scheme: scheme)
             try shots.write(render(WindowShadow(window: window, scheme: scheme)), "settings-capture-macos-mode", scheme)
@@ -322,8 +368,8 @@ enum ScreenshotHarness {
         DemoScene.wait { upgraded.model.showsPreviewOffer }
         try upgraded.copyDemoScreenshot()
         for scheme in ColorScheme.allCases {
-            try shots.write(capture(PopoverPanel(scheme: scheme) { MenuContent() }
-                .harnessEnvironment(upgraded.model, updater: updater), scheme: scheme), "popover-preview-offer", scheme)
+            try shots.write(popoverWindow(capturePanel(PopoverPanel(scheme: scheme) { MenuContent() }
+                .harnessEnvironment(upgraded.model, updater: updater), scheme: scheme), scheme: scheme), "popover-preview-offer", scheme)
         }
         upgraded.stop()
 
@@ -386,6 +432,168 @@ enum ScreenshotHarness {
         return rep
     }
 
+    /// A popover or tour panel: off-screen by default, from the screen with `liveCapture`.
+    private static func capturePanel(_ view: some View, scheme: ColorScheme) -> NSBitmapImageRep {
+        liveCapture ? captureLive(view, scheme: scheme) : capture(view, scheme: scheme)
+    }
+
+    /// The panel in a window on screen, on the popover's material, captured by
+    /// ScreenCaptureKit at 2x without the window shadow (`popoverWindow` draws that, as for
+    /// an off-screen capture). A demo desktop is put behind it first, so the material blurs
+    /// scenery and not whatever is on this screen. Never asks for Screen Recording.
+    private static func captureLive(_ view: some View, scheme: ColorScheme) -> NSBitmapImageRep {
+        guard CGPreflightScreenCaptureAccess() else {
+            fail("live capture needs Screen Recording for this Debug build (System Settings > Privacy & "
+                + "Security > Screen Recording). Unset \(liveKey) to render off-screen.")
+        }
+        guard let screen = NSScreen.main else { fail("live capture found no screen") }
+        let appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
+        let level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
+
+        let hosting = NSHostingView(rootView: view.environment(\.controlActiveState, .key))
+        hosting.appearance = appearance
+        let effect = NSVisualEffectView()
+        effect.material = .popover
+        effect.blendingMode = .behindWindow
+        effect.state = .active
+        effect.appearance = appearance
+        effect.maskImage = roundedMask(radius: 12)
+        hosting.translatesAutoresizingMaskIntoConstraints = false
+        effect.addSubview(hosting)
+        NSLayoutConstraint.activate([
+            hosting.leadingAnchor.constraint(equalTo: effect.leadingAnchor),
+            hosting.trailingAnchor.constraint(equalTo: effect.trailingAnchor),
+            hosting.topAnchor.constraint(equalTo: effect.topAnchor),
+            hosting.bottomAnchor.constraint(equalTo: effect.bottomAnchor),
+        ])
+
+        let window = HarnessWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 300),
+            styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = false
+        window.level = level
+        window.appearance = appearance
+        window.contentView = effect
+        for _ in 0..<3 {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+            hosting.layoutSubtreeIfNeeded()
+            window.setContentSize(hosting.fittingSize)
+        }
+        let size = hosting.fittingSize
+        let visible = screen.visibleFrame
+        let frame = NSRect(x: visible.maxX - size.width - 10, y: visible.maxY - size.height - 6,
+                           width: size.width, height: size.height)
+        window.setFrame(frame, display: true)
+
+        let backdrop = NSWindow(contentRect: frame.insetBy(dx: -60, dy: -60), styleMask: [.borderless],
+                                backing: .buffered, defer: false)
+        backdrop.isReleasedWhenClosed = false
+        backdrop.level = .statusBar
+        backdrop.contentView = NSHostingView(rootView: DesktopFill(scheme: scheme))
+        backdrop.orderFrontRegardless()
+        window.orderFrontRegardless()
+        defer {
+            window.orderOut(nil)
+            backdrop.orderOut(nil)
+        }
+        RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+
+        let windowID = CGWindowID(window.windowNumber)
+        let box = ImageBox()
+        Task { @MainActor in
+            do {
+                box.outcome = .success(try await liveImage(windowID: windowID, size: size))
+            } catch {
+                box.outcome = .failure(error)
+            }
+        }
+        DemoScene.wait(timeout: 10) { box.outcome != nil }
+        guard let outcome = box.outcome else { fail("live capture timed out") }
+        let image: CGImage
+        do { image = try outcome.get() } catch { fail("live capture failed: \(error)") }
+        let rep = NSBitmapImageRep(cgImage: image)
+        rep.size = size
+        return rep
+    }
+
+    private static func liveImage(windowID: CGWindowID, size: CGSize) async throws -> CGImage {
+        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+        guard let target = content.windows.first(where: { $0.windowID == windowID }) else {
+            throw CocoaError(.fileReadNoSuchFile)
+        }
+        let configuration = SCStreamConfiguration()
+        configuration.width = Int(size.width * 2)
+        configuration.height = Int(size.height * 2)
+        configuration.showsCursor = false
+        configuration.ignoreShadowsSingleWindow = true
+        configuration.captureResolution = .best
+        return try await SCScreenshotManager.captureImage(
+            contentFilter: SCContentFilter(desktopIndependentWindow: target), configuration: configuration)
+    }
+
+    @MainActor
+    private final class ImageBox {
+        var outcome: Result<CGImage, any Error>?
+    }
+
+    /// A stretchable rounded-rectangle mask, the menu bar window's corners.
+    private static func roundedMask(radius: CGFloat) -> NSImage {
+        let side = radius * 2 + 1
+        let image = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
+            NSColor.black.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
+            return true
+        }
+        image.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
+        image.resizingMode = .stretch
+        return image
+    }
+
+    // MARK: Checks
+
+    /// The Form's standard margin: what it leaves above its first section.
+    static let standardMargin: CGFloat = 20
+
+    /// Settings > Capture with the destination guard showing must keep at least the Form's
+    /// standard margin under its last section, in every language: less means Restore is
+    /// about to be pushed out of the window, which then scrolls. Measured on the picture:
+    /// rows of the pane's own fill, counted up from the window's bottom edge.
+    private static func checkCaptureMargin(_ window: NSBitmapImageRep, scheme: ColorScheme) {
+        let margin = bottomMargin(window)
+        let language = DemoContent.language
+        print("check: settings-capture-attention \(scheme == .dark ? "dark" : "light") [\(language)] "
+            + "bottom margin \(Int(margin.rounded(.down))) pt (minimum \(Int(standardMargin)))")
+        if margin < standardMargin {
+            failedChecks.append("Settings > Capture with the destination guard leaves \(margin) pt under its last "
+                + "section in \(language) (\(scheme == .dark ? "dark" : "light")), less than the standard \(standardMargin) pt")
+        }
+    }
+
+    /// Points of the pane's background colour between the content and the bottom edge.
+    static func bottomMargin(_ rep: NSBitmapImageRep) -> CGFloat {
+        guard let data = rep.bitmapData, rep.samplesPerPixel >= 3, rep.bitsPerSample == 8 else { return 0 }
+        let width = rep.pixelsWide, height = rep.pixelsHigh, row = rep.bytesPerRow, step = rep.samplesPerPixel
+        func pixel(_ x: Int, _ y: Int) -> (Int, Int, Int) {
+            let p = data + y * row + x * step
+            return (Int(p[0]), Int(p[1]), Int(p[2]))
+        }
+        // The pane's own fill, just inside the bottom-left corner.
+        let reference = pixel(4, height - 4)
+        var y = height - 1
+        scan: while y >= 0 {
+            for x in 0..<width {
+                let c = pixel(x, y)
+                if abs(c.0 - reference.0) > 2 || abs(c.1 - reference.1) > 2 || abs(c.2 - reference.2) > 2 { break scan }
+            }
+            y -= 1
+        }
+        let pixels = height - 1 - y
+        return CGFloat(pixels) * rep.size.height / CGFloat(height)
+    }
+
     /// Renders plain SwiftUI (shapes, text, symbols, images) at 2x.
     static func render(_ view: some View, scale: CGFloat = 2) -> NSBitmapImageRep {
         let renderer = ImageRenderer(content: view)
@@ -394,6 +602,12 @@ enum ScreenshotHarness {
         let rep = NSBitmapImageRep(cgImage: cgImage)
         rep.size = NSSize(width: CGFloat(cgImage.width) / scale, height: CGFloat(cgImage.height) / scale)
         return rep
+    }
+
+    /// A popover as it looks open: the panel with the window's rounded corners, hairline and
+    /// shadow, on a transparent margin, the way the sibling apps' README pictures show theirs.
+    private static func popoverWindow(_ panel: NSBitmapImageRep, scheme: ColorScheme) -> NSBitmapImageRep {
+        render(PopoverWindow(panel: panel, scheme: scheme).padding(44))
     }
 
     /// The app icon as the system draws it: the Icon Composer document compiled into this
@@ -442,6 +656,8 @@ enum ScreenshotHarness {
     }
 
     static func fail(_ message: String) -> Never {
+        // What was printed so far first, so the message does not land inside a line.
+        fflush(stdout)
         FileHandle.standardError.write(Data("screenshots: \(message)\n".utf8))
         exit(1)
     }
@@ -496,7 +712,7 @@ private extension View {
             .environment(SettingsRouter())
             .environment(updateStatus)
             .environment(\.updater, updater)
-            .environment(\.offscreenCapture, true)
+            .environment(\.offscreenCapture, !ScreenshotHarness.liveCapture)
     }
 }
 
@@ -522,7 +738,8 @@ private struct PopoverPanel<Content: View>: View {
                 content.fixedSize(horizontal: false, vertical: true)
             }
         }
-        .background(scheme.popoverFill)
+        // Live, the window's material shows through; off-screen it is drawn as its colour.
+        .background(ScreenshotHarness.liveCapture ? Color.clear : scheme.popoverFill)
         .environment(\.colorScheme, scheme)
     }
 }
@@ -737,6 +954,24 @@ private struct PreviewMotionSheet: View {
     }
 }
 
+/// The popover panel with the shape it has on screen: the menu bar window's rounded corners,
+/// a hairline edge and its shadow. The hero, the banner and every popover picture share it.
+private struct PopoverWindow: View {
+    let panel: NSBitmapImageRep
+    let scheme: ColorScheme
+
+    private var dark: Bool { scheme == .dark }
+
+    var body: some View {
+        Image(nsImage: ScreenshotHarness.image(panel))
+            .frame(width: panel.size.width, height: panel.size.height)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(dark ? Color.white.opacity(0.14) : Color.black.opacity(0.10), lineWidth: 0.5))
+            .shadow(color: .black.opacity(dark ? 0.5 : 0.22), radius: 24, y: 12)
+    }
+}
+
 /// A captured window with the rounded corners and shadow it has on screen.
 private struct WindowShadow: View {
     let window: NSBitmapImageRep
@@ -806,12 +1041,7 @@ private struct HeroScene: View {
                 } else {
                     Spacer()
                 }
-                Image(nsImage: ScreenshotHarness.image(popover))
-                    .frame(width: popover.size.width, height: popover.size.height)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(dark ? Color.white.opacity(0.14) : Color.black.opacity(0.10), lineWidth: 0.5))
-                    .shadow(color: .black.opacity(dark ? 0.5 : 0.22), radius: 24, y: 12)
+                PopoverWindow(panel: popover, scheme: scheme)
             }
             .padding(.top, 6)
             // A popover near the right edge is kept on screen rather than centred under its
