@@ -219,18 +219,36 @@ struct OnboardingTests {
         #expect(RetentionPeriod.of(days: 45, customRequested: false) == .custom)
     }
 
-    /// Try it's success check bounces once, only while the menu bar flash for that copy is
-    /// on (so reopening the popover later does not bounce it again), never with Reduce
-    /// Motion, and it starts while the flash fades in.
-    @Test func trySuccessBouncesOnceWithTheFlash() {
-        #expect(TrySuccessMotion.bounces(reduceMotion: false, flashing: true))
-        #expect(!TrySuccessMotion.bounces(reduceMotion: false, flashing: false))
-        #expect(!TrySuccessMotion.bounces(reduceMotion: true, flashing: true))
+    /// Try it's success check bounces once per copy, on the copy itself (the count of copies
+    /// goes up in the same step as the menu bar flash starts), only when the result shows,
+    /// never with Reduce Motion. Reopening the popover changes no count, so it never replays.
+    @Test func trySuccessBouncesOncePerCopy() {
+        #expect(TrySuccessMotion.bounces(copiesBefore: 0, copiesNow: 1, showsResult: true, reduceMotion: false))
+        #expect(TrySuccessMotion.bounces(copiesBefore: 1, copiesNow: 2, showsResult: true, reduceMotion: false),
+                "a second copy in the tour bounces again")
+        #expect(!TrySuccessMotion.bounces(copiesBefore: 1, copiesNow: 1, showsResult: true, reduceMotion: false),
+                "no copy: the popover reappearing, an attention clearing")
+        #expect(!TrySuccessMotion.bounces(copiesBefore: 0, copiesNow: 1, showsResult: false, reduceMotion: false))
+        #expect(!TrySuccessMotion.bounces(copiesBefore: 0, copiesNow: 1, showsResult: true, reduceMotion: true))
         // It lands as the flash finishes fading in.
-        let fadeIn = CopiedFlash.interval * 3
         let delay = Double(Design.Motion.successBounceDelay.components.attoseconds) / 1e18
             + Double(Design.Motion.successBounceDelay.components.seconds)
-        #expect(delay > 0 && delay < fadeIn)
+        #expect(delay > 0 && delay < CopiedFlash.interval * 3)
         #expect(Design.Motion.successBounceSpeed > 1, "faster than the system bounce, so it stays short")
+    }
+
+    /// The copy count the bounce follows goes up in the same main-actor step as the flash
+    /// starts and the result appears.
+    @Test func copyCountFlashAndResultChangeTogether() async throws {
+        let h = try ModelHarness(onboardingShown: false)
+        defer { h.tearDown() }
+        var tour = WelcomeTour(step: .folder)
+        tour.advance(h.model)
+        #expect(await eventually { await h.model.watchedFolder != nil })
+        #expect(tour.tryState(h.model) == .waiting)
+        try h.shoot("Screenshot 1.png")
+        #expect(await eventually { await h.preferences.totals.copied == 1 })
+        #expect(h.model.flashPhase > 0)
+        if case .copied = tour.tryState(h.model) {} else { Issue.record("the result shows with the count") }
     }
 }

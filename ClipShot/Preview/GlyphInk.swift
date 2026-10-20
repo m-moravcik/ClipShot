@@ -11,12 +11,17 @@ enum GlyphInk {
     /// Alpha above which a pixel counts as ink: anti-aliased fringes stay out of the box.
     nonisolated static let alphaThreshold: UInt8 = 40
 
+    /// `view` at 2x, as drawn, with no menu bar fitting.
+    static func image(_ view: some View) -> CGImage? {
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = scale
+        return renderer.cgImage
+    }
+
     /// `view` at 2x, fitted into the menu bar's height as AppKit fits a MenuBarExtra label
     /// that is taller than `StatusIconArt.menuBarHeight`: scaled down proportionally.
     static func menuBarImage(_ view: some View) -> CGImage? {
-        let renderer = ImageRenderer(content: view)
-        renderer.scale = scale
-        guard let image = renderer.cgImage else { return nil }
+        guard let image = image(view) else { return nil }
         let limit = Int(StatusIconArt.menuBarHeight * scale)
         guard image.height > limit else { return image }
         let width = Int((CGFloat(image.width) * CGFloat(limit) / CGFloat(image.height)).rounded())
@@ -27,6 +32,15 @@ enum GlyphInk {
         context.interpolationQuality = .high
         context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: limit))
         return context.makeImage()
+    }
+
+    /// The point size of Eject Guard's menu bar symbol, the sibling ClipShot's icon is sized
+    /// against.
+    static let ejectGuardPointSize: CGFloat = 15
+
+    /// Eject Guard's menu bar label: the `externaldrive` symbol at its point size.
+    static func ejectGuardLabel() -> some View {
+        Image(systemName: "externaldrive").font(.system(size: ejectGuardPointSize))
     }
 
     /// The bounding box of the drawn pixels, in pixels; (0, 0) for an empty image.

@@ -532,12 +532,16 @@ final class AppModel {
         let folder = screenshotFolder ?? home
         let locate = locateTrash
         let trash = await Task.detached(priority: .userInitiated) { locate(folder) ?? locate(nil) }.value
+        let log = log
         guard let trash else {
-            let log = log
             Task { await log.error("show trash: no trash found") }
             return false
         }
-        return workspace.open(trash)
+        guard workspace.open(trash) else {
+            Task { await log.error("show trash: open failed") }
+            return false
+        }
+        return true
     }
 
     func openFolder() {

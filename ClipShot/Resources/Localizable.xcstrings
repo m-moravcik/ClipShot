@@ -7005,7 +7005,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Stellt die Bildschirmfoto-Einstellungen von macOS so wieder her, wie sie vor der ersten Änderung durch ClipShot waren."
+            "value" : "Stellt die macOS-Einstellungen von vor der ersten Änderung durch ClipShot wieder her."
           }
         },
         "es" : {

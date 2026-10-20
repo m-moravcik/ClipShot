@@ -85,4 +85,22 @@ struct StatusIconStateTests {
             #expect(CGFloat(ink.height) <= StatusIconArt.frame.height * scale)
         }
     }
+
+    /// The floor the scale-down once broke, derived from the sibling ClipShot is sized
+    /// against (`GlyphInk.ejectGuardLabel`), with 1 px of anti-aliasing allowed:
+    /// - the idle label, drawn as the menu bar draws it, is at least as tall as Eject Guard's
+    ///   `externaldrive` drawn the same way;
+    /// - it is as tall as ClipShot's own symbol drawn at Eject Guard's point size.
+    /// A smaller glyph size, or a label the menu bar scales down, fails here.
+    @MainActor
+    @Test func idleGlyphIsAtLeastAsTallAsTheSiblings() throws {
+        let idle = GlyphInk.size(try #require(GlyphInk.menuBarImage(StatusIconArt(state: .idle, phase: 0))))
+        let sibling = GlyphInk.size(try #require(GlyphInk.menuBarImage(GlyphInk.ejectGuardLabel())))
+        #expect(idle.height >= sibling.height - 1, "idle \(idle.height) px, Eject Guard \(sibling.height) px")
+        // The symbol alone, as drawn at that size, before any menu bar fitting.
+        let atSiblingSize = GlyphInk.size(try #require(GlyphInk.image(
+            Image(systemName: StatusIconArt.symbol(for: .idle)).font(.system(size: GlyphInk.ejectGuardPointSize)))))
+        #expect(idle.height >= atSiblingSize.height - 1,
+                "idle \(idle.height) px, the same symbol at Eject Guard's size \(atSiblingSize.height) px")
+    }
 }

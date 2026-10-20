@@ -247,11 +247,18 @@ struct AppModelUITests {
         #expect(await none.start())
         #expect(await !none.model.showTrash())
         #expect(none.workspace.opened.isEmpty)
+        #expect(await eventually { await Self.log(none).contains("show trash: no trash found") })
 
         let refused = try ModelHarness(locateTrash: { _ in homeTrash })
         defer { refused.tearDown() }
         refused.workspace.opens = false
         #expect(await refused.start())
         #expect(await !refused.model.showTrash())
+        #expect(await eventually { await Self.log(refused).contains("show trash: open failed") })
+        #expect(!Self.log(refused).contains("/"), "no path in the log line")
+    }
+
+    private static func log(_ h: ModelHarness) -> String {
+        (try? String(contentsOf: h.logFile, encoding: .utf8)) ?? ""
     }
 }

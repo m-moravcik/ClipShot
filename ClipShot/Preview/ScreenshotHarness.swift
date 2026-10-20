@@ -1001,7 +1001,7 @@ private struct MenuBarOpticalSheet: View {
                 item("rectangle.on.\nrectangle.angled", Image(systemName: "rectangle.on.rectangle.angled"), color),
             ]),
             Cluster(id: "Eject Guard (15 pt)", items: [
-                item("externaldrive", Image(systemName: "externaldrive").font(.system(size: 15)), color),
+                item("externaldrive", GlyphInk.ejectGuardLabel(), color),
                 item("…fill.badge.\ntimemachine", Image(systemName: "externaldrive.fill.badge.timemachine")
                     .font(.system(size: 15)), color),
             ]),

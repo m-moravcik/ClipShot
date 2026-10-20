@@ -307,6 +307,9 @@ private struct FolderStep: View {
     let state: WelcomeTour.TryState
 
     @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Bumped once per copy while the result shows; the result's check bounces on it.
+    @State private var bounce = 0
 
     var body: some View {
         ZStack {
@@ -324,6 +327,18 @@ private struct FolderStep: View {
             }
         }
         .animation(Design.Motion.quick, value: model.isWatching)
+        // Driven by the copy itself, not by sampling the flash when the result appears: the
+        // count goes up in the same step as the menu bar flash starts, and reopening the
+        // popover changes no count, so the bounce fires once per copy and never replays.
+        .onChange(of: model.preferences.totals.copied) { before, now in
+            guard TrySuccessMotion.bounces(
+                copiesBefore: before, copiesNow: now, showsResult: state.showsResult, reduceMotion: reduceMotion)
+            else { return }
+            Task {
+                try? await Task.sleep(for: Design.Motion.successBounceDelay)
+                bounce += 1
+            }
+        }
     }
 
     @ViewBuilder
@@ -333,7 +348,7 @@ private struct FolderStep: View {
             case .copied(let file):
                 CopiedResult(
                     file: file, thumbnail: model.latest?.file == file ? model.latest?.thumbnail : nil,
-                    flashing: model.flashPhase > 0)
+                    bounce: bounce)
                     .transition(.opacity)
             case .attention(let attention):
                 // The try can not work until this is fixed, so say why here, with the row's
@@ -361,11 +376,18 @@ private struct FolderStep: View {
     }
 }
 
-/// When Try it's success check bounces: once, with the menu bar flash of that copy, and
-/// never with Reduce Motion (the result's crossfade stays).
+/// When Try it's success check bounces: once per copy, as its menu bar flash starts, while
+/// the result shows, and never with Reduce Motion (the result's crossfade stays).
 enum TrySuccessMotion {
-    static func bounces(reduceMotion: Bool, flashing: Bool) -> Bool {
-        flashing && !reduceMotion
+    static func bounces(copiesBefore: Int, copiesNow: Int, showsResult: Bool, reduceMotion: Bool) -> Bool {
+        copiesNow > copiesBefore && showsResult && !reduceMotion
+    }
+}
+
+extension WelcomeTour.TryState {
+    /// Try it shows a copied screenshot.
+    var showsResult: Bool {
+        if case .copied = self { true } else { false }
     }
 }
 
@@ -373,11 +395,8 @@ enum TrySuccessMotion {
 private struct CopiedResult: View {
     let file: CaptureFile
     let thumbnail: CGImage?
-    /// The menu bar flash of this copy is on: the result has just appeared.
-    let flashing: Bool
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var bounce = 0
+    /// Changes once per copy (see `FolderStep`); the check bounces on each change.
+    let bounce: Int
 
     var body: some View {
         HStack(spacing: Design.Spacing.m) {
@@ -398,12 +417,6 @@ private struct CopiedResult: View {
         .padding(.vertical, Design.Spacing.m)
         .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.cardFill))
         .accessibilityElement(children: .contain)
-        .task(id: file) {
-            guard TrySuccessMotion.bounces(reduceMotion: reduceMotion, flashing: flashing) else { return }
-            try? await Task.sleep(for: Design.Motion.successBounceDelay)
-            guard !Task.isCancelled else { return }
-            bounce += 1
-        }
     }
 }
 

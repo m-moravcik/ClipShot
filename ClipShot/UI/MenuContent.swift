@@ -39,7 +39,8 @@ struct MenuContent: View {
         // as Copy again's checkmark) when a long translation takes the popover past its cap. It
         // scrolls only then. The header is its top bar and the footer its bottom bar: rows
         // scrolling under either soften into the edge, as macOS 26 draws content under bars.
-        // The footer keeps its separator, the line a native menu draws above its last items.
+        // The footer keeps its separator, the line a native menu draws above its last items,
+        // as Eject Guard draws a Divider above its footer (sibling consistency).
         //
         // An edge bar renders the scroll view black when drawn offscreen with
         // `cacheDisplay`, so for the render harness (`offscreenCapture`) the footer sits
