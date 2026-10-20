@@ -97,7 +97,8 @@ struct LatestCaptureCard: View {
     @State private var showCheck = false
     @State private var checkTask: Task<Void, Never>?
 
-    private static let checkDuration: Duration = .milliseconds(1_200)
+    /// How long a button shows its checkmark after a copy; the strip uses it too.
+    static let checkDuration: Duration = .milliseconds(1_200)
 
     private var size: String {
         capture.file.size.formatted(.byteCount(style: .file))
@@ -142,12 +143,12 @@ struct LatestCaptureCard: View {
             .accessibilityAction(named: Text(Copy.Preview.editWithMarkup)) { model.markup(capture.file) }
             .accessibilityAction(named: Text(Copy.Retention.moveToTrash)) { trash() }
 
-            // A translation can make the two buttons wider than the card; then they stack, at
-            // the same full width, rather than truncate. The symbols stay: Copy again shows
-            // its checkmark there.
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: Design.Spacing.s) { actions(stacked: false) }
-                VStack(alignment: .leading, spacing: Design.Spacing.s) { actions(stacked: true) }
+            // One row in every language: Copy again takes the width the two square icon
+            // buttons leave, and all three are as tall as each other.
+            CardActionsLayout {
+                copyButton
+                revealButton
+                trashButton
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
@@ -158,47 +159,38 @@ struct LatestCaptureCard: View {
         .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.cardFill))
     }
 
-    /// Side by side at their own width with Move to Trash at the trailing end, or stacked at
-    /// the full card width with the labels leading and Move to Trash beside Show in Finder.
-    @ViewBuilder
-    private func actions(stacked: Bool) -> some View {
+    /// Copy again for the screenshot just copied; Copy for one shown in its place. The symbol
+    /// turns into a checkmark for a moment after a copy. A label too long for the row wraps
+    /// onto a second line before anything is cut.
+    private var copyButton: some View {
         Button { copyAgain() } label: {
             Label {
-                // Copy again for the screenshot just copied; Copy for one shown in its place.
                 Text(capture.isLastCopied ? Copy.Action.copyAgain : Copy.Preview.copy)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
             } icon: {
                 Image(systemName: showCheck ? "checkmark" : "doc.on.doc")
                     .contentTransition(reduceMotion ? .opacity : .symbolEffect(.replace))
             }
-            .frame(maxWidth: stacked ? .infinity : nil, alignment: .leading)
-        }
-        .fixedSize(horizontal: !stacked, vertical: true)
-        if stacked {
-            HStack(spacing: Design.Spacing.s) {
-                revealButton(stacked: true)
-                trashButton
-            }
-        } else {
-            revealButton(stacked: false)
-            Spacer(minLength: 0)
-            trashButton
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
-    private func revealButton(stacked: Bool) -> some View {
+    private var revealButton: some View {
         Button { model.reveal(capture.file) } label: {
-            Label { Text(Copy.Action.showInFinder) } icon: { Image(systemName: "folder") }
-                .frame(maxWidth: stacked ? .infinity : nil, alignment: .leading)
+            Image(systemName: "folder")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .fixedSize(horizontal: !stacked, vertical: true)
+        .help(Text(Copy.Action.showInFinder))
+        .accessibilityLabel(Text(Copy.Action.showInFinder))
     }
 
     /// Move to Trash, with no confirmation: the Undo row above puts it back for 5 s.
     private var trashButton: some View {
         Button { trash() } label: {
             Image(systemName: "trash")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .fixedSize()
         .help(Text(Copy.Retention.moveToTrash))
         .accessibilityLabel(Text(Copy.Retention.moveToTrash))
     }
@@ -243,6 +235,63 @@ struct LatestCaptureCard: View {
             try? await Task.sleep(for: Self.checkDuration)
             guard !Task.isCancelled else { return }
             withAnimation(Design.Motion.quick) { showCheck = false }
+        }
+    }
+}
+
+/// The latest card's buttons, in one row whatever the language: the first (the primary
+/// action) takes the width the others leave; the others are square icon buttons. All share
+/// one height, so a primary label that has to wrap onto a second line makes the whole row
+/// taller rather than stacking it.
+struct CardActionsLayout: Layout {
+    var spacing: CGFloat = Design.Spacing.s
+
+    /// The frames, primary first, in a row `width` wide. The icon buttons are `side` wide,
+    /// and every button is as tall as the taller of `side` and the primary at the width it
+    /// gets (`primaryHeight(width)`).
+    static func frames(
+        width: CGFloat, buttons: Int, side: CGFloat, spacing: CGFloat, primaryHeight: (CGFloat) -> CGFloat
+    ) -> [CGRect] {
+        guard buttons > 0 else { return [] }
+        let secondary = buttons - 1
+        let primaryWidth = max(0, width - CGFloat(secondary) * (side + spacing))
+        let height = max(side, primaryHeight(primaryWidth))
+        var frames = [CGRect(x: 0, y: 0, width: primaryWidth, height: height)]
+        for index in 0..<secondary {
+            frames.append(CGRect(
+                x: primaryWidth + spacing + CGFloat(index) * (side + spacing), y: 0, width: side, height: height))
+        }
+        return frames
+    }
+
+    /// The icon buttons' side: the buttons' own height, or an icon button's own width where
+    /// its symbol and the bezel's margins need more (a bordered button does not get narrower
+    /// than that), so they come out square.
+    static func side(sizes: [CGSize]) -> CGFloat {
+        let height = sizes.map(\.height).max() ?? 0
+        let iconWidth = sizes.dropFirst().map(\.width).max() ?? 0
+        return max(height, iconWidth)
+    }
+
+    private func frames(_ width: CGFloat?, _ subviews: Subviews) -> [CGRect] {
+        guard let primary = subviews.first else { return [] }
+        let side = Self.side(sizes: subviews.map { $0.sizeThatFits(.unspecified) })
+        let ideal = primary.sizeThatFits(.unspecified).width + CGFloat(subviews.count - 1) * (side + spacing)
+        return Self.frames(
+            width: width ?? ideal, buttons: subviews.count, side: side, spacing: spacing,
+            primaryHeight: { primary.sizeThatFits(ProposedViewSize(width: $0, height: nil)).height })
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let frames = frames(proposal.width, subviews)
+        guard let last = frames.last else { return .zero }
+        return CGSize(width: last.maxX, height: last.height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        for (subview, frame) in zip(subviews, frames(bounds.width, subviews)) {
+            subview.place(
+                at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY), proposal: ProposedViewSize(frame.size))
         }
     }
 }

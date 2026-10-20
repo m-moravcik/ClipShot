@@ -281,24 +281,3 @@ private struct ExtraDisplaysChip: View {
             .accessibilityLabel(Text(Copy.Preview.extraDisplays(count)))
     }
 }
-
-/// A round button on the card, shown on hover.
-private struct CardButton: View {
-    let symbol: String
-    let label: LocalizedStringResource
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 10, weight: .bold))
-                .frame(width: 22, height: 22)
-                .background(Circle().fill(.regularMaterial))
-                .overlay(Circle().strokeBorder(Color.primary.opacity(0.15), lineWidth: 0.5))
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text(label))
-        .help(Text(label))
-    }
-}

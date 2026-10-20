@@ -27,6 +27,8 @@
 # frames of its springs), plus popover-macos-mode, settings-capture-macos-mode and
 # popover-preview-offer (the one-time offer after an update with the macOS thumbnail on).
 # The popover pictures show the strip of earlier screenshots under the latest card;
+# popover-recent-hover has the pointer over one of them, with its Copy, Show in Finder and
+# Move to Trash buttons;
 # popover-undo is the popover just after Move to Trash, with its Undo row. Popover and tour
 # pictures carry the window's rounded corners and shadow on a transparent margin.
 #

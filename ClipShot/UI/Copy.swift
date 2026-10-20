@@ -153,8 +153,6 @@ enum Copy {
             LocalizedStringResource(
                 "Screenshot, \(age)", comment: "VoiceOver label of one earlier screenshot in the popover: its relative age")
         }
-        static let moreActions = LocalizedStringResource(
-            "More actions", comment: "Button on an earlier screenshot: opens Copy, Edit with Markup, Show in Finder, Move to Trash")
         static let moved = LocalizedStringResource(
             "Moved to the Trash", comment: "Popover row for 5 seconds after Move to Trash, before its Undo button")
         static let undo = LocalizedStringResource(

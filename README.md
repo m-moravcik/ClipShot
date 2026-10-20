@@ -126,8 +126,9 @@ Preview instead.
 
 Click the menu bar icon. At the top, whether copying is on, and anything that
 needs fixing. Below it, the latest screenshot with Copy again, Show in Finder and
-Move to Trash, and a strip of the four screenshots before it (click for Markup,
-right-click or hover for the rest, or drag one out). Then the Copy to clipboard
+Move to Trash, and a strip of the four screenshots before it, each with the same
+Copy, Show in Finder and Move to Trash on hover (click one for Markup, right-click
+for the menu, or drag one out). Then the Copy to clipboard
 switch, the cleanup summary, and at the bottom Open Screenshots Folder, Settings,
 About and Quit.
 

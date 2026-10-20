@@ -117,6 +117,10 @@ enum ScreenshotHarness {
             let popover = capturePanel(PopoverPanel(scheme: scheme) { MenuContent() }
                 .harnessEnvironment(scene.model, updater: updater), scheme: scheme)
             try shots.write(popoverWindow(popover, scheme: scheme), "popover", scheme)
+            // The second earlier screenshot under the pointer: its actions over the picture.
+            try shots.write(popoverWindow(capturePanel(PopoverPanel(scheme: scheme) { MenuContent() }
+                .harnessEnvironment(scene.model, updater: updater)
+                .environment(\.hoveredRecent, 1), scheme: scheme), scheme: scheme), "popover-recent-hover", scheme)
             try shots.write(render(HeroScene(popover: popover, scheme: scheme, banner: false)), "hero", scheme)
             try shots.write(render(HeroScene(popover: popover, scheme: scheme, banner: true, icon: image(icon))), "banner", scheme)
 

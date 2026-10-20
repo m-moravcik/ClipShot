@@ -598,4 +598,7 @@ extension EnvironmentValues {
     /// the real now. The screenshot harness fixes it, so a picture does not change with the
     /// time of day it is rendered.
     @Entry var displayNow: Date? = nil
+    /// The strip's thumbnail at this index is drawn in its hover state, with its actions;
+    /// for the screenshot harness, which has no pointer.
+    @Entry var hoveredRecent: Int? = nil
 }

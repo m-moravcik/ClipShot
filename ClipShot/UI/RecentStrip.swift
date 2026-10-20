@@ -2,9 +2,11 @@ import AppKit
 import SwiftUI
 
 /// The previous screenshots under the latest card (spec Addendum A5): up to four thumbnails,
-/// newest first, hidden when there are none. A click opens Markup, a drag carries the file
-/// into another app, and hover (a "more" button) or a right click offers Copy, Edit with
-/// Markup, Show in Finder and Move to Trash, as on the floating preview.
+/// newest first, hidden when there are none. A click opens Markup and a drag carries the file
+/// into another app. On hover or keyboard focus each one shows the latest card's actions as
+/// round buttons, as the floating preview does: Copy, Show in Finder and Move to Trash. A
+/// right click offers Copy, Edit with Markup, Show in Finder and Move to Trash, as on the
+/// floating preview; VoiceOver has the same as named actions.
 ///
 /// Motion (A3): the screenshot the card hands down slides in from the leading edge while the
 /// others make room; one that leaves shrinks and drops, and its neighbours close the gap with
@@ -22,10 +24,12 @@ struct RecentStrip: View {
         return .asymmetric(insertion: .move(edge: .leading).combined(with: .opacity), removal: leave)
     }
 
+    @Environment(\.hoveredRecent) private var hoveredRecent
+
     var body: some View {
         StripLayout(columns: RecentScreenshots.count) {
-            ForEach(model.recent, id: \.self) { file in
-                RecentItem(file: file, image: model.thumbnails[file])
+            ForEach(Array(model.recent.enumerated()), id: \.element) { index, file in
+                RecentItem(file: file, image: model.thumbnails[file], hovering: index == hoveredRecent)
                     .transition(transition)
             }
         }
@@ -63,13 +67,33 @@ struct StripLayout: Layout {
     }
 }
 
-/// One earlier screenshot: the picture, a pencil and a "more" button on hover.
+/// One earlier screenshot: the picture, and on hover or keyboard focus a pencil (a click
+/// opens Markup) and the bar of actions.
 private struct RecentItem: View {
     let file: CaptureFile
     let image: CGImage?
 
+    /// Where keyboard focus is: the thumbnail or one of its buttons. The bar stays while it
+    /// is anywhere in here, so Tab can reach its buttons.
+    private enum Focus: Hashable {
+        case thumbnail, copy, reveal, trash
+    }
+
     @Environment(AppModel.self) private var model
-    @State private var hovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var hovering: Bool
+    @FocusState private var focus: Focus?
+    @State private var showCheck = false
+    @State private var checkTask: Task<Void, Never>?
+
+    /// `hovering` is for the render harness, which draws the hover state.
+    init(file: CaptureFile, image: CGImage?, hovering: Bool = false) {
+        self.file = file
+        self.image = image
+        _hovering = State(initialValue: hovering)
+    }
+
+    private var showsActions: Bool { hovering || focus != nil }
 
     var body: some View {
         ZStack {
@@ -81,22 +105,42 @@ private struct RecentItem: View {
                 onDraggedOut: {},
                 menu: menuItems)
                 .accessibilityHidden(true)
-            if hovering {
+            if showsActions {
                 Image(systemName: "pencil.tip.crop.circle.fill")
-                    .font(.system(size: 18))
+                    .font(.system(size: 14))
                     .symbolRenderingMode(.palette)
                     .foregroundStyle(.white, Color.accentColor)
                     .shadow(color: .black.opacity(0.3), radius: 2)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .padding(3)
                     .allowsHitTesting(false)
                     .transition(.opacity)
-                moreButton
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                    .padding(3)
+                actionBar
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .padding(.bottom, 3)
                     .transition(.opacity)
             }
         }
         .frame(width: Design.Layout.thumbnailSize.width, height: Design.Layout.thumbnailSize.height)
-        .animation(Design.Motion.quick, value: hovering)
+        .focusable()
+        .focused($focus, equals: .thumbnail)
+        .focusEffectDisabled()
+        .overlay {
+            if focus == .thumbnail {
+                RoundedRectangle(cornerRadius: Design.Radius.chip, style: .continuous)
+                    .strokeBorder(Color.accentColor, lineWidth: 2)
+                    .allowsHitTesting(false)
+            }
+        }
+        .onKeyPress(.space) {
+            markup()
+            return .handled
+        }
+        .onKeyPress(.return) {
+            markup()
+            return .handled
+        }
+        .animation(Design.Motion.quick, value: showsActions)
         .help(Text(verbatim: file.url.lastPathComponent))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(Copy.Recent.item(age: file.created.formatted(.relative(presentation: .named)))))
@@ -109,27 +153,23 @@ private struct RecentItem: View {
         .accessibilityAction(named: Text(Copy.Retention.moveToTrash)) { trash() }
     }
 
-    private var moreButton: some View {
-        Menu {
-            Button { copy() } label: { Text(Copy.Preview.copy) }
-            Button { markup() } label: { Text(Copy.Preview.editWithMarkup) }
-            Button { model.reveal(file) } label: { Text(Copy.Action.showInFinder) }
-            Divider()
-            Button { trash() } label: { Text(Copy.Retention.moveToTrash) }
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 9, weight: .bold))
-                .frame(width: 18, height: 18)
-                .background(Circle().fill(.regularMaterial))
-                .overlay(Circle().strokeBorder(Color.primary.opacity(0.15), lineWidth: 0.5))
-                .contentShape(Circle())
+    /// The latest card's three actions, as the floating preview's round buttons.
+    private var actionBar: some View {
+        HStack(spacing: 2) {
+            CardButton(
+                symbol: showCheck ? "checkmark" : "doc.on.doc", label: Copy.Preview.copy,
+                diameter: CardButton.compactDiameter, action: copy)
+                .contentTransition(reduceMotion ? .opacity : .symbolEffect(.replace))
+                .focused($focus, equals: .copy)
+            CardButton(
+                symbol: "folder", label: Copy.Action.showInFinder,
+                diameter: CardButton.compactDiameter, action: { model.reveal(file) })
+                .focused($focus, equals: .reveal)
+            CardButton(
+                symbol: "trash", label: Copy.Retention.moveToTrash,
+                diameter: CardButton.compactDiameter, action: trash)
+                .focused($focus, equals: .trash)
         }
-        .menuStyle(.button)
-        .buttonStyle(.plain)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .help(Text(Copy.Recent.moreActions))
-        .accessibilityLabel(Text(Copy.Recent.moreActions))
     }
 
     private func menuItems() -> [CardMenuItem] {
@@ -143,8 +183,22 @@ private struct RecentItem: View {
 
     private func markup() { model.markup(file) }
 
+    /// The same copy as the latest card's: this screenshot's PNG, the menu bar animation, and
+    /// the checkmark on the button for a moment.
     private func copy() {
-        Task { await model.copyAgain(file: file) }
+        checkTask?.cancel()
+        checkTask = Task {
+            let copied = await model.copyAgain(file: file)
+            guard !Task.isCancelled else { return }
+            guard copied else {
+                withAnimation(Design.Motion.quick) { showCheck = false }
+                return
+            }
+            withAnimation(Design.Motion.quick) { showCheck = true }
+            try? await Task.sleep(for: LatestCaptureCard.checkDuration)
+            guard !Task.isCancelled else { return }
+            withAnimation(Design.Motion.quick) { showCheck = false }
+        }
     }
 
     private func trash() {

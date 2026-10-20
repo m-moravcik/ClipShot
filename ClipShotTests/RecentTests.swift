@@ -67,6 +67,41 @@ struct RecentTests {
         #expect(RecentScreenshots.select(lastCopied: nil, ledger: [], folder: h.folder) == .init(card: nil, recent: []))
     }
 
+    /// The strip's Copy: that screenshot's PNG on the clipboard, through the card's Copy again,
+    /// with the menu bar's copy animation. An explicit Copy, so it works while copying is
+    /// paused (Task 12b ruling), and paused copying writes nothing on its own meanwhile.
+    @Test func copyFromStripCopiesThatScreenshotAndAnimates() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        let files = try await tracked(h, [("A.png", 40), ("B.png", 30), ("C.png", 20)])
+        #expect(await h.start())
+        #expect(await eventually { await self.names(h.model.recent) == ["B.png", "A.png"] })
+        #expect(h.model.flashPhase == 0, "nothing copied yet")
+        #expect(h.pasteboard.writes.isEmpty)
+
+        let a = try #require(h.model.recent.last)
+        #expect(await h.model.copyAgain(file: a))
+        #expect(h.pasteboard.writes.last == (try Data(contentsOf: files[0].url)))
+        #expect(h.model.flashPhase > 0, "the menu bar plays its copy animation")
+        #expect(h.model.iconState == .copied)
+        #expect(h.model.latest?.file.url.lastPathComponent == "C.png", "the card keeps its screenshot")
+        let timer = try #require(h.timer)
+        timer.fire(CopiedFlash.steps - 1)
+        #expect(h.model.flashPhase == 0)
+
+        // Paused: a new screenshot is not copied, but the strip's Copy still is.
+        h.preferences.copyEnabled = false
+        let writes = h.pasteboard.writes.count
+        try h.shoot("D.png", size: 23)
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(h.pasteboard.writes.count == writes, "paused: nothing is copied on its own")
+        #expect(h.model.flashPhase == 0, "paused: no copy animation on its own")
+        let b = try #require(h.model.recent.first { $0.url.lastPathComponent == "B.png" })
+        #expect(await h.model.copyAgain(file: b))
+        #expect(h.pasteboard.writes.last == (try Data(contentsOf: files[1].url)))
+        #expect(h.model.flashPhase > 0)
+    }
+
     @Test func trashFromStripUpdatesCardAndStrip() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }

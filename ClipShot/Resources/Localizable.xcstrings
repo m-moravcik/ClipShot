@@ -5246,47 +5246,6 @@
         }
       }
     },
-    "More actions" : {
-      "comment" : "Button on an earlier screenshot: opens Copy, Edit with Markup, Show in Finder, Move to Trash",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "More actions"
-          }
-        },
-        "sk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ďalšie akcie"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Další akce"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Weitere Aktionen"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Más acciones"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Autres actions"
-          }
-        }
-      }
-    },
     "More apps" : {
       "localizations" : {
         "en" : {

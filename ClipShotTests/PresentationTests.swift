@@ -213,6 +213,76 @@ struct TrailingActionLayoutTests {
     }
 }
 
+/// The latest card's buttons: one row in every language, the primary taking what the two
+/// square icon buttons leave, all three as tall as each other.
+struct CardActionsLayoutTests {
+    private func frames(primaryHeight: CGFloat) -> [CGRect] {
+        CardActionsLayout.frames(
+            width: 260, buttons: 3, side: 24, spacing: 4, primaryHeight: { _ in primaryHeight })
+    }
+
+    @Test func oneRowWithEqualSquareSecondaries() {
+        let f = frames(primaryHeight: 22)
+        #expect(f.count == 3)
+        #expect(f.allSatisfy { $0.minY == 0 && $0.height == 24 }, "one row, one height")
+        #expect(f[1].size == f[2].size && f[1].width == f[1].height, "two equal squares")
+        #expect(f[0].width == 204, "the primary takes the rest: 260 - 2 * (24 + 4)")
+        #expect(f[1].minX == f[0].maxX + 4 && f[2].minX == f[1].maxX + 4)
+        #expect(f[2].maxX == 260, "flush with the card's trailing edge")
+    }
+
+    /// Square at the buttons' height, or at an icon button's width where the bezel needs more.
+    @Test func sideIsTheLargerOfHeightAndIconWidth() {
+        let primary = CGSize(width: 120, height: 22)
+        #expect(CardActionsLayout.side(sizes: [primary, CGSize(width: 20, height: 22), CGSize(width: 21, height: 22)]) == 22)
+        #expect(CardActionsLayout.side(sizes: [primary, CGSize(width: 25, height: 22), CGSize(width: 23, height: 22)]) == 25)
+        #expect(CardActionsLayout.side(sizes: [CGSize(width: 300, height: 22), CGSize(width: 20, height: 22)]) == 22,
+                "the primary's width never counts")
+    }
+
+    /// A label that wraps makes the row taller; it never stacks, and the secondaries keep
+    /// their width and take the same height.
+    @Test func aWrappedPrimaryKeepsTheRow() {
+        let f = frames(primaryHeight: 38)
+        #expect(f.allSatisfy { $0.minY == 0 && $0.height == 38 })
+        #expect(f[1].width == 24 && f[2].width == 24)
+        #expect(f[0].width == 204)
+    }
+
+    /// Real bordered buttons in the card's 260 pt: the row is one button tall with the
+    /// English label, and the secondaries come out equal and square.
+    @MainActor
+    @Test func borderedButtonsShareOneRow() async throws {
+        @MainActor final class Frames { var all: [Int: CGRect] = [:] }
+        let frames = Frames()
+        func tracked(_ index: Int, _ view: some View) -> some View {
+            view.onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frames.all[index] = $0 }
+        }
+        let row = CardActionsLayout {
+            tracked(0, Button {} label: {
+                Label { Text(verbatim: "Copy again") } icon: { Image(systemName: "doc.on.doc") }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            })
+            tracked(1, Button {} label: { Image(systemName: "folder").frame(maxWidth: .infinity, maxHeight: .infinity) })
+            tracked(2, Button {} label: { Image(systemName: "trash").frame(maxWidth: .infinity, maxHeight: .infinity) })
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .frame(width: 260)
+        let view = NSHostingView(rootView: row)
+        view.frame = CGRect(origin: .zero, size: view.fittingSize)
+        view.layoutSubtreeIfNeeded()
+        #expect(await eventually { await frames.all.count == 3 })
+        let f = (0..<3).compactMap { frames.all[$0] }
+        try #require(f.count == 3)
+        #expect(Set(f.map(\.minY)).count == 1 && Set(f.map(\.height)).count == 1, "one row, one height")
+        #expect(f[1].size == f[2].size, "\(f)")
+        #expect(abs(f[1].width - f[1].height) < 0.5, "square")
+        #expect(abs(f[2].maxX - f[0].minX - 260) < 0.5)
+        #expect(view.fittingSize.height == f[0].height)
+    }
+}
+
 /// The popover's status row (no app name): the three states, each with its one line.
 struct HeaderStatusTests {
     @Test func stateTitleAndDetail() {

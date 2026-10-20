@@ -497,8 +497,10 @@ final class AppModel {
         return await copyAgain(file: file)
     }
 
-    /// Copies `file` again: the latest card passes the screenshot it shows. Clears the
-    /// could-not-copy attention only when `file` is the one that failed.
+    /// Copies `file` again: the latest card passes the screenshot it shows, the strip one of
+    /// the earlier ones. The menu bar plays its copy animation, as for a new screenshot. An
+    /// explicit Copy, so it works while copying is paused. Clears the could-not-copy
+    /// attention only when `file` is the one that failed.
     @discardableResult
     func copyAgain(file: CaptureFile) async -> Bool {
         let png = await Task.detached(priority: .userInitiated) { PNGConverter.pngData(from: file.url) }.value
@@ -511,6 +513,7 @@ final class AppModel {
         Task { await log.info("copied again ext=\(ext)") }
         changeCountAfterCopy = pasteboard.changeCount
         if file == failedCapture { clearCopyFailure() }
+        startFlash()
         announce(Copy.screenshotCopied)
         return true
     }

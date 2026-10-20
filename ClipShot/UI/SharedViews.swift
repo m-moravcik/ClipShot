@@ -257,3 +257,31 @@ struct TrailingActionLayout: Layout {
         }
     }
 }
+
+/// A round button over a screenshot, shown on hover: the floating preview's Close, Copy again
+/// and Move to Trash, and the actions on an earlier screenshot in the popover's strip.
+struct CardButton: View {
+    /// The floating preview's size.
+    static let diameter: CGFloat = 22
+    /// Three side by side within the strip's 64 pt thumbnail.
+    static let compactDiameter: CGFloat = 18
+
+    let symbol: String
+    let label: LocalizedStringResource
+    var diameter: CGFloat = Self.diameter
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: (diameter * 10 / 22).rounded(), weight: .bold))
+                .frame(width: diameter, height: diameter)
+                .background(Circle().fill(.regularMaterial))
+                .overlay(Circle().strokeBorder(Color.primary.opacity(0.15), lineWidth: 0.5))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(label))
+        .help(Text(label))
+    }
+}
