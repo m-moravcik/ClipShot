@@ -155,8 +155,9 @@ struct LatestCaptureCard: View {
             .accessibilityAction(named: Text(Copy.Preview.editWithMarkup)) { model.markup(capture.file) }
             .accessibilityAction(named: Text(Copy.Retention.moveToTrash)) { trash() }
 
-            // Compact pills at their own width, leading, as VibeRes's profile pills; a row too
-            // long for the card in some language wraps rather than truncating.
+            // Compact pills at their own width, leading, as VibeRes's profile pills: Copy again
+            // with its title, Show in Finder and Move to Trash as symbols, so the row fits one
+            // line in every language. A longer one (pseudo-de) wraps rather than truncating.
             FlowLayout(spacing: Design.Spacing.s, lineSpacing: Design.Spacing.s) {
                 copyButton.environment(\.pillHovered, hoveredPill == 0)
                 revealButton.environment(\.pillHovered, hoveredPill == 1)
@@ -184,9 +185,10 @@ struct LatestCaptureCard: View {
 
     private var revealButton: some View {
         Button { model.reveal(capture.file) } label: {
-            PillLabel(symbol: "folder", title: Copy.Action.showInFinder)
+            PillLabel(symbol: "folder")
         }
         .help(Text(Copy.Action.showInFinder))
+        .accessibilityLabel(Text(Copy.Action.showInFinder))
     }
 
     /// Move to Trash, with no confirmation: the Undo row above puts it back for 5 s.

@@ -226,9 +226,10 @@ struct FlowLayoutTests {
     }
 
     /// The card's three pills, laid out `width` wide; their frames and the row's height.
+    /// `reveal` nil: Show in Finder as a symbol only, as the card has it.
     @MainActor
     private func layOut(
-        copy: String, reveal: String, width: CGFloat, direction: LayoutDirection = .leftToRight
+        copy: String, reveal: String?, width: CGFloat, direction: LayoutDirection = .leftToRight
     ) async throws -> (frames: [CGRect], ideal: [CGSize], height: CGFloat) {
         @MainActor final class Frames { var all: [Int: CGRect] = [:] }
         let frames = Frames()
@@ -259,16 +260,16 @@ struct FlowLayoutTests {
         return (f, ideal, view.fittingSize.height)
     }
 
-    /// English in the card's 260 pt: one line, leading, each pill at its own width, and the
-    /// symbol-only Move to Trash as tall as the pills with a title.
+    /// The card as it is, in its 260 pt: one line, leading, each pill at its own width, and
+    /// the symbol-only pills as tall as Copy again.
     @MainActor
     @Test func pillsAreContentSizedOnOneLine() async throws {
-        let (f, ideal, height) = try await layOut(copy: "Copy again", reveal: "Show in Finder", width: 260)
+        let (f, ideal, height) = try await layOut(copy: "Copy again", reveal: nil, width: 260)
         #expect(Set(f.map(\.minY)).count == 1, "one line: \(f)")
         #expect(f[0].minX == 0, "leading")
         for i in 0..<3 { #expect(abs(f[i].width - ideal[i].width) < 0.5, "pill \(i) at its own width: \(f[i]) vs \(ideal[i])") }
         #expect(f[2].height == f[0].height && f[1].height == f[0].height, "one height: \(f)")
-        #expect(f[2].width < f[2].height + 12, "the symbol-only pill stays small: \(f[2])")
+        #expect(f[2].width < f[2].height + 12 && f[1].width == f[2].width, "the symbol-only pills stay small: \(f)")
         #expect(height == f[0].height)
     }
 
@@ -283,10 +284,27 @@ struct FlowLayoutTests {
         #expect(height > 2 * f[0].height)
     }
 
+    /// The longest Copy again of the six languages fits one line with the two symbol pills.
+    @MainActor
+    @Test func everyLanguageFitsOneLine() async throws {
+        var titles: [String] = []
+        for id in ["en", "sk", "cs", "de", "es", "fr"] {
+            for key in [Copy.Action.copyAgain, Copy.Preview.copy] {
+                var resource = key
+                resource.locale = Locale(identifier: id)
+                titles.append(String(localized: resource))
+            }
+        }
+        let widest = try #require(titles.max { $0.count < $1.count })
+        let (f, _, _) = try await layOut(copy: widest, reveal: nil, width: 260)
+        #expect(Set(f.map(\.minY)).count == 1, "\(widest): \(f)")
+        #expect(f[2].maxX <= 260)
+    }
+
     /// Right to left, the row mirrors: the first pill at the right-hand edge.
     @MainActor
     @Test func mirrorsRightToLeft() async throws {
-        let (f, _, _) = try await layOut(copy: "Copy again", reveal: "Show in Finder", width: 260, direction: .rightToLeft)
+        let (f, _, _) = try await layOut(copy: "Copy again", reveal: nil, width: 260, direction: .rightToLeft)
         #expect(f[0].minX > f[1].maxX && f[1].minX > f[2].maxX, "\(f)")
         #expect(abs(f[0].maxX - 260) < 0.5)
     }

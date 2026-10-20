@@ -307,6 +307,9 @@ struct HoverScrim: View {
 /// A screenshot action as a compact pill, VibeRes's profile pill: a 9 pt symbol and an 11 pt
 /// title, or the symbol alone. Use it as the label of a `PillButtonStyle` button.
 struct PillLabel: View {
+    /// The symbol column of a symbol-only pill: the widest of the pills' symbols at 9 pt.
+    static let symbolWidth: CGFloat = 12
+
     let symbol: String
     var title: LocalizedStringResource?
 
@@ -320,7 +323,8 @@ struct PillLabel: View {
                     .lineLimit(1)
             }
         } else {
-            // A symbol-only pill is as tall as one with a title: an empty line of its font.
+            // A symbol-only pill is as tall as one with a title (an empty line of its font),
+            // and as wide as its neighbours whatever the symbol's own width.
             ZStack {
                 Text(verbatim: " ")
                     .font(PillButtonStyle.font)
@@ -328,6 +332,7 @@ struct PillLabel: View {
                 Image(systemName: symbol)
                     .font(.system(size: 9))
             }
+            .frame(minWidth: Self.symbolWidth)
         }
     }
 }
