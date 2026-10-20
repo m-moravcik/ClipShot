@@ -39,9 +39,14 @@ struct LatestCapture: Identifiable, Equatable, @unchecked Sendable {
 }
 
 enum Thumbnailer {
-    /// A downscaled image, decoded now rather than at first draw. Synchronous file IO.
-    nonisolated static func decode(_ url: URL, maxPixelSize: Int) -> CGImage? {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary)
+    /// A downscaled image, decoded now rather than at first draw. Synchronous file IO. Read
+    /// through `FileTrust`, like a copy: nil for a file it refuses (only screenshots owned
+    /// by this user ever reach the card, the strip or the preview, so that is a file that
+    /// changed hands since).
+    nonisolated static func decode(_ url: URL, maxPixelSize: Int, policy: FileTrust.Policy = .standard) -> CGImage? {
+        guard case .success(let data) = FileTrust.read(url, policy: policy),
+              let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+              FileTrust.allowsPixels(of: source, policy: policy)
         else { return nil }
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,

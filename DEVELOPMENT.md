@@ -18,7 +18,10 @@ evidence. A file is a screenshot when all of this holds:
   `com.apple.metadata:kMDItemIsScreenCapture` true **and**
   `kMDItemScreenCaptureType` present;
 - no `com.apple.quarantine` and no `kMDItemWhereFroms`: a downloaded file that
-  carries a copied marker is not a local screenshot.
+  carries a copied marker is not a local screenshot;
+- owned by the user ClipShot runs as. On a shared folder (a network volume,
+  `/Users/Shared`) anyone can write a file with the marker; another user's file
+  is never read, copied, recorded or moved.
 
 The spike found both attributes on every format and capture mode that saves a
 file (F1). Screen recordings carry `kMDItemIsScreenRecording` instead (F9), so
@@ -44,6 +47,18 @@ The rename fires a directory event; setting the marker fires none (F5). So:
 4. The image goes to the pasteboard as PNG data only (`ClipboardWriter`), never
    as a file URL, so chat apps, Mail and browsers paste the picture rather than
    an attachment. Other formats are converted.
+
+Each pass costs one `lstat` per file. The marker (four or five `getxattr` calls)
+is read only for a file that could be copied: fresh by its times, open in Markup,
+or new since the last listing. With 3,000 old screenshots in the folder a pass
+takes about 20 ms instead of about 290 ms.
+
+Every read of a screenshot, for the copy, a thumbnail, the preview or a drag,
+goes through `FileTrust`: one descriptor opened with `O_NOFOLLOW`, `fstat` says a
+regular file owned by this user and at most 256 MB, and ImageIO's reported size
+is at most 100 megapixels (a PDF page is checked at the 2x it is rastered at)
+before anything is decoded. A refused file is skipped quietly; the log says why,
+with the extension only.
 
 Every fresh screenshot is also recorded in the ledger (below), whether copying is
 on or not. All folder IO runs off the main actor on one serial queue: the first

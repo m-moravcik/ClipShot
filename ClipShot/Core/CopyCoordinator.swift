@@ -20,6 +20,8 @@ final class CopyCoordinator {
     ]
     /// `Cmd+Shift+3` writes one file per display about 10 ms apart, main display first (spike F3).
     nonisolated static let displayGroupWindow: TimeInterval = 1
+    /// How late the 1 s poll may fire, so macOS can coalesce its wake-ups with others.
+    nonisolated static let pollTolerance = 0.25
 
     var isEnabled = true
     private(set) var lastCopied: CaptureFile? {
@@ -50,6 +52,10 @@ final class CopyCoordinator {
     private let pasteboard: any PasteboardWriting
     private let ledger: ScreenshotLedger
     private let edits: EditSession
+    /// Reads a file's screenshot marker (its extended attributes); tests count the calls.
+    private let readMarker: @Sendable (URL) -> Bool
+    /// Whose files are read, and how large they may be (`FileTrust`); tests pass others.
+    private let trust: FileTrust.Policy
     /// Sleeps until a rescan is due; tests release rescans by hand.
     private let sleepUntil: @Sendable (ContinuousClock.Instant) async throws -> Void
     private let clock: @Sendable () -> Date
@@ -70,6 +76,18 @@ final class CopyCoordinator {
     private var decider = CopyDecider()
     /// Files listed when the current folder was first watched; never recorded in the ledger.
     private var baseline: Set<FileKey> = []
+    /// Every file version in the last listing (the re-target's or a pass's). A pass reads
+    /// the marker of a file only when it could be copied: fresh by its times, open in
+    /// Markup, or not in this set (P1: a folder of thousands of old screenshots costs one
+    /// `lstat` each per pass, not four or five `getxattr`).
+    private var known: Set<ListingKey> = []
+    /// Passes and polls finished; tests wait on them instead of sleeping.
+    private(set) var passesFinished = 0
+    private(set) var pollsFinished = 0
+
+    /// No pass running or queued and no rescan left: what a test waits for before it says
+    /// that nothing happened.
+    var isIdle: Bool { !passInFlight && !passQueued && !seeding && rescanDeadlines.isEmpty && rescanTask == nil }
     /// Fresh screenshots already sent to the ledger, with the time they were sent.
     private var recorded: [FileKey: Date] = [:]
     /// Versions of files open in Markup already sent to `followEdit`, with the time.
@@ -97,9 +115,13 @@ final class CopyCoordinator {
         home: URL = FileManager.default.homeDirectoryForCurrentUser, log: Log = .shared,
         sleepUntil: @escaping @Sendable (ContinuousClock.Instant) async throws -> Void = {
             try await Task.sleep(until: $0, clock: .continuous)
-        }
+        },
+        readMarker: @escaping @Sendable (URL) -> Bool = { CaptureMarker.isScreenshot($0) },
+        trust: FileTrust.Policy = .standard
     ) {
         self.sleepUntil = sleepUntil
+        self.readMarker = readMarker
+        self.trust = trust
         self.settings = settings
         self.events = events
         self.pasteboard = pasteboard
@@ -117,12 +139,15 @@ final class CopyCoordinator {
         requestRefresh()
         pollTask = Task { [weak self, pollInterval] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: pollInterval)
+                try? await Task.sleep(for: pollInterval, tolerance: pollInterval * Self.pollTolerance)
                 guard !Task.isCancelled, let self else { return }
+                // Only the folder pref and the folder itself are re-read every second (a new
+                // ⇧⌘5 folder is picked up at once); a pass runs on the poll only while a
+                // file is open in Markup, which may save in place and fire no folder event.
                 self.requestRefresh()
                 self.pruneMemory()
-                // A file open in Markup may be saved in place, which fires no folder event.
                 if self.edits.isActive { self.requestPass(fromPoll: true) }
+                self.pollsFinished += 1
             }
         }
     }
@@ -226,6 +251,7 @@ final class CopyCoordinator {
         configured = plan.configured
         let events = events
         let onEvent = Self.eventHandler(for: self, generation: gen)
+        let owner = trust.owner
         let result = await onIO { () -> Retarget in
             guard let target = plan.target else {
                 events.stop()
@@ -237,10 +263,11 @@ final class CopyCoordinator {
                 // A fallback that cannot be watched keeps the configured folder's error.
                 return Retarget(watched: nil, identity: nil, error: plan.error ?? error, files: [])
             }
-            // Listed after the watch is up, so nothing lands between the two unseen.
+            // Listed after the watch is up, so nothing lands between the two unseen. The seed
+            // needs no markers: what is already there is never copied.
             return Retarget(
                 watched: target, identity: FolderState.of(target).identity, error: plan.error,
-                files: Self.list(target) ?? [])
+                files: Self.list(target, owner: owner) ?? [])
         }
         guard running, gen == generation else { return }
         seeding = false
@@ -250,6 +277,7 @@ final class CopyCoordinator {
         watchError = result.error
         decider.seed(result.files)
         baseline = Set(result.files.map(FileKey.init))
+        known = Set(result.files.map(ListingKey.init))
         recorded = [:]
         requestQueuedPass()
     }
@@ -335,14 +363,20 @@ final class CopyCoordinator {
         let lastRescan = !fromPoll && rescanDeadlines.isEmpty
         let clock = clock
         let edits = edits
+        let known = known
+        let readMarker = readMarker
+        let trust = trust
         Task {
             let outcome = await onIO {
-                Self.scan(folder, decider: decider, edits: edits, copying: copying, lastRescan: lastRescan, now: clock())
+                Self.scan(
+                    folder, decider: decider, edits: edits, known: known, readMarker: readMarker, trust: trust,
+                    copying: copying, lastRescan: lastRescan, now: clock())
             }
             passInFlight = false
             if running, gen == generation {
                 finishPass(outcome, copying: copying, lastRescan: lastRescan)
             }
+            passesFinished += 1
             requestQueuedPass()
         }
     }
@@ -356,10 +390,18 @@ final class CopyCoordinator {
     }
 
     private func finishPass(_ outcome: PassOutcome, copying: Bool, lastRescan: Bool) {
-        guard case .listed(let observations) = outcome else {
+        guard case .listed(let listing) = outcome else {
             // The folder could not be listed: find out whether it is gone or locked.
             requestRefresh()
             return
+        }
+        known = listing.keys
+        let observations = listing.observations
+        if listing.foreign > 0 {
+            // A shared folder: another user's file is never read, copied or recorded.
+            let count = listing.foreign
+            let log = log
+            Task { await log.info("skipped \(count) new files not owned by this user") }
         }
         let now = clock()
         let copying = copying && isEnabled
@@ -388,6 +430,15 @@ final class CopyCoordinator {
             if observation.secondaryDisplay {
                 _ = decider.shouldCopy(file, now: now)
                 onExtraDisplay?(file)
+                continue
+            }
+            if let refusal = observation.refusal {
+                // Refused by FileTrust (another user's, a symlink swapped in, too large):
+                // handled, quietly. Never retried, never reported as a failed copy.
+                _ = decider.shouldCopy(file, now: now, editing: editing)
+                let ext = file.url.pathExtension.lowercased()
+                let log = log
+                Task { await log.info("not copied, \(refusal.rawValue) ext=\(ext)") }
                 continue
             }
             guard let png = observation.png else {
@@ -455,19 +506,42 @@ final class CopyCoordinator {
     }
 
     /// Lists, inspects, applies the multi-display rule and converts what may be copied.
-    nonisolated private static func scan(
-        _ folder: URL, decider: CopyDecider, edits: EditSession, copying: Bool, lastRescan: Bool, now: Date
+    /// Every file costs one `lstat`; the marker is read only for a file that could be copied
+    /// or is new since the last listing (`known`).
+    nonisolated static func scan(
+        _ folder: URL, decider: CopyDecider, edits: EditSession, known: Set<ListingKey>,
+        readMarker: (URL) -> Bool, trust: FileTrust.Policy = .standard, copying: Bool, lastRescan: Bool, now: Date
     ) -> PassOutcome {
-        guard let files = list(folder) else { return .unreadable }
-        var observations = files
-            .map { file in
-                // A file being edited stands alone: it is never part of a multi-display group.
-                let editing = edits.isEditing(file)
-                return Observation(
-                    file: file, editing: editing,
-                    isDisplay: !editing && file.isScreenshot && CaptureMarker.captureType(of: file.url) == "display")
+        guard let files = list(folder, owner: trust.owner) else { return .unreadable }
+        // Asked once: while nothing is open in Markup, no file needs the per-file check.
+        let editingAny = edits.isActive
+        var keys = Set<ListingKey>(minimumCapacity: files.count)
+        var foreign = 0
+        // Candidates: files whose marker is read. The rest can do nothing in this pass but
+        // be seeded while copying is paused, so they stay in listing order, after the
+        // candidates, and cost no sort.
+        var candidates: [FileObservation] = []
+        var rest: [FileObservation] = []
+        for listed in files {
+            let key = ListingKey(listed)
+            keys.insert(key)
+            // A file being edited stands alone: it is never part of a multi-display group.
+            let editing = editingAny && edits.isEditing(listed)
+            let fresh = CopyDecider.isFresh(listed, now: now)
+            let new = !known.contains(key)
+            guard fresh || editing || new else {
+                rest.append(FileObservation(file: listed, editing: false, isDisplay: false))
+                continue
             }
-            .sorted { ($0.file.created, $0.file.url.path) < ($1.file.created, $1.file.url.path) }
+            if fresh, new, !listed.isOwnedByUser { foreign += 1 }
+            let file = listed.readingMarker(readMarker)
+            candidates.append(FileObservation(
+                file: file, editing: editing,
+                isDisplay: !editing && file.isScreenshot && CaptureMarker.captureType(of: file.url) == "display"))
+        }
+        var observations = candidates.sorted {
+            ($0.file.created, $0.file.url.path) < ($1.file.created, $1.file.url.path)
+        } + rest
         // Of display captures created within 1 s of each other only the first (main display) is copied.
         var previousDisplay: Date?
         for index in observations.indices where observations[index].isDisplay {
@@ -483,7 +557,7 @@ final class CopyCoordinator {
         // to be the first display; after the last rescan it no longer waits.
         if !lastRescan {
             let unmarked = observations
-                .filter { !$0.file.isScreenshot && CopyDecider.isFresh($0.file, now: now) }
+                .filter { !$0.file.isScreenshot && $0.file.isOwnedByUser && CopyDecider.isFresh($0.file, now: now) }
                 .map(\.file.created)
             for index in observations.indices
             where observations[index].isDisplay && !observations[index].secondaryDisplay {
@@ -493,23 +567,27 @@ final class CopyCoordinator {
                 }
             }
         }
-        guard copying else { return .listed(observations) }
+        guard copying else { return .listed(Listing(observations: observations, keys: keys, foreign: foreign)) }
         for index in observations.indices
         where !observations[index].secondaryDisplay && !observations[index].deferred
             && decider.wouldCopy(observations[index].file, now: now, editing: observations[index].editing) {
             observations[index].converted = true
-            observations[index].png = PNGConverter.pngData(from: observations[index].file.url)
+            switch PNGConverter.convert(observations[index].file.url, policy: trust) {
+            case .png(let png): observations[index].png = png
+            case .refused(let refusal): observations[index].refusal = refusal
+            case .failed: break
+            }
         }
-        return .listed(observations)
+        return .listed(Listing(observations: observations, keys: keys, foreign: foreign))
     }
 
     /// Direct children; dot-files (capture temp names, spike F4) and non-images are skipped.
-    /// nil when the folder cannot be listed.
-    nonisolated private static func list(_ folder: URL) -> [CaptureFile]? {
+    /// `stat` only: no marker is read here. nil when the folder cannot be listed.
+    nonisolated private static func list(_ folder: URL, owner: uid_t) -> [CaptureFile]? {
         guard let names = try? FileManager.default.contentsOfDirectory(atPath: folder.path) else { return nil }
         return names
             .filter { !$0.hasPrefix(".") }
-            .compactMap { CaptureFile.inspect(folder.appendingPathComponent($0, isDirectory: false)) }
+            .compactMap { CaptureFile.stat(folder.appendingPathComponent($0, isDirectory: false), owner: owner) }
     }
 }
 
@@ -570,7 +648,20 @@ private struct FileKey: Hashable, Sendable {
     }
 }
 
-private struct Observation: Sendable {
+/// One file version as a pass lists it, by name (the folder is fixed for a listing).
+struct ListingKey: Hashable, Sendable {
+    let name: String
+    let resourceID: Data
+    let modified: Date
+
+    init(_ file: CaptureFile) {
+        name = file.url.lastPathComponent
+        resourceID = file.resourceID
+        modified = file.modified
+    }
+}
+
+struct FileObservation: Sendable {
     let file: CaptureFile
     /// In an edit session: exempt from the copy window's birth-time rule.
     let editing: Bool
@@ -582,6 +673,8 @@ private struct Observation: Sendable {
     /// Conversion was attempted in this pass.
     var converted = false
     var png: Data?
+    /// `FileTrust` refused the file: it is skipped, not retried and not reported.
+    var refusal: FileTrust.Refusal?
 
     init(file: CaptureFile, editing: Bool, isDisplay: Bool) {
         self.file = file
@@ -590,8 +683,16 @@ private struct Observation: Sendable {
     }
 }
 
-private enum PassOutcome: Sendable {
-    case listed([Observation])
+struct Listing: Sendable {
+    let observations: [FileObservation]
+    /// Every file version listed, for the next pass's `known`.
+    let keys: Set<ListingKey>
+    /// Fresh files new in this listing that another user owns.
+    let foreign: Int
+}
+
+enum PassOutcome: Sendable {
+    case listed(Listing)
     case unreadable
 }
 

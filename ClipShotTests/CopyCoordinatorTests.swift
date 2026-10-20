@@ -35,7 +35,9 @@ final class CoordinatorHarness {
     /// `sleepUntil`: how rescans wait; a test can release them by hand.
     init(
         createFolder: Bool = true, createDesktop: Bool = false,
-        sleepUntil: (@Sendable (ContinuousClock.Instant) async throws -> Void)? = nil
+        sleepUntil: (@Sendable (ContinuousClock.Instant) async throws -> Void)? = nil,
+        readMarker: @escaping @Sendable (URL) -> Bool = { CaptureMarker.isScreenshot($0) },
+        trust: FileTrust.Policy = .standard
     ) throws {
         let fm = FileManager.default
         home = try Fixtures.makeDir()
@@ -51,7 +53,8 @@ final class CoordinatorHarness {
         coordinator = CopyCoordinator(
             settings: settings, events: DirectoryEventSource(), pasteboard: pasteboard, ledger: ledger,
             edits: edits, clock: { Date() }, pollInterval: .milliseconds(100), home: home, log: try RT.testLog(),
-            sleepUntil: sleepUntil ?? { try await Task.sleep(until: $0, clock: .continuous) })
+            sleepUntil: sleepUntil ?? { try await Task.sleep(until: $0, clock: .continuous) },
+            readMarker: readMarker, trust: trust)
         coordinator.onFailure = { [weak self] _ in self?.failures += 1 }
     }
 

@@ -190,7 +190,8 @@ What it will and will not touch:
   above it.
 - **Only real screenshots.** A file counts when macOS marked it as a screenshot
   when it saved it, not by its name, which anyone can give a file. Downloaded
-  files and screen recordings are never touched.
+  files, screen recordings and files another user put into a shared folder are
+  never touched, and never copied either.
 - **Only to the Trash.** Nothing is ever deleted. On a volume without a Trash,
   cleanup turns itself off for that folder and tells you.
 

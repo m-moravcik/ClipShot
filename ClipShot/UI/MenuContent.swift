@@ -32,6 +32,8 @@ struct MenuContent: View {
         // Intrinsic height, not the tallest state the popover has shown.
         .fixedSize(horizontal: false, vertical: true)
         .background(.ultraThinMaterial)
+        // The window outlives a closed popover, so its views do not say when it opens.
+        .background(WindowVisibilityReader { model.popoverVisibilityChanged($0) })
     }
 
     private var main: some View {
@@ -586,6 +588,53 @@ private struct MenuRow: View {
         .opacity(isEnabled ? 1 : 0.4)
         .onHover { isHovering = $0 }
         .accessibilityLabel(Text(label))
+    }
+}
+
+/// Reports whether the window this view sits in is on screen. A MenuBarExtra's window is
+/// ordered out, not torn down, when the popover closes, so `onAppear` and `onDisappear`
+/// cannot tell an open popover from a closed one; the window's occlusion state can.
+struct WindowVisibilityReader: NSViewRepresentable {
+    let changed: @MainActor (Bool) -> Void
+
+    func makeNSView(context: Context) -> ReaderView {
+        let view = ReaderView()
+        view.changed = changed
+        return view
+    }
+
+    func updateNSView(_ view: ReaderView, context: Context) {
+        view.changed = changed
+    }
+
+    final class ReaderView: NSView {
+        var changed: @MainActor (Bool) -> Void = { _ in }
+        private var observer: NSObjectProtocol?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if let observer { NotificationCenter.default.removeObserver(observer) }
+            observer = nil
+            if let window {
+                observer = NotificationCenter.default.addObserver(
+                    forName: NSWindow.didChangeOcclusionStateNotification, object: window, queue: .main
+                ) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.report() }
+                }
+            }
+            report()
+        }
+
+        private func report() {
+            changed(window.map { $0.isVisible && $0.occlusionState.contains(.visible) } ?? false)
+        }
+
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+        override func isAccessibilityElement() -> Bool { false }
+
+        isolated deinit {
+            if let observer { NotificationCenter.default.removeObserver(observer) }
+        }
     }
 }
 

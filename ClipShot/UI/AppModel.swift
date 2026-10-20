@@ -13,6 +13,8 @@ import Observation
 final class AppModel {
     static let markupTipAfterCopies = 3
     static let previewDebounce: Duration = .milliseconds(300)
+    /// How late the status loop may wake, so macOS can coalesce it with other wake-ups.
+    static let statusTolerance = 0.2
     nonisolated static let defaultUndoLifetime: Duration = .seconds(5)
 
     let preferences: Preferences
@@ -172,6 +174,9 @@ final class AppModel {
     @ObservationIgnored private var flash = CopiedFlash()
     @ObservationIgnored private var flashTimer: (any FlashTimer)?
     @ObservationIgnored private var statusTask: Task<Void, Never>?
+    /// The popover is on screen. Its window stays alive while closed, so only then does the
+    /// status loop re-read the card and the strip (P2).
+    @ObservationIgnored private(set) var popoverVisible = false
     @ObservationIgnored private var statusInFlight = false
     @ObservationIgnored private var statusQueued = false
     @ObservationIgnored private var previewTask: Task<Void, Never>?
@@ -262,9 +267,10 @@ final class AppModel {
                 // Not held across the sleep, so a released model ends the loop.
                 guard let model = self else { return }
                 model.refreshStatus()
-                // A screenshot deleted or renamed in Finder leaves the card and the strip.
-                model.refreshRecent()
-                try? await Task.sleep(for: statusInterval)
+                // A screenshot deleted or renamed in Finder leaves the card and the strip;
+                // with the popover closed, that waits until it opens.
+                if model.popoverVisible { model.refreshRecent() }
+                try? await Task.sleep(for: statusInterval, tolerance: statusInterval * Self.statusTolerance)
             }
         }
         scheduler.start()
@@ -316,12 +322,25 @@ final class AppModel {
 
     // MARK: - Copy
 
+    /// The popover opened or closed. Opening re-reads what it shows: a screenshot deleted in
+    /// Finder meanwhile leaves the card and the strip.
+    func popoverVisibilityChanged(_ visible: Bool) {
+        guard visible != popoverVisible else { return }
+        popoverVisible = visible
+        if visible {
+            refreshRecent()
+            refreshStatus()
+        }
+    }
+
+    // Observed properties are only assigned when they change: every assignment notifies,
+    // and the popover's window, alive while closed, would lay itself out again (P2).
     private func coordinatorChanged() {
         let copiedChanged = lastCopied != coordinator.lastCopied
-        lastCopied = coordinator.lastCopied
+        if copiedChanged { lastCopied = coordinator.lastCopied }
         watchError = coordinator.watchError
         let folderChanged = watchedFolder != coordinator.watchedFolder
-        watchedFolder = coordinator.watchedFolder
+        if folderChanged { watchedFolder = coordinator.watchedFolder }
         recomputeAttentions()
         if copiedChanged || folderChanged { refreshRecent() }
         if folderChanged {
@@ -503,11 +522,15 @@ final class AppModel {
     /// attention only when `file` is the one that failed.
     @discardableResult
     func copyAgain(file: CaptureFile) async -> Bool {
-        let png = await Task.detached(priority: .userInitiated) { PNGConverter.pngData(from: file.url) }.value
+        let outcome = await Task.detached(priority: .userInitiated) { PNGConverter.convert(file.url) }.value
         let ext = file.url.pathExtension.lowercased()
         let log = log
-        guard let png, pasteboard.writePNG(png) else {
-            Task { await log.error("copy again failed ext=\(ext)") }
+        guard case .png(let png) = outcome, pasteboard.writePNG(png) else {
+            if case .refused(let refusal) = outcome {
+                Task { await log.info("copy again refused, \(refusal.rawValue) ext=\(ext)") }
+            } else {
+                Task { await log.error("copy again failed ext=\(ext)") }
+            }
             return false
         }
         Task { await log.info("copied again ext=\(ext)") }
@@ -831,9 +854,11 @@ final class AppModel {
             }.value
             statusInFlight = false
             if isWatching {
-                configuredFolder = status.folder
-                destination = status.destination
-                retentionRefusal = status.refusal
+                // Compared first: every assignment notifies, and the closed popover's views
+                // would lay out again every 5 s (P2).
+                if configuredFolder != status.folder { configuredFolder = status.folder }
+                if destination != status.destination { destination = status.destination }
+                if retentionRefusal != status.refusal { retentionRefusal = status.refusal }
                 if showThumbnail != status.showThumbnail { showThumbnail = status.showThumbnail }
                 if captureFormat != status.format { captureFormat = status.format }
                 if appliesFromNextScreenshot, !screencaptureUIRunning() { appliesFromNextScreenshot = false }
