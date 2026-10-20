@@ -4,6 +4,7 @@
 #   - removeItem / unlink( anywhere under ClipShot/ (user files only go through trashItem)
 #   - Text("...") literals outside #Preview blocks (user-facing strings must be localised keys)
 #   - the em dash (U+2014) in user-facing resources and docs
+#   - Sparkle's version, revision pin and release-tool hashes out of step
 
 set -uo pipefail
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" || exit 1
@@ -37,6 +38,34 @@ for path in glob.glob('ClipShot/**/*.swift', recursive=True):
 if bad:
     print('\n'.join(bad), file=sys.stderr)
     print('guard failed: Text("...") literal outside #Preview', file=sys.stderr)
+    sys.exit(1)
+PY
+
+# Sparkle: project.yml's exactVersion, the committed Package.resolved, the generated
+# project's copy and the pinned release tools (scripts/sparkle-tools.sh) all name
+# the same release, so a version bump cannot leave the revision pin or the tool
+# hashes behind.
+python3 - <<'PY' || fail=1
+import json, os, re, sys
+errors = []
+spec = open('project.yml', encoding='utf-8').read()
+m = re.search(r'Sparkle:\n(?:\s+#.*\n|\s+url:.*\n)*\s+exactVersion:\s*([0-9.]+)', spec)
+version = m.group(1) if m else None
+tools = re.search(r'^SPARKLE_TOOLS_VERSION="([0-9.]+)"', open('scripts/sparkle-tools.sh', encoding='utf-8').read(), re.M)
+def pin(path):
+    pins = [p for p in json.load(open(path, encoding='utf-8'))['pins'] if p['identity'] == 'sparkle']
+    return (pins[0]['state'].get('version'), pins[0]['state'].get('revision')) if pins else (None, None)
+committed = pin('Package.resolved') if os.path.exists('Package.resolved') else (None, None)
+if version is None: errors.append('project.yml: no Sparkle exactVersion')
+if committed[0] != version: errors.append(f'Package.resolved pins Sparkle {committed[0]}, project.yml says {version}')
+if not re.fullmatch(r'[0-9a-f]{40}', committed[1] or ''): errors.append('Package.resolved: no Sparkle revision')
+if not tools or tools.group(1) != version: errors.append(f'scripts/sparkle-tools.sh pins tools of {tools and tools.group(1)}, project.yml says {version}')
+generated = 'ClipShot.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved'
+if os.path.exists(generated) and pin(generated) != committed:
+    errors.append(f'{generated} pins {pin(generated)}, the committed Package.resolved {committed}')
+if errors:
+    print('\n'.join(errors), file=sys.stderr)
+    print('guard failed: Sparkle pins disagree', file=sys.stderr)
     sys.exit(1)
 PY
 

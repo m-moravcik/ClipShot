@@ -5,6 +5,11 @@ options:
     macOS: "26.0"
   createIntermediateGroups: true
   developmentLanguage: en
+  # The committed Package.resolved pins Sparkle's revision (the tag alone could be
+  # moved upstream); every generated project gets it, and release builds resolve
+  # only from it (scripts/release-signed.sh). `make guards` keeps it in step with
+  # the exactVersion below.
+  postGenCommand: mkdir -p ClipShot.xcodeproj/project.xcworkspace/xcshareddata/swiftpm && cp Package.resolved ClipShot.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 
 settings:
   base:
@@ -12,7 +17,7 @@ settings:
     SWIFT_STRICT_CONCURRENCY: complete
     SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
     MACOSX_DEPLOYMENT_TARGET: "26.0"
-    MARKETING_VERSION: "1.0.0"
+    MARKETING_VERSION: "0.9.0"
     CURRENT_PROJECT_VERSION: "1"
     ARCHS: "$(ARCHS_STANDARD)"
     DEVELOPMENT_TEAM: ""

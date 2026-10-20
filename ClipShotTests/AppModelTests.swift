@@ -151,7 +151,7 @@ final class ModelHarness {
             },
             setLoginItem: { _ in true },
             log: Log(fileURL: logFile), logFile: logFile,
-            appVersion: "1.0.0 (1)", osVersion: "Version 26.0 (Build 25A1)")
+            appVersion: "0.9.0 (1)", osVersion: "Version 26.0 (Build 25A1)")
         deps.edits = edits
         deps.previewLifetime = previewLifetime
         deps.undoLifetime = undoLifetime
@@ -349,7 +349,7 @@ struct AppModelTests {
         let body = try #require(parts.queryItems?.first { $0.name == "body" }?.value)
         #expect(title.contains("could not copy"))
         #expect(body.contains("Version 26.0 (Build 25A1)"))
-        #expect(body.contains("1.0.0 (1)"))
+        #expect(body.contains("0.9.0 (1)"))
         #expect(body.contains("copied ext=png"))
         #expect(!body.contains("/Users/"))
         #expect(!body.contains("somebody"))

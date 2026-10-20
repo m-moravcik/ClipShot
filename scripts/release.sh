@@ -12,9 +12,11 @@
 # the notes are release-notes/<version>.md (the GitHub release body and the text
 # in Sparkle's update window). Bump them on main and commit before running this.
 #
-# The release is interactive. sign_update reads the shared EdDSA key from the
-# login keychain and macOS asks for access; signing with the Developer ID key may
-# ask for the keychain password too. Answer them on the Mac. The appcast is
+# The release is interactive. Sparkle's sign_update and generate_keys read the
+# shared EdDSA key from the login keychain and macOS asks for access; signing with
+# the Developer ID key may ask for the keychain password too. Both Sparkle tools
+# are checked against pinned SHA-256 hashes (scripts/sparkle-tools.sh) before they
+# run, and the key they find must be the SUPublicEDKey the app ships. Answer them on the Mac. The appcast is
 # rehearsed before anything is public, so those prompts, and any appcast or key
 # problem, come up while nothing is out yet.
 #
@@ -35,6 +37,9 @@ cd "$REPO_ROOT"
 
 die() { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 step() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
+
+# shellcheck source=scripts/sparkle-tools.sh
+. "$REPO_ROOT/scripts/sparkle-tools.sh"
 
 RESUME=""
 case "${1:-}" in
@@ -123,18 +128,21 @@ on_exit() {
 }
 trap on_exit EXIT
 
-# sign_update ships inside Sparkle's SwiftPM artifact. A fresh checkout (a resume
-# on another Mac) resolves the package first; that downloads, it builds nothing.
+# sign_update and generate_keys ship inside Sparkle's SwiftPM artifact. A fresh
+# checkout (a resume on another Mac) resolves the package first, only at the
+# revision the committed Package.resolved pins; that downloads, it builds
+# nothing. Either way each binary must match its pinned hash before it runs.
 SIGN_UPDATE=""
-find_sign_update() {
-  SIGN_UPDATE="$(find "$DERIVED_DATA/SourcePackages/artifacts" -name sign_update -type f -perm +111 -print -quit 2>/dev/null || true)"
-  if [ -z "$SIGN_UPDATE" ]; then
+GENERATE_KEYS=""
+find_sparkle_tools() {
+  if [ -z "$(find "$DERIVED_DATA/SourcePackages/artifacts" -name sign_update -type f -print -quit 2>/dev/null || true)" ]; then
     xcodegen generate >/dev/null
     xcodebuild -resolvePackageDependencies -project ClipShot.xcodeproj -scheme ClipShot \
-      -derivedDataPath "$DERIVED_DATA" >/dev/null
-    SIGN_UPDATE="$(find "$DERIVED_DATA/SourcePackages/artifacts" -name sign_update -type f -perm +111 -print -quit 2>/dev/null || true)"
+      -derivedDataPath "$DERIVED_DATA" -onlyUsePackageVersionsFromResolvedFile \
+      -disableAutomaticPackageResolution >/dev/null
   fi
-  [ -n "$SIGN_UPDATE" ] || die "sign_update not found under $DERIVED_DATA"
+  SIGN_UPDATE="$(sparkle_tool sign_update "$DERIVED_DATA")"
+  GENERATE_KEYS="$(sparkle_tool generate_keys "$DERIVED_DATA")"
 }
 
 # Everything a published app must be, checked on one bundle; refuses on any
@@ -152,6 +160,10 @@ verify_app() {
   [ "$value" = "$VERSION" ] || die "$app is version '$value', expected $VERSION"
   value="$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$plist" 2>/dev/null || true)"
   [ "$value" = "$BUILD" ] || die "$app is build '$value', expected $BUILD"
+  # The key installed copies will trust from this version on: the one checked
+  # against the signing key in the preflight.
+  value="$(/usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" "$plist" 2>/dev/null || true)"
+  [ "$value" = "$(shipped_public_key)" ] || die "$app ships SUPublicEDKey '$value', expected $(shipped_public_key)"
   archs="$(lipo -archs "$app/Contents/MacOS/ClipShot" 2>&1 || true)"
   [ "$archs" = "x86_64 arm64" ] || die "$app is not universal: lipo -archs says '$archs'"
   info="$(codesign -dv --verbose=4 "$app" 2>&1 || true)"
@@ -164,7 +176,7 @@ verify_app() {
   [[ "$assessment" == *"source=Notarized Developer ID"* ]] \
     || die "Gatekeeper does not see $app as notarized Developer ID"
   xcrun stapler validate "$app" || die "no valid stapled ticket on $app"
-  echo "verified: $BUNDLE_ID $VERSION ($BUILD), $archs, team $TEAM_ID, no get-task-allow, notarized and stapled"
+  echo "verified: $BUNDLE_ID $VERSION ($BUILD), $archs, team $TEAM_ID, EdDSA key, no get-task-allow, notarized and stapled"
 }
 
 # A release archive: unpacked into a temp folder, its top level must be exactly
@@ -246,7 +258,10 @@ else
   PUBLIC_STATE="GitHub release $TAG published (resumed)"
 fi
 
-find_sign_update
+find_sparkle_tools
+# Before anything is built or public: the key that will sign is the key every
+# installed copy checks updates against.
+check_signing_key
 
 if [ -z "$RESUME" ]; then
   # -------------------------------------------------------------------------
@@ -256,7 +271,7 @@ if [ -z "$RESUME" ]; then
 
   NOTARY_PROFILE="$NOTARY_PROFILE" scripts/release-signed.sh
   [ -f "$ZIP" ] || die "release-signed.sh produced no $ZIP"
-  find_sign_update
+  find_sparkle_tools
 
   # -------------------------------------------------------------------------
   # 3. Verify what will be published: the built app, and the app inside the ZIP.
@@ -271,7 +286,8 @@ if [ -z "$RESUME" ]; then
   # -------------------------------------------------------------------------
   # 4. Rehearse the appcast on the local ZIP. The asset GitHub serves later is
   #    compared byte for byte with this ZIP, so a feed that builds and verifies
-  #    here will build and verify then. Keychain prompts come up now.
+  #    here will build and verify then. Keychain prompts come up now, and
+  #    make-appcast.sh checks the signing key against SUPublicEDKey again.
   # -------------------------------------------------------------------------
   step "Rehearse the appcast"
 

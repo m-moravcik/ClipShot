@@ -157,6 +157,10 @@ BUILD_ARGS=(
   -configuration Release
   -destination 'generic/platform=macOS'
   -derivedDataPath "$DERIVED_DATA"
+  # Sparkle only at the revision the committed Package.resolved pins (xcodegen's
+  # postGenCommand puts it in the project): a moved upstream tag is not followed.
+  -onlyUsePackageVersionsFromResolvedFile
+  -disableAutomaticPackageResolution
   DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM"
   CODE_SIGN_STYLE=Manual
   CODE_SIGN_IDENTITY="$SIGN_IDENTITY"

@@ -217,10 +217,24 @@ popover offers a row to restart into a downloaded update.
 
 ### Shared EdDSA key: accepted risk
 
-ClipShot, VibeRes and Eject Guard sign updates with the same EdDSA key. The
-private key is in the login keychain of the release Mac and backed up; it never
-leaves it. This is an accepted risk, chosen on purpose: one key to guard and back
-up instead of three.
+ClipShot, VibeRes and Eject Guard sign updates with the same EdDSA key. This is
+an accepted risk, chosen on purpose: one key to guard and back up instead of
+three.
+
+Where the key is and what reads it: the private key is in the login keychain of
+the release Mac, with an offline backup. During a release two Sparkle tools from
+the SwiftPM artifact read it, and macOS asks before each does: `sign_update`
+signs and verifies the archive and the feed, and `generate_keys -p` prints the
+key's public half, which must equal the `SUPublicEDKey` the app ships or the
+release stops. With `SPARKLE_EDDSA_PRIVATE_KEY_PATH` set, `sign_update` reads the
+key from that file instead (then the key also sits in a plain file), and the
+check signs a throwaway file and verifies it against `SUPublicEDKey` with
+CryptoKit. Both tools are ad-hoc signed upstream, so their signature proves
+nothing. Instead the committed `Package.resolved` pins Sparkle's revision,
+SwiftPM checks the artifact against the checksum in Sparkle's `Package.swift`,
+and `scripts/sparkle-tools.sh` pins the SHA-256 of both binaries: a release
+refuses to run a tool that does not match. `make guards` keeps the version in
+`project.yml`, `Package.resolved` and the tool hashes in step.
 
 What the key protects, read from Sparkle 2.10.0's source
 (`build/SourcePackages/checkouts/Sparkle` after a build):
@@ -262,8 +276,9 @@ scripts/release.sh
    release absent, notes present, repository public, tap working copy clean,
    `CURRENT_PROJECT_VERSION` above the highest `sparkle:version` already in
    `appcast.xml` (Sparkle offers an update only for a higher build number),
-   `make test l10n guards`, the notarytool profile works. An inherited
-   `SKIP_NOTARIZE` is cleared.
+   `make test l10n guards`, the notarytool profile works, Sparkle's tools match
+   their pinned hashes, and the signing key's public half is the shipped
+   `SUPublicEDKey`. An inherited `SKIP_NOTARIZE` is cleared.
 2. `scripts/release-signed.sh`: Release build with the Developer ID identity,
    Sparkle's nested helpers re-signed, every signable item checked for Developer
    ID, hardened runtime, timestamp and no debug entitlements, universal binary,
@@ -271,12 +286,12 @@ scripts/release.sh
 3. Verify what will be published, for the built app and the app inside the
    ZIP: bundle id `sk.moravcik.ClipShot`, version and build number exactly those
    in `project.yml`, `lipo -archs` is `x86_64 arm64`, signed by the expected
-   team (`TEAM_ID`), no `get-task-allow`, `spctl -a -vv` says Notarized
+   team (`TEAM_ID`), `SUPublicEDKey` as in `project.yml`, no `get-task-allow`, `spctl -a -vv` says Notarized
    Developer ID and `stapler validate` passes. The ZIP's top level must be
    exactly `ClipShot.app`: Sparkle installs any bundle in the archive that has
    the app's name or bundle id, so nothing else may be in it.
 4. Rehearse the appcast on the local ZIP into a temporary feed, with both
-   signatures verified. Any appcast or key problem, and the keychain prompt,
+   signatures verified and the signing key checked again. Any appcast or key problem, and the keychain prompt,
    comes up here, while nothing is public.
 5. Commit "Release X" (empty), tag `vX`, push both atomically.
 6. `gh release create` with the ZIP and the notes file.
@@ -291,8 +306,9 @@ scripts/release.sh
 9. Update version and sha256 in the tap's cask (the local tap clone, `TAP_DIR`),
    `brew audit --cask --strict --online`, `brew style`, push.
 
-It is interactive: `sign_update` asks for access to the EdDSA key in the
-keychain (set `SPARKLE_EDDSA_PRIVATE_KEY_PATH` to use a key file instead). Nothing
+It is interactive: `sign_update` and `generate_keys` ask for access to the EdDSA
+key in the keychain (set `SPARKLE_EDDSA_PRIVATE_KEY_PATH` to use a key file
+instead). Nothing
 public is rolled back. If tagging or the push fails, the script prints the
 commands that undo the local release commit (and the tag, when it was made). If a step after the tag fails, it
 says what is already public and how to finish:
@@ -336,7 +352,9 @@ Casks/              reference copy of the Homebrew cask
 
 Swift 6 language mode, strict concurrency complete, warnings as errors, Debug and
 Release. `project.yml` is the source of truth; `ClipShot.xcodeproj` is generated
-by XcodeGen and not committed. The only dependency is Sparkle.
+by XcodeGen and not committed; `Package.resolved` at the root is, and XcodeGen's
+`postGenCommand` copies it into every generated project. The only dependency is
+Sparkle.
 
 ## Tests
 

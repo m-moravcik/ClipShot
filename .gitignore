@@ -10,7 +10,7 @@ DerivedData/
 xcuserdata/
 .build/
 .swiftpm/
-Package.resolved
+# Package.resolved at the root is committed: it pins Sparkle's revision.
 .release.env
 artifacts/
 *.app.zip

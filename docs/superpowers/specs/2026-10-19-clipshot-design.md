@@ -105,6 +105,7 @@ UI. It does not capture anything itself.
 - **Languages:** en, sk, cs, de, es, fr (es and fr requested by the owner
   2026-10-19; the same set is being added to VibeRes and Eject Guard).
 - **Version:** first public release **1.0.0** (feature complete, not a beta).
+  Superseded by Addendum B: the first public release is **0.9.0**.
 - **Updates:** Sparkle 2.10.0 pinned, same EdDSA key as the siblings, feed
   `https://raw.githubusercontent.com/m-moravcik/ClipShot/main/appcast.xml`,
   daily check, `UpdaterGate` (ad-hoc builds never self-update), in-popover
@@ -448,3 +449,8 @@ a fact: one sentence with an inline picker ("Move screenshots older than
 [30 days v] to the Trash", same presets and custom value as Settings), the
 switch next to it, and the live preview below it updates with the chosen
 period. The popover row (above) uses the same sentence shape.
+
+## Addendum B (2026-10-20): owner decisions before the first release
+
+- **Version:** the first public release is **0.9.0**; screen recordings come
+  in 1.0 (they were "v1.1" above).

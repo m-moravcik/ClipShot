@@ -40,14 +40,18 @@ REPO="m-moravcik/ClipShot"
 
 die() { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 
+# shellcheck source=scripts/sparkle-tools.sh
+. "$REPO_ROOT/scripts/sparkle-tools.sh"
+
 [ -f "$ZIP" ] || die "no such archive: $ZIP"
 # sign_update recognises a feed by its extension.
 case "$OUT" in *.xml) : ;; *) die "the output must end in .xml: $OUT" ;; esac
 
-# Sparkle ships its tools inside the SwiftPM artifact bundle, so there is no
-# separate download to pin or checksum.
-SIGN_UPDATE="$(find "$DERIVED_DATA/SourcePackages/artifacts" -name sign_update -type f -perm +111 -print -quit 2>/dev/null || true)"
-[ -n "$SIGN_UPDATE" ] || die "sign_update not found under $DERIVED_DATA; build the app first (scripts/release-signed.sh)"
+# Sparkle ships its tools inside the SwiftPM artifact bundle; each must match its
+# pinned hash (scripts/sparkle-tools.sh) before it sees the key. Build the app
+# first (scripts/release-signed.sh) so the artifact is there.
+SIGN_UPDATE="$(sparkle_tool sign_update "$DERIVED_DATA")"
+GENERATE_KEYS="$(sparkle_tool generate_keys "$DERIVED_DATA")"
 
 # Empty when the key comes from the keychain. Always expanded as
 # ${SIGN_ARGS[@]+"${SIGN_ARGS[@]}"}: macOS's /bin/bash is 3.2, where "${SIGN_ARGS[@]}"
@@ -57,6 +61,9 @@ if [ -n "${SPARKLE_EDDSA_PRIVATE_KEY_PATH:-}" ]; then
   [ -f "$SPARKLE_EDDSA_PRIVATE_KEY_PATH" ] || die "key file missing: $SPARKLE_EDDSA_PRIVATE_KEY_PATH"
   SIGN_ARGS=(--ed-key-file "$SPARKLE_EDDSA_PRIVATE_KEY_PATH")
 fi
+
+# Nothing is signed with a key installed copies would reject.
+check_signing_key
 
 VERSION="$(awk -F'"' '/MARKETING_VERSION:/ {print $2; exit}' project.yml)"
 BUILD="$(awk -F'"' '/CURRENT_PROJECT_VERSION:/ {print $2; exit}' project.yml)"

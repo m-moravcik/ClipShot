@@ -68,10 +68,13 @@ struct SparkleConfigurationTests {
         #expect(url.scheme == "https", "an http feed would let anyone serve updates")
     }
 
-    @Test("A real EdDSA public key is configured")
+    @Test("The EdDSA public key is the one every installed copy trusts")
     func publicKey() throws {
         let key = try #require(plist["SUPublicEDKey"] as? String)
-        #expect(!key.contains("PLACEHOLDER"), "the generate_keys placeholder is still in place")
+        // The key shared with VibeRes and Eject Guard (DEVELOPMENT.md, Updates). A
+        // change here ships copies that trust someone else's key from then on, so it
+        // has to be deliberate: this line and project.yml change together.
+        #expect(key == "ciayVzrfVUd/AHaU8EB8T7xsMfathzO3rKMGxHK1xEk=")
         // Ed25519 public keys are 32 bytes, which is 44 base64 characters.
         #expect(Data(base64Encoded: key)?.count == 32, "not a 32-byte Ed25519 public key")
     }
