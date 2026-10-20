@@ -34,10 +34,34 @@ enum Copy {
             comment: "Popover status row under Copying on, Preview mode ClipShot or None: the copy lands the moment the screenshot is taken")
         static let pausedDetail = LocalizedStringResource(
             "New screenshots are not copied", comment: "Popover status row, under Paused: the Copy to clipboard toggle is off")
+        static let pausedByFocus = LocalizedStringResource(
+            "New screenshots are not copied while a Focus is on",
+            comment: "Popover status row, under Paused: a Focus filter turned Copy to clipboard off; it comes back on when that Focus ends. Focus as macOS names it")
         static func attentionDetail(_ count: Int) -> LocalizedStringResource {
             LocalizedStringResource(
                 "\(count) issues to fix", comment: "Popover status row, under Needs attention: how many attention rows follow")
         }
+    }
+
+    // MARK: - Shortcuts (Addendum C)
+
+    /// What the Shortcuts actions say. Their titles, descriptions and phrases are literals in
+    /// `Intents/`: the App Intents metadata is read from the source at build time.
+    enum Shortcuts {
+        static let notSetUp = LocalizedStringResource(
+            "Finish setting up ClipShot first: open it from the menu bar.",
+            comment: "Shortcuts action refused: the welcome tour has not been completed yet")
+        static let noScreenshots = LocalizedStringResource(
+            "No screenshots yet. ClipShot finds the ones taken while it runs.",
+            comment: "Shortcuts action: there is no screenshot ClipShot tracks in the screenshot folder")
+        static let retentionOff = LocalizedStringResource(
+            "Retention is off. Turn it on in ClipShot’s settings to clean up old screenshots.",
+            comment: "Clean Up Old Screenshots Now refused: retention (cleanup) is off")
+        static let retentionNotConfirmed = LocalizedStringResource(
+            "Retention is paused until you check what it would move in ClipShot’s settings.",
+            comment: "Clean Up Old Screenshots Now refused: the screenshot folder changed and its preview was not confirmed")
+        static let paused = LocalizedStringResource(
+            "Copying paused", comment: "Shortcuts: Pause Copying ran; Copy to clipboard is off")
     }
 
     // MARK: - Preview mode macOS: copying waits

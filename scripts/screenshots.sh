@@ -19,7 +19,8 @@
 # least the Form's standard 20 pt under its last section; the run fails (after writing every
 # picture) when it does not. `all` is how the six real languages are checked together.
 #
-# Writes, in -light and -dark: popover, popover-one, popover-paused, popover-attention,
+# Writes, in -light and -dark: popover, popover-one, popover-paused, popover-paused-focus
+# (paused by a Focus filter), popover-attention,
 # popover-full (every row at once, Undo included: past the height cap, so the middle
 # scrolls), attention-* (one per
 # attention row), settings-{general,capture,retention,about}, settings-general-replayed,

@@ -157,16 +157,21 @@ struct HeaderStatus: Equatable {
         /// Preview mode macOS: copying waits, with Copy at once next to it (A1).
         case thumbnailWait
         case paused
+        /// Paused by a Focus filter (Addendum C): says why.
+        case pausedByFocus
         case issues(Int)
     }
 
     let state: StatusIconState
     let detail: Detail
 
-    static func of(state: StatusIconState, previewMode: PreviewMode, showsThumbnailWait: Bool, attentions: Int) -> HeaderStatus {
+    static func of(
+        state: StatusIconState, previewMode: PreviewMode, showsThumbnailWait: Bool, attentions: Int,
+        pausedByFocus: Bool = false
+    ) -> HeaderStatus {
         switch state {
         case .attention: HeaderStatus(state: .attention, detail: .issues(attentions))
-        case .paused: HeaderStatus(state: .paused, detail: .paused)
+        case .paused: HeaderStatus(state: .paused, detail: pausedByFocus ? .pausedByFocus : .paused)
         case .idle, .copied:
             HeaderStatus(
                 state: .idle,
@@ -205,6 +210,7 @@ struct HeaderStatus: Equatable {
         case .pasteAfterThumbnail: Copy.Header.pasteAfterThumbnail
         case .thumbnailWait: Copy.ThumbnailWait.hint
         case .paused: Copy.Header.pausedDetail
+        case .pausedByFocus: Copy.Header.pausedByFocus
         case .issues(let count): Copy.Header.attentionDetail(count)
         }
     }
@@ -220,7 +226,8 @@ private struct PopoverHeader: View {
     var body: some View {
         let status = HeaderStatus.of(
             state: model.headerState, previewMode: model.previewMode,
-            showsThumbnailWait: model.showsThumbnailWait, attentions: model.attentions.count)
+            showsThumbnailWait: model.showsThumbnailWait, attentions: model.attentions.count,
+            pausedByFocus: model.pausedByFocus)
         HStack(alignment: .firstTextBaseline, spacing: Design.Spacing.m) {
             Image(systemName: status.symbol)
                 .font(.system(size: 13))
@@ -371,8 +378,11 @@ private struct CopyToggleRow: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        @Bindable var preferences = model.preferences
-        SwitchRow(title: Copy.copyToClipboard, isOn: $preferences.copyEnabled, icon: "doc.on.clipboard")
+        // Through the model: the switch is the user's own, so it ends a Focus's pause.
+        SwitchRow(
+            title: Copy.copyToClipboard,
+            isOn: Binding(get: { model.preferences.copyEnabled }, set: { model.setCopying($0) }),
+            icon: "doc.on.clipboard")
     }
 }
 
@@ -636,7 +646,7 @@ struct WindowVisibilityReader: NSViewRepresentable {
     let changed: @MainActor (_ open: Bool, _ fresh: Bool) -> Void
 
     /// Open: ordered in, and either key (the click that opened it) or unoccluded.
-    static func isOpen(visible: Bool, key: Bool, unoccluded: Bool) -> Bool {
+    nonisolated static func isOpen(visible: Bool, key: Bool, unoccluded: Bool) -> Bool {
         visible && (key || unoccluded)
     }
 

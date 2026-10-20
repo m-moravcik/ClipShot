@@ -77,6 +77,7 @@ enum ScreenshotHarness {
 
             try renderMain(shots, scratch: scratch, icon: icon)
             try renderPaused(shots, scratch: scratch)
+            try renderPausedByFocus(shots, scratch: scratch)
             try renderOne(shots, scratch: scratch)
             try renderAttentions(shots, scratch: scratch)
             try renderFull(shots, scratch: scratch)
@@ -246,6 +247,20 @@ enum ScreenshotHarness {
         for scheme in ColorScheme.allCases {
             try shots.write(popoverWindow(capturePanel(PopoverPanel(scheme: scheme) { MenuContent() }
                 .harnessEnvironment(scene.model), scheme: scheme), scheme: scheme), "popover-paused", scheme)
+        }
+        scene.stop()
+    }
+
+    /// Copying paused by a Focus filter: the status line says a Focus paused it (Addendum C).
+    private static func renderPausedByFocus(_ shots: Shots, scratch: URL) throws {
+        let scene = try DemoScene(in: scratch)
+        scene.preferences.totals = Totals(copied: 148, freedBytes: 0, trashed: 0)
+        guard scene.start() else { fail("the demo folder was not watched") }
+        scene.model.focusChanged(pausing: true)
+        DemoScene.settle()
+        for scheme in ColorScheme.allCases {
+            try shots.write(popoverWindow(capturePanel(PopoverPanel(scheme: scheme) { MenuContent() }
+                .harnessEnvironment(scene.model), scheme: scheme), scheme: scheme), "popover-paused-focus", scheme)
         }
         scene.stop()
     }

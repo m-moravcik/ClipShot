@@ -11,7 +11,8 @@
 #   3. Every `%#@name@` a value uses must be defined in that localisation's substitutions.
 #      Every value, plural variant and substitution variant must be non-empty and in state
 #      "translated".
-#   4. Every literal the compiler extracted (.stringsdata) must exist in Localizable.xcstrings.
+#   4. Every literal the compiler extracted (.stringsdata) must exist in the catalog of its
+#      table: Localizable.xcstrings, or AppShortcuts.xcstrings for the App Shortcuts phrases.
 #
 # Usage:
 #   scripts/check-localisation.sh [derived-data-path]   self-test, build, then the full gate
@@ -114,21 +115,28 @@ for catalog in catalogs:
                     errors.append(f"{label}: {key!r}: {lang}{where} plural categories {sorted(need - have)} missing")
 
 if derived is not None:
-    strings = json.load(open(catalogs[0]))['strings']
+    # Each table the code emits (Localizable, and AppShortcuts for the App Shortcuts
+    # phrases) must exist as a catalog of the same name and hold every key emitted for it.
+    by_table = {os.path.splitext(os.path.basename(c))[0]: set(json.load(open(c))['strings']) for c in catalogs}
     files = glob.glob(derived + '/**/*.stringsdata', recursive=True)
     if not files:
         sys.exit("error: no .stringsdata produced - is SWIFT_EMIT_LOC_STRINGS still YES?")
-    emitted = set()
+    emitted = {}
     for path in files:
-        for entries in json.load(open(path)).get('tables', {}).values():
+        for table, entries in json.load(open(path)).get('tables', {}).items():
             for e in entries:
                 if e.get('key', '').strip():
-                    emitted.add(e['key'])
+                    emitted.setdefault(table, set()).add(e['key'])
     ignorable = re.compile(r'^(%lld|%@|·)$')
-    for k in sorted(emitted - set(strings)):
-        if not ignorable.match(k):
-            errors.append(f"{k!r}: emitted by the code but not in the catalog")
-    print(f"emitted {len(emitted)} keys, catalog has {len(strings)}, languages: {' '.join(langs)}")
+    for table, keys in sorted(emitted.items()):
+        if table not in by_table:
+            errors.append(f"table {table!r}: emitted by the code but there is no {table}.xcstrings")
+            continue
+        for k in sorted(keys - by_table[table]):
+            if not ignorable.match(k):
+                errors.append(f"{k!r}: emitted by the code but not in {table}.xcstrings")
+    counts = ', '.join(f"{t} {len(k)}" for t, k in sorted(emitted.items()))
+    print(f"emitted {counts}; catalogs {', '.join(f'{t} {len(k)}' for t, k in sorted(by_table.items()))}; languages: {' '.join(langs)}")
 
 if errors:
     print('\n'.join('  ' + e for e in errors))

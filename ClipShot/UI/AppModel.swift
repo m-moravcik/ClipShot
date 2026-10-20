@@ -519,6 +519,30 @@ final class AppModel {
         }
     }
 
+    /// The newest `count` screenshots, newest first, chosen as the popover's list chooses them
+    /// (existing files only, direct children of the watched folder), for Shortcuts. Waits for
+    /// the folder on a launch that has just started watching, at most `folderWait`.
+    func recentScreenshots(count: Int) async -> [CaptureFile] {
+        guard isWatching else { return [] }
+        let clock = ContinuousClock()
+        let deadline = clock.now + Self.folderWait
+        // The coordinator names the folder a few ms after `startWatching()`; Shortcuts may
+        // launch ClipShot just to ask.
+        while isWatching, watchedFolder == nil, clock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        await coordinator.ledgerSettled()
+        guard isWatching, let folder = watchedFolder else { return [] }
+        let entries = await ledger.entries()
+        let lastCopied = lastCopied
+        return await Task.detached(priority: .userInitiated) {
+            RecentScreenshots.select(lastCopied: lastCopied, ledger: entries, folder: folder, count: count)
+        }.value
+    }
+
+    /// How long `recentScreenshots` waits for the coordinator to name the folder.
+    static let folderWait: Duration = .seconds(2)
+
     // MARK: - Test hooks
     //
     // Completion signals, so a test that says "nothing (else) happened" waits for the work it
@@ -691,6 +715,20 @@ final class AppModel {
     /// note above the popover's list, with the alert sound and VoiceOver.
     @discardableResult
     func copyAgain(file: CaptureFile, fromPreview preview: UUID? = nil) async -> Bool {
+        guard await copyExplicitly(file) else {
+            actionFailed(.copy, preview: preview)
+            return false
+        }
+        if let preview { previews.clearFailure(on: preview) }
+        return true
+    }
+
+    /// The user's own Copy of `file`, wherever it was asked for (a row, a preview, an attention
+    /// row, Shortcuts): converted to PNG off the main actor, then through `writeClipboard` as
+    /// `.again`, so it works while paused and counts, owns the clipboard and plays Peg's copy
+    /// as any copy does. False, with nothing said, when it failed; the caller says it where
+    /// the user asked.
+    func copyExplicitly(_ file: CaptureFile) async -> Bool {
         let outcome = await Task.detached(priority: .userInitiated) { PNGConverter.convert(file.url) }.value
         let ext = file.url.pathExtension.lowercased()
         let log = log
@@ -700,10 +738,8 @@ final class AppModel {
             } else {
                 Task { await log.error("copy again failed ext=\(ext)") }
             }
-            actionFailed(.copy, preview: preview)
             return false
         }
-        if let preview { previews.clearFailure(on: preview) }
         Task { await log.info("copied again ext=\(ext)") }
         return true
     }
@@ -978,6 +1014,22 @@ final class AppModel {
         }.value
         guard isWatching, generation == previewGeneration else { return }
         retentionPreview = preview
+    }
+
+    /// What a retention run would move now, with the policy in force (not as if it were on):
+    /// the scan `RetentionPass` would make, read off the main actor and moving nothing. A
+    /// refusal is why a run would move nothing (an unconfirmed folder above all).
+    func retentionScanNow() async -> Result<RetentionScan, Refusal> {
+        let entries = await ledger.entries()
+        let settings = settings
+        let policy = preferences.retention
+        let now = clock()
+        let home = home
+        let hasTrash = hasTrash
+        return await Task.detached(priority: .userInitiated) {
+            RetentionScanner.scan(
+                folder: settings.folder(), policy: policy, ledger: entries, now: now, home: home, hasTrash: hasTrash)
+        }.value
     }
 
     /// Stores the folder the preview showed as confirmed. False when there is no preview,

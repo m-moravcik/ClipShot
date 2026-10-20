@@ -131,7 +131,7 @@ struct GeneralSettings: View {
             }
 
             Section {
-                Toggle(isOn: $preferences.copyEnabled) {
+                Toggle(isOn: Binding(get: { model.preferences.copyEnabled }, set: { model.setCopying($0) })) {
                     Text(Copy.copyToClipboard)
                     Text(Copy.General.copyNote)
                 }

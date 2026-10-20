@@ -153,8 +153,8 @@ frame by frame by a 30 fps timer that runs only while one plays (`PegFlash`):
 |---|---|---|---|
 | Copy | every copy | 2.4 s | the copied pose held 1.4 s on one timer |
 | Attention | when something first needs fixing | 2.0 s | the "!" pose at once |
-| Pause | Copy to clipboard switched off | 0.6 s | the dashed card at once |
-| Resume | Copy to clipboard switched on | 0.9 s | the picture at once |
+| Pause | Copy to clipboard switched off (also by Shortcuts or a Focus) | 0.6 s | the dashed card at once |
+| Resume | Copy to clipboard switched on (also by Shortcuts or a Focus) | 0.9 s | the picture at once |
 | Release | Move to Trash from a row, its menu or a floating preview | 1.2 s | the open, empty jaws held 1.2 s |
 | Grip | Undo of that move | 0.9 s | the picture under the open jaws held 0.9 s |
 | Squeeze | the click on the icon that opens the popover | 0.2 s | nothing |
@@ -239,6 +239,59 @@ Retention runs at launch, every hour and after wake, one run at a time, at most
 ancestors, `~/Library`, system locations and volume roots, and any folder whose
 volume has no Trash. Files leave the folder only through `FileManager.trashItem`;
 Undo moves the same file back.
+
+## Shortcuts
+
+App Intents in `ClipShot/Intents/ShortcutsActions.swift`, the logic in
+`UI/AppModel+Shortcuts.swift` (Addendum C):
+
+| Action | What it does |
+|---|---|
+| Get Latest Screenshot | The newest screenshot, as a file (name and type kept). |
+| Get Recent Screenshots | The newest 1 to 10 (Number of Screenshots, default 1), newest first. |
+| Copy Latest Screenshot | Copies the newest one to the clipboard, also while paused. |
+| Pause Copying, Resume Copying | The popover's Copy to clipboard switch. |
+| Clean Up Old Screenshots Now | Retention's run now; Preview Only counts without moving. Returns the count. |
+| Focus filter "Copying During Focus" | Pause copying while the chosen Focus is on. |
+
+- **Same paths as the app.** The screenshots are the popover list's choice
+  (`RecentScreenshots.select`: ledger screenshots in the watched folder that still exist),
+  read through `FileTrust` and handed over as data, never as a path. Copy is the row's
+  Copy (`copyExplicitly`, then `writeClipboard(.again)`): the same PNG, owner, total and
+  Peg copy moment. Pause and Resume set the switch through `setCopying`, so Peg plays
+  pause and resume. Clean Up is `cleanUpNow()`, so the ledger, the revalidation before
+  each move, `FolderGuard`, the confirmed-folder rule, the 500 cap and the Trash-only rule
+  all hold; Preview Only is the same scan without the run. It never turns retention on and
+  plays no Peg moment. Errors are said in the user's language (`ShortcutError`).
+- **No window.** Every action has `supportedModes = .background` (what `openAppWhenRun =
+  false` was before macOS 26). The system launches ClipShot in the background when it is
+  not running; `IntentHost.model` is set in `ClipShotApp.init`, and Get waits up to 2 s for
+  the coordinator to name the folder on such a launch.
+- **Not before the tour.** Until the welcome tour is completed (`tourCompleted`) every
+  action, the read-only ones too since they would touch the folder, and the Focus filter
+  say "Finish setting up ClipShot first" and change nothing.
+- **Focus.** `Preferences.focusPause` keeps a Focus pause apart from the switch:
+  `focusOn` (a Focus whose filter pauses copying is on) and `pausedCopying` (that Focus
+  switched copying off). A Focus turning on pauses copying unless it is off already; its
+  end resumes only what it paused. Any use of the switch by hand (popover, Settings, the
+  tour, Pause or Resume Copying) clears `pausedCopying`, so a Resume during the Focus wins
+  until the Focus changes, and a pause by hand is never undone by the Focus. The same
+  report twice changes nothing. The filter's parameter defaults to off because the system
+  hands a filter its default values when the Focus ends (WWDC22 "Meet Focus filters").
+  macOS does not tell an app which Focus is on, so the popover says "while a Focus is on".
+  At launch ClipShot reads the filter's `current` value once, so a Focus that ended while
+  it was not running resumes what it paused.
+- **Phrases.** `ClipShotShortcuts` (an `AppShortcutsProvider`) has two phrases per
+  action except Get Recent (its count cannot be spoken), translated in
+  `Resources/AppShortcuts.xcstrings`; every translation keeps `${applicationName}`, and the
+  phrases use plain spaces, no no-break spaces. Titles, descriptions and parameter names
+  are literals in the intents (the metadata is read from the source at build time) and
+  keys of `Localizable.xcstrings` like every other string.
+
+`ShortcutsTests` checks the metadata the build extracted into the app
+(`Metadata.appintents`): every action, no window, the phrases and their six translations.
+The build log has no `appintentsmetadataprocessor` warnings; check it after changing an
+intent (`ExtractAppIntentsMetadata` step).
 
 ## Native settings
 
@@ -330,8 +383,8 @@ popover.
 ## Languages
 
 English, Slovak, Czech, German, Spanish and French, in String Catalogs
-(`ClipShot/Resources/Localizable.xcstrings`, and `InfoPlist.xcstrings` for the
-folder access prompts). The English text is the key, defined once in
+(`ClipShot/Resources/Localizable.xcstrings`, `InfoPlist.xcstrings` for the
+folder access prompts and `AppShortcuts.xcstrings` for the Siri phrases). The English text is the key, defined once in
 `UI/Copy.swift`. Conventions and review status are in
 [docs/translations.md](docs/translations.md):
 
@@ -490,8 +543,9 @@ ClipShot/Core/      no SwiftUI: capture marker, copy pipeline, ledger, retention
                     folder guard, screencapture prefs and backup, log
 ClipShot/UI/        the app model, popover, floating preview, Settings, tour,
                     Markup, updater
+ClipShot/Intents/   Shortcuts actions, the Focus filter and the App Shortcuts phrases
 ClipShot/Preview/   Debug only: the screenshot harness, the motion demo, demo data
-ClipShot/Resources/ String Catalogs
+ClipShot/Resources/ String Catalogs (app, Info.plist, App Shortcuts phrases)
 ClipShot/AppIcon.icon   Icon Composer document
 ClipShotTests/      Swift Testing suites; fixtures from the spike and for l10n
 scripts/            release, appcast, screenshots, motion demo, status item probe, guards, l10n,
@@ -530,6 +584,7 @@ Swift Testing. Pure logic is tested; views are not, except their layout rules. T
 | `StatusIconStateTests`, `PegFlashTests`, `PopoverLayoutTests` | The menu bar label is never scaled and fits its frame; every state has its own silhouette; Peg matches the siblings' height, width and stroke; the copy animation starts and ends at rest, one timer tick per frame and none after; Reduce Motion holds the copied pose; the bounces are derived from Peg's clamp; the popover's bottom soft scroll edge. |
 | `PegMomentTests`, `PegMomentModelTests` | Every moment starts where the icon rested and ends exactly on its resting pose, every frame is a template image that fits the canvas; the model plays them on real state changes only, once, never cuts a copy short, leaves no timer behind, and plays none with Reduce Motion. |
 | `PegActionMomentModelTests`, `PegHandoffTests` | Move to Trash from a row or a preview plays the release, Undo the grip, a fresh open of the popover the squeeze (`PopoverPresence`, and the reader's wiring on a real window); retention, Clean up now, "Also clean up", a refused move, a failed Undo and closing the popover play nothing; precedence (the latest of copy, release and grip wins); a moment that replaces another starts from the pose on show (drawn pixel for pixel), changes no frame of the hand-off more than the two moments do on their own, lets a falling card finish falling, and ends at rest; the squeeze moves whole pixels at 1x and 2x; Reduce Motion holds the key poses on one tick and never squeezes. |
+| `ShortcutsTests` | The actions pick what the popover lists and hand out existing files only; Copy Latest Screenshot leaves exactly what the popover's Copy leaves, also while paused; Pause and Resume play the switch's moments; Clean Up keeps retention's refusals, and Preview Only counts what the run then moves; the Focus precedence matrix and its relaunch; nothing runs before the tour; the extracted metadata and the phrases in six languages. |
 | `PreviewMotionTests`, `OnboardingTests` | The swipe commits exactly where a release dismisses; the drag image is lifted off its card; Copy again reports back so the badge bounces; the first copy is celebrated once per install, the burst stays small, short and ends. |
 
 Tests never touch real preferences (`make guards` refuses `UserDefaults` in

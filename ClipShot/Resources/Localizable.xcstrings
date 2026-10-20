@@ -2878,6 +2878,88 @@
         }
       }
     },
+    "Clean Up Old Screenshots" : {
+      "comment" : "Short title of the Clean Up Old Screenshots Now shortcut in Spotlight and the Shortcuts app",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clean Up Old Screenshots"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upratať staré snímky"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uklidit staré snímky"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alte Bildschirmfotos aufräumen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Limpiar capturas antiguas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nettoyer les anciennes captures"
+          }
+        }
+      }
+    },
+    "Clean Up Old Screenshots Now" : {
+      "comment" : "Shortcuts action title: runs retention (cleanup) now",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clean Up Old Screenshots Now"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upratať staré snímky teraz"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uklidit staré snímky teď"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alte Bildschirmfotos jetzt aufräumen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Limpiar ahora las capturas antiguas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nettoyer maintenant les anciennes captures"
+          }
+        }
+      }
+    },
     "Clean up now" : {
       "localizations" : {
         "en" : {
@@ -2914,6 +2996,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nettoyer maintenant"
+          }
+        }
+      }
+    },
+    "Clean up old screenshots now" : {
+      "comment" : "Shortcuts action summary of Clean Up Old Screenshots Now, before its Preview Only option",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clean up old screenshots now"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upratať staré snímky teraz"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uklidit staré snímky teď"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alte Bildschirmfotos jetzt aufräumen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Limpiar ahora las capturas antiguas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nettoyer maintenant les anciennes captures"
           }
         }
       }
@@ -3854,6 +3977,47 @@
         }
       }
     },
+    "Copies new screenshots to the clipboard again, as the Copy to clipboard switch does." : {
+      "comment" : "Shortcuts action description: Resume Copying",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copies new screenshots to the clipboard again, as the Copy to clipboard switch does."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Znova kopíruje nové snímky do schránky, ako prepínač Kopírovať do schránky."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Znovu kopíruje nové snímky do schránky, jako přepínač Kopírovat do schránky."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopiert neue Bildschirmfotos wieder in die Zwischenablage, wie der Schalter „In die Zwischenablage kopieren“."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vuelve a copiar las capturas nuevas al portapapeles, como el interruptor Copiar al portapapeles."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copie de nouveau les nouvelles captures dans le presse-papiers, comme l’interrupteur Copier dans le presse-papiers."
+          }
+        }
+      }
+    },
     "Copies the moment you take a screenshot and shows ClipShot’s own preview. The macOS thumbnail is off, because it holds the file back a few seconds." : {
       "comment" : "Settings > Capture > Preview ClipShot",
       "localizations" : {
@@ -3936,6 +4100,47 @@
         }
       }
     },
+    "Copies the newest screenshot to the clipboard as an image, also while copying is paused." : {
+      "comment" : "Shortcuts action description: Copy Latest Screenshot",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copies the newest screenshot to the clipboard as an image, also while copying is paused."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skopíruje najnovšiu snímku do schránky ako obrázok, aj keď je kopírovanie pozastavené."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zkopíruje nejnovější snímek do schránky jako obrázek, i když je kopírování pozastavené."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopiert das neueste Bildschirmfoto als Bild in die Zwischenablage, auch wenn das Kopieren pausiert ist."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia la captura más reciente al portapapeles como imagen, también con la copia en pausa."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copie la dernière capture dans le presse-papiers sous forme d’image, même lorsque la copie est en pause."
+          }
+        }
+      }
+    },
     "Copy" : {
       "comment" : "Floating preview menu: copies the screenshot",
       "localizations" : {
@@ -3977,6 +4182,47 @@
         }
       }
     },
+    "Copy Latest Screenshot" : {
+      "comment" : "Shortcuts action title and short title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy Latest Screenshot"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skopírovať najnovšiu snímku"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zkopírovat nejnovější snímek"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neuestes Bildschirmfoto kopieren"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar la captura más reciente"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier la dernière capture"
+          }
+        }
+      }
+    },
     "Copy again" : {
       "localizations" : {
         "en" : {
@@ -4013,6 +4259,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Copier à nouveau"
+          }
+        }
+      }
+    },
+    "Copy as usual" : {
+      "comment" : "Focus filter label when its Pause copying option is off",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy as usual"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopírovať ako zvyčajne"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopírovat jako obvykle"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wie gewohnt kopieren"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar como siempre"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier comme d’habitude"
           }
         }
       }
@@ -4098,6 +4385,47 @@
         }
       }
     },
+    "Copying During Focus" : {
+      "comment" : "Title of ClipShot's Focus filter in System Settings > Focus. Focus as macOS names it",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copying During Focus"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopírovanie v režime Môjho času"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopírování v režimu soustředění"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopieren im Fokus"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia en modo de concentración"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copie en mode de concentration"
+          }
+        }
+      }
+    },
     "Copying is off, so nothing reaches the clipboard." : {
       "comment" : "Welcome tour step 2: the Copy to clipboard switch is off",
       "localizations" : {
@@ -4176,6 +4504,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Copie activée"
+          }
+        }
+      }
+    },
+    "Copying paused" : {
+      "comment" : "Shortcuts: Pause Copying ran; Copy to clipboard is off",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copying paused"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopírovanie pozastavené"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopírování pozastaveno"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopieren pausiert"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia en pausa"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copie en pause"
           }
         }
       }
@@ -4299,6 +4668,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Impossible d’ouvrir la Corbeille. Ouvrez-la depuis le Dock."
+          }
+        }
+      }
+    },
+    "Counts what would go to the Trash without moving anything." : {
+      "comment" : "Shortcuts parameter description: Preview Only of Clean Up Old Screenshots Now",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Counts what would go to the Trash without moving anything."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spočíta, čo by išlo do Koša, nič nepresunie."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spočítá, co by šlo do Koše, nic nepřesune."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zählt, was in den Papierkorb käme, ohne etwas zu verschieben."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cuenta lo que iría a la Papelera sin mover nada."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compte ce qui irait dans la Corbeille sans rien déplacer."
           }
         }
       }
@@ -4586,6 +4996,47 @@
         }
       }
     },
+    "Finish setting up ClipShot first: open it from the menu bar." : {
+      "comment" : "Shortcuts action refused: the welcome tour has not been completed yet",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finish setting up ClipShot first: open it from the menu bar."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Najprv dokonči nastavenie aplikácie ClipShot: otvor ju z lišty."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nejdřív dokonči nastavení aplikace ClipShot: otevři ji z řádku nabídek."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Richte ClipShot zuerst fertig ein: Öffne es über die Menüleiste."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Termina primero de configurar ClipShot: ábrelo desde la barra de menús."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminez d’abord la configuration de ClipShot : ouvrez-le depuis la barre des menus."
+          }
+        }
+      }
+    },
     "Freed %@ since install" : {
       "localizations" : {
         "en" : {
@@ -4663,6 +5114,252 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Général"
+          }
+        }
+      }
+    },
+    "Get ${count} recent screenshots" : {
+      "comment" : "Shortcuts action summary; ${count} is the Number of Screenshots parameter, keep it as is",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get ${count} recent screenshots"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Získať nedávne snímky (${count})"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Načíst nedávné snímky (${count})"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Letzte Bildschirmfotos abrufen (${count})"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Obtener capturas recientes (${count})"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Obtenir les captures récentes (${count})"
+          }
+        }
+      }
+    },
+    "Get Latest Screenshot" : {
+      "comment" : "Shortcuts action title and short title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get Latest Screenshot"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Získať najnovšiu snímku"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Načíst nejnovější snímek"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neuestes Bildschirmfoto abrufen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Obtener la captura más reciente"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Obtenir la dernière capture"
+          }
+        }
+      }
+    },
+    "Get Recent Screenshots" : {
+      "comment" : "Shortcuts action title",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get Recent Screenshots"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Získať nedávne snímky"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Načíst nedávné snímky"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Letzte Bildschirmfotos abrufen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Obtener capturas recientes"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Obtenir les captures récentes"
+          }
+        }
+      }
+    },
+    "Gets the newest screenshot ClipShot saw being taken in your screenshot folder." : {
+      "comment" : "Shortcuts action description: Get Latest Screenshot",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gets the newest screenshot ClipShot saw being taken in your screenshot folder."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Získa najnovšiu snímku, ktorú ClipShot videl vzniknúť v tvojom priečinku so snímkami."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Načte nejnovější snímek, který ClipShot viděl vzniknout ve tvé složce se snímky."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ruft das neueste Bildschirmfoto ab, das ClipShot in deinem Bildschirmfoto-Ordner entstehen sah."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Obtiene la captura más reciente que ClipShot vio hacer en tu carpeta de capturas."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Obtient la dernière capture que ClipShot a vu prendre dans votre dossier de captures."
+          }
+        }
+      }
+    },
+    "Gets the newest screenshots ClipShot saw being taken in your screenshot folder, newest first." : {
+      "comment" : "Shortcuts action description: Get Recent Screenshots",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gets the newest screenshots ClipShot saw being taken in your screenshot folder, newest first."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Získa najnovšie snímky, ktoré ClipShot videl vznikať v tvojom priečinku so snímkami, od najnovšej."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Načte nejnovější snímky, které ClipShot viděl vznikat ve tvé složce se snímky, od nejnovějšího."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ruft die neuesten Bildschirmfotos ab, die ClipShot in deinem Bildschirmfoto-Ordner entstehen sah, das neueste zuerst."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Obtiene las capturas más recientes que ClipShot vio hacer en tu carpeta de capturas, de la más nueva a la más antigua."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Obtient les dernières captures que ClipShot a vu prendre dans votre dossier de captures, de la plus récente à la plus ancienne."
+          }
+        }
+      }
+    },
+    "How many screenshots to get, from 1 to 10." : {
+      "comment" : "Shortcuts parameter description: Number of Screenshots of Get Recent Screenshots",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How many screenshots to get, from 1 to 10."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Koľko snímok získať, od 1 do 10."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kolik snímků načíst, od 1 do 10."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wie viele Bildschirmfotos abgerufen werden, von 1 bis 10."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cuántas capturas obtener, de 1 a 10."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nombre de captures à obtenir, de 1 à 10."
           }
         }
       }
@@ -6021,6 +6718,47 @@
         }
       }
     },
+    "Moves screenshots older than your retention period to the Trash now, as Clean up now in Settings does. Returns how many were moved." : {
+      "comment" : "Shortcuts action description: Clean Up Old Screenshots Now",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Moves screenshots older than your retention period to the Trash now, as Clean up now in Settings does. Returns how many were moved."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hneď presunie do Koša snímky staršie než nastavené obdobie upratovania, ako Upratať teraz v nastaveniach. Vráti, koľko ich presunul."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hned přesune do Koše snímky starší než nastavená doba úklidu, jako Uklidit teď v nastavení. Vrátí, kolik jich přesunul."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Legt Bildschirmfotos, die älter als dein Aufräumzeitraum sind, jetzt in den Papierkorb, wie „Jetzt aufräumen“ in den Einstellungen. Gibt zurück, wie viele es waren."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mueve ahora a la Papelera las capturas más antiguas que tu periodo de limpieza, como Limpiar ahora en Ajustes. Devuelve cuántas se movieron."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Place maintenant dans la Corbeille les captures plus anciennes que votre période de nettoyage, comme Nettoyer maintenant dans les Réglages. Renvoie le nombre de captures déplacées."
+          }
+        }
+      }
+    },
     "Needs attention" : {
       "comment" : "Popover header state",
       "localizations" : {
@@ -6099,6 +6837,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Les nouvelles captures ne sont pas copiées"
+          }
+        }
+      }
+    },
+    "New screenshots are not copied while a Focus is on" : {
+      "comment" : "Popover status row, under Paused: a Focus filter turned Copy to clipboard off; it comes back on when that Focus ends. Focus as macOS names it",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New screenshots are not copied while a Focus is on"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nové snímky sa nekopírujú, kým je zapnutý režim Môjho času"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nové snímky se nekopírují, dokud je zapnutý režim soustředění"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neue Bildschirmfotos werden nicht kopiert, solange ein Fokus aktiviert ist"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las capturas nuevas no se copian mientras haya un modo de concentración activado"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les nouvelles captures ne sont pas copiées tant qu’un mode de concentration est activé"
           }
         }
       }
@@ -6302,6 +7081,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aucune capture n’irait dans la Corbeille maintenant"
+          }
+        }
+      }
+    },
+    "No screenshots yet. ClipShot finds the ones taken while it runs." : {
+      "comment" : "Shortcuts action: there is no screenshot ClipShot tracks in the screenshot folder",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No screenshots yet. ClipShot finds the ones taken while it runs."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zatiaľ žiadne snímky. ClipShot nájde tie, ktoré vzniknú, kým beží."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zatím žádné snímky. ClipShot najde ty, které vzniknou, když běží."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch keine Bildschirmfotos. ClipShot findet die, die bei laufendem ClipShot entstehen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no hay capturas. ClipShot encuentra las que se hacen mientras está abierto."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune capture pour l’instant. ClipShot trouve celles prises pendant qu’il tourne."
           }
         }
       }
@@ -6669,6 +7489,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Rien à restaurer : ClipShot n’a modifié aucun réglage de capture de macOS."
+          }
+        }
+      }
+    },
+    "Number of Screenshots" : {
+      "comment" : "Shortcuts parameter of Get Recent Screenshots, and the result name of Clean Up Old Screenshots Now",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Number of Screenshots"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Počet snímok"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Počet snímků"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anzahl der Bildschirmfotos"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Número de capturas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nombre de captures"
           }
         }
       }
@@ -7106,6 +7967,88 @@
         }
       }
     },
+    "Pause Copying" : {
+      "comment" : "Shortcuts action title and short title: turns Copy to clipboard off",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pause Copying"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pozastaviť kopírovanie"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pozastavit kopírování"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopieren pausieren"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pausar la copia"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mettre la copie en pause"
+          }
+        }
+      }
+    },
+    "Pause copying" : {
+      "comment" : "Focus filter option and its label when on: Copy to clipboard is off while this Focus is on",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pause copying"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pozastaviť kopírovanie"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pozastavit kopírování"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopieren pausieren"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pausar la copia"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mettre la copie en pause"
+          }
+        }
+      }
+    },
     "Paused" : {
       "comment" : "Popover header state: the Copy to clipboard toggle is off",
       "localizations" : {
@@ -7147,6 +8090,47 @@
         }
       }
     },
+    "Pauses copying screenshots to the clipboard while this Focus is on. A pause or resume you set yourself meanwhile is kept." : {
+      "comment" : "Description of ClipShot's Focus filter in System Settings > Focus",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pauses copying screenshots to the clipboard while this Focus is on. A pause or resume you set yourself meanwhile is kept."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pozastaví kopírovanie snímok do schránky, kým je zapnutý tento režim Môjho času. Pozastavenie alebo obnovenie, ktoré medzitým nastavíš sám, zostane."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pozastaví kopírování snímků do schránky, dokud je zapnutý tento režim soustředění. Pozastavení nebo obnovení, které mezitím nastavíš sám, zůstane."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pausiert das Kopieren von Bildschirmfotos in die Zwischenablage, solange dieser Fokus aktiviert ist. Was du in der Zeit selbst pausierst oder fortsetzt, bleibt so."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pausa la copia de capturas al portapapeles mientras este modo de concentración esté activado. Si mientras tanto pausas o reanudas tú, se respeta."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Met en pause la copie des captures dans le presse-papiers tant que ce mode de concentration est activé. Une pause ou une reprise que vous faites entre-temps est conservée."
+          }
+        }
+      }
+    },
     "Preview" : {
       "comment" : "Settings > Capture: what shows after a screenshot (ClipShot, macOS or None)",
       "localizations" : {
@@ -7184,6 +8168,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aperçu"
+          }
+        }
+      }
+    },
+    "Preview Only" : {
+      "comment" : "Shortcuts parameter of Clean Up Old Screenshots Now: count without moving",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preview Only"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Len náhľad"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jen náhled"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur Vorschau"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo previsualizar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aperçu seulement"
           }
         }
       }
@@ -7592,6 +8617,47 @@
         }
       }
     },
+    "Resume Copying" : {
+      "comment" : "Shortcuts action title and short title: turns Copy to clipboard on",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume Copying"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Obnoviť kopírovanie"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Obnovit kopírování"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopieren fortsetzen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reanudar la copia"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reprendre la copie"
+          }
+        }
+      }
+    },
     "Resume for this folder" : {
       "comment" : "Confirms retention for the new screenshot folder",
       "localizations" : {
@@ -7755,6 +8821,47 @@
         }
       }
     },
+    "Retention is off. Turn it on in ClipShot’s settings to clean up old screenshots." : {
+      "comment" : "Clean Up Old Screenshots Now refused: retention (cleanup) is off",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retention is off. Turn it on in ClipShot’s settings to clean up old screenshots."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upratovanie je vypnuté. Zapni ho v nastaveniach aplikácie ClipShot, aby sa staré snímky upratali."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Úklid je vypnutý. Zapni ho v nastavení aplikace ClipShot, aby se staré snímky uklidily."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aufräumen ist aus. Schalte es in den Einstellungen von ClipShot ein, um alte Bildschirmfotos aufzuräumen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La limpieza está desactivada. Actívala en los ajustes de ClipShot para limpiar las capturas antiguas."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le nettoyage est désactivé. Activez-le dans les réglages de ClipShot pour nettoyer les anciennes captures."
+          }
+        }
+      }
+    },
     "Retention is paused" : {
       "localizations" : {
         "en" : {
@@ -7791,6 +8898,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nettoyage en pause"
+          }
+        }
+      }
+    },
+    "Retention is paused until you check what it would move in ClipShot’s settings." : {
+      "comment" : "Clean Up Old Screenshots Now refused: the screenshot folder changed and its preview was not confirmed",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retention is paused until you check what it would move in ClipShot’s settings."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upratovanie je pozastavené, kým v nastaveniach aplikácie ClipShot neskontroluješ, čo by presunulo."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Úklid je pozastavený, dokud v nastavení aplikace ClipShot nezkontroluješ, co by přesunul."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aufräumen ist pausiert, bis du in den Einstellungen von ClipShot prüfst, was es verschieben würde."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La limpieza está en pausa hasta que revises en los ajustes de ClipShot qué movería."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le nettoyage est en pause jusqu’à ce que vous vérifiiez dans les réglages de ClipShot ce qu’il déplacerait."
           }
         }
       }
@@ -7997,6 +9145,47 @@
         }
       }
     },
+    "Screenshot" : {
+      "comment" : "Shortcuts: the name of what Get Latest Screenshot returns",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Screenshot"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snímka"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snímek"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bildschirmfoto"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Captura"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capture"
+          }
+        }
+      }
+    },
     "Screenshot copied" : {
       "comment" : "VoiceOver announcement after a screenshot went to the clipboard",
       "localizations" : {
@@ -8075,6 +9264,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aperçus des captures"
+          }
+        }
+      }
+    },
+    "Screenshots" : {
+      "comment" : "Shortcuts: the name of what Get Recent Screenshots returns",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Screenshots"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snímky"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snímky"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bildschirmfotos"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capturas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Captures"
           }
         }
       }
@@ -8682,6 +9912,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Démarrage"
+          }
+        }
+      }
+    },
+    "Stops copying new screenshots to the clipboard, as the Copy to clipboard switch does." : {
+      "comment" : "Shortcuts action description: Pause Copying",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stops copying new screenshots to the clipboard, as the Copy to clipboard switch does."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prestane kopírovať nové snímky do schránky, ako prepínač Kopírovať do schránky."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Přestane kopírovat nové snímky do schránky, jako přepínač Kopírovat do schránky."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopiert neue Bildschirmfotos nicht mehr in die Zwischenablage, wie der Schalter „In die Zwischenablage kopieren“."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deja de copiar las capturas nuevas al portapapeles, como el interruptor Copiar al portapapeles."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrête de copier les nouvelles captures dans le presse-papiers, comme l’interrupteur Copier dans le presse-papiers."
           }
         }
       }
