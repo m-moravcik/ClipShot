@@ -61,6 +61,7 @@ TAP_DIR="${TAP_DIR:-$HOME/Projects/homebrew-clipshot}"
 CASK="$TAP_DIR/Casks/clipshot.rb"
 DERIVED_DATA="$REPO_ROOT/build"
 APP="$DERIVED_DATA/Build/Products/Release/ClipShot.app"
+BUNDLE_ID="sk.moravcik.ClipShot"
 # The team in the Developer ID certificate that signs ClipShot (and its siblings).
 # Fixed here rather than read from the keychain, so a resume on a Mac without the
 # certificate still knows whose signature to expect.
@@ -85,7 +86,8 @@ ZIP="artifacts/$ASSET"
 
 # ---------------------------------------------------------------------------
 # Where the release stands, for the message on a failure.
-#   LOCAL_TAG     the "Release X" commit and the tag exist here, not yet pushed
+#   LOCAL_TAG     "commit": the "Release X" commit exists here; "tag": the tag
+#                 too. Neither pushed yet.
 #   PUBLIC_STATE  the last public step that completed
 # ---------------------------------------------------------------------------
 LOCAL_TAG=""
@@ -95,10 +97,15 @@ on_exit() {
   [ "$rc" -ne 0 ] || return 0
   if [ -n "$LOCAL_TAG" ] && [ -z "$PUBLIC_STATE" ]; then
     printf '\n\033[31mrelease stopped before anything was pushed.\033[0m\n' >&2
-    echo "The local release commit and tag are still here. Check that origin has neither:" >&2
-    echo "  git ls-remote origin refs/tags/$TAG          # expect no output" >&2
-    echo "then undo them and run the release again:" >&2
-    echo "  git tag -d $TAG" >&2
+    if [ "$LOCAL_TAG" = "tag" ]; then
+      echo "The local release commit and tag are still here. Check that origin has neither:" >&2
+      echo "  git ls-remote origin refs/tags/$TAG          # expect no output" >&2
+      echo "then undo them and run the release again:" >&2
+      echo "  git tag -d $TAG" >&2
+    else
+      echo "The empty \"Release $VERSION\" commit was made, but no tag. Undo it and run the" >&2
+      echo "release again:" >&2
+    fi
     echo "  git reset --soft HEAD~1                      # drops the empty \"Release $VERSION\" commit" >&2
   elif [ -n "$PUBLIC_STATE" ]; then
     printf '\n\033[31mrelease stopped after: %s\033[0m\n' "$PUBLIC_STATE" >&2
@@ -134,8 +141,17 @@ find_sign_update() {
 # mismatch. Output is captured and then matched, never piped into `grep -q`:
 # under pipefail an early grep exit fails the pipeline through SIGPIPE.
 verify_app() {
-  local app="$1" archs info entitlements assessment
+  local app="$1" archs info entitlements assessment plist value
   [ -d "$app" ] || die "no app at $app"
+  # Sparkle installs whatever bundle in the archive carries ClipShot's name or
+  # bundle id, and does not compare versions: pin all three.
+  plist="$app/Contents/Info.plist"
+  value="$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$plist" 2>/dev/null || true)"
+  [ "$value" = "$BUNDLE_ID" ] || die "$app has bundle id '$value', expected $BUNDLE_ID"
+  value="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$plist" 2>/dev/null || true)"
+  [ "$value" = "$VERSION" ] || die "$app is version '$value', expected $VERSION"
+  value="$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$plist" 2>/dev/null || true)"
+  [ "$value" = "$BUILD" ] || die "$app is build '$value', expected $BUILD"
   archs="$(lipo -archs "$app/Contents/MacOS/ClipShot" 2>&1 || true)"
   [ "$archs" = "x86_64 arm64" ] || die "$app is not universal: lipo -archs says '$archs'"
   info="$(codesign -dv --verbose=4 "$app" 2>&1 || true)"
@@ -148,7 +164,20 @@ verify_app() {
   [[ "$assessment" == *"source=Notarized Developer ID"* ]] \
     || die "Gatekeeper does not see $app as notarized Developer ID"
   xcrun stapler validate "$app" || die "no valid stapled ticket on $app"
-  echo "verified: $archs, team $TEAM_ID, no get-task-allow, notarized and stapled"
+  echo "verified: $BUNDLE_ID $VERSION ($BUILD), $archs, team $TEAM_ID, no get-task-allow, notarized and stapled"
+}
+
+# A release archive: unpacked into a temp folder, its top level must be exactly
+# ClipShot.app (ditto --keepParent writes nothing else, so anything more, a
+# __MACOSX folder included, is refused), and that app must pass verify_app.
+verify_archive() {
+  local zip="$1" dir entries
+  dir="$(mktemp -d "${TMPDIR:-/tmp}/clipshot-archive.XXXXXX")"
+  ditto -x -k "$zip" "$dir" || die "could not unpack $zip"
+  entries="$(ls -A "$dir")"
+  [ "$entries" = "ClipShot.app" ] \
+    || die "$zip must hold exactly ClipShot.app at its top level, it holds: $(tr '\n' ' ' <<<"$entries")"
+  verify_app "$dir/ClipShot.app"
 }
 
 # The highest sparkle:version in a feed file, or nothing when it has no items.
@@ -237,9 +266,7 @@ if [ -z "$RESUME" ]; then
   step "Verify the artifact"
 
   verify_app "$APP"
-  UNPACKED="$(mktemp -d "${TMPDIR:-/tmp}/clipshot-release.XXXXXX")"
-  ditto -x -k "$ZIP" "$UNPACKED"
-  verify_app "$UNPACKED/ClipShot.app"
+  verify_archive "$ZIP"
 
   # -------------------------------------------------------------------------
   # 4. Rehearse the appcast on the local ZIP. The asset GitHub serves later is
@@ -259,8 +286,9 @@ if [ -z "$RESUME" ]; then
 
   # The tree is clean, so the release commit is empty: it marks what was built.
   git commit --allow-empty -m "Release $VERSION"
+  LOCAL_TAG="commit"
   git tag -a "$TAG" -m "ClipShot $VERSION"
-  LOCAL_TAG="yes"
+  LOCAL_TAG="tag"
   # Atomic: the release commit lands on main together with its tag, or neither does.
   git push --atomic origin main "refs/tags/$TAG"
   PUBLIC_STATE="tag $TAG pushed"
@@ -283,18 +311,14 @@ step "Appcast"
 DOWNLOAD="$(mktemp -d "${TMPDIR:-/tmp}/clipshot-asset.XXXXXX")"
 gh release download "$TAG" --repo "$REPO" --pattern "$ASSET" --dir "$DOWNLOAD"
 PUBLISHED="$DOWNLOAD/$ASSET"
-# Nothing is signed into the feed unverified. With the local ZIP (verified in
-# step 3), the asset must be byte for byte that ZIP; without it (a resume on
-# another Mac, or after the ZIP was replaced), the asset itself gets the full
-# step 3 check.
+# Nothing is signed into the feed unverified. In every mode the asset GitHub
+# serves is unpacked and checked in full (verify_archive). When the local ZIP is
+# still here, it must also be byte for byte that ZIP: an extra check, never a
+# replacement.
+verify_archive "$PUBLISHED"
 if [ -f "$ZIP" ]; then
   cmp -s "$PUBLISHED" "$ZIP" || die "the downloaded asset differs from $ZIP"
-  echo "the published asset is byte for byte the ZIP that was verified"
-else
-  echo "no local $ZIP: verifying the published asset itself"
-  PUBLISHED_APP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/clipshot-published.XXXXXX")"
-  ditto -x -k "$PUBLISHED" "$PUBLISHED_APP_DIR"
-  verify_app "$PUBLISHED_APP_DIR/ClipShot.app"
+  echo "the published asset is byte for byte the local ZIP"
 fi
 
 # Builds the feed from the published bytes, signs it, and verifies the enclosure
