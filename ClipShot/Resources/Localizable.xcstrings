@@ -4057,43 +4057,84 @@
         }
       }
     },
-    "Copying waits until the macOS thumbnail disappears." : {
-      "comment" : "Popover row in Preview mode macOS: macOS saves the file, and ClipShot copies it, only then",
+    "Copying waits for the macOS thumbnail" : {
+      "comment" : "Popover header line in Preview mode macOS, before a Copy at once link",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Copying waits until the macOS thumbnail disappears."
+            "value" : "Copying waits for the macOS thumbnail"
           }
         },
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kopírovanie čaká, kým miniatúra macOS nezmizne."
+            "value" : "Kopírovanie čaká na miniatúru macOS"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kopírování čeká, dokud miniatura macOS nezmizí."
+            "value" : "Kopírování čeká na miniaturu macOS"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Das Kopieren wartet, bis die macOS-Miniatur verschwindet."
+            "value" : "Das Kopieren wartet auf die macOS-Miniatur"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La copia espera a que desaparezca la miniatura de macOS."
+            "value" : "La copia espera a la miniatura de macOS"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La copie attend que la vignette de macOS disparaisse."
+            "value" : "La copie attend la vignette de macOS"
+          }
+        }
+      }
+    },
+    "Copying waits until the macOS thumbnail disappears, about 6 seconds after each screenshot." : {
+      "comment" : "One-time popover row after an update, while the macOS floating thumbnail is on: what it costs",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copying waits until the macOS thumbnail disappears, about 6 seconds after each screenshot."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopírovanie čaká, kým miniatúra macOS nezmizne, asi 6 sekúnd po každej snímke."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopírování čeká, dokud miniatura macOS nezmizí, asi 6 sekund po každém snímku."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Kopieren wartet, bis die macOS-Miniatur verschwindet, etwa 6 Sekunden nach jedem Bildschirmfoto."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La copia espera a que desaparezca la miniatura de macOS, unos 6 segundos después de cada captura."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La copie attend que la vignette de macOS disparaisse, environ 6 secondes après chaque capture."
           }
         }
       }

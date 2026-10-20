@@ -113,12 +113,12 @@ struct AppModelUITests {
         h.prefs["type"] = "pdf"
         #expect(await h.start())
         #expect(await eventually { await h.model.captureFormat == "pdf" })
-        #expect(h.model.showThumbnail)
+        #expect(await eventually { await h.model.showThumbnail == true })
         #expect(h.model.pdfSavesNoFile)
 
         await h.model.setPreviewMode(.clipShot)
         #expect(h.prefs["show-thumbnail"] as? Bool == false)
-        #expect(!h.model.showThumbnail)
+        #expect(h.model.showThumbnail == false)
         #expect(!h.model.pdfSavesNoFile)
 
         h.prefs["type"] = "png"

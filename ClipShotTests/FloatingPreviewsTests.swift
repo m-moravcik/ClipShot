@@ -96,6 +96,19 @@ struct FloatingPreviewsTests {
         #expect(try Data(contentsOf: url) == original)
     }
 
+    @Test func editedCopyIsNotWrittenWhilePaused() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        #expect(await h.start())
+        let url = try h.shoot("Screenshot 1.png")
+        #expect(await eventually { await h.pasteboard.writes.count == 1 })
+        h.preferences.copyEnabled = false
+        h.markupResult = .savedCopy(Fixtures.pngImage(size: 33))
+        h.model.markup(try #require(CaptureFile.inspect(url)))
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(h.pasteboard.writes.count == 1, "paused: nothing written on ClipShot's own")
+    }
+
     @Test func copyAgainIsOfferedOnlyAfterTheClipboardChanged() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }

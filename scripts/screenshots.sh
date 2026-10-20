@@ -13,7 +13,8 @@
 # (1920x1080). Plus icon.png, menubar-states.png and menubar-optical-size.png (the states
 # beside VibeRes and Eject Guard, sized as the menu bar draws them). The floating preview:
 # preview, preview-hover, preview-stack (three, the newest with "+1"), preview-motion (key
-# frames of its springs), plus popover-macos-mode and settings-capture-macos-mode.
+# frames of its springs), plus popover-macos-mode, settings-capture-macos-mode and
+# popover-preview-offer (the one-time offer after an update with the macOS thumbnail on).
 # Copy what you need into docs/screenshots.
 #
 # Everything is demo data: a throwaway screenshot folder under the temporary directory,

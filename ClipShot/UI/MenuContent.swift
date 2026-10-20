@@ -55,7 +55,7 @@ struct MenuContent: View {
         .animation(reduceMotion ? nil : Design.Motion.layout, value: attentionsExpanded)
         .animation(reduceMotion ? nil : Design.Motion.layout, value: updateStatus.isUpdateReady)
         .animation(reduceMotion ? nil : Design.Motion.layout, value: model.showMarkupTip)
-        .animation(reduceMotion ? nil : Design.Motion.layout, value: model.previewMode)
+        .animation(reduceMotion ? nil : Design.Motion.layout, value: model.showsPreviewOffer)
         .onChange(of: model.attentions.count) { _, count in
             if count <= 1 { attentionsExpanded = false }
         }
@@ -64,8 +64,8 @@ struct MenuContent: View {
     private var middle: some View {
         VStack(spacing: Design.Spacing.m) {
             attentionRows
-            if model.isWatching, model.previewMode == .macOS {
-                ThumbnailWaitRow()
+            if model.showsPreviewOffer {
+                PreviewOfferRow()
                     .transition(.opacity)
             }
             LatestCaptureSection()
@@ -151,7 +151,21 @@ private struct PopoverHeader: View {
             .animation(Design.Motion.quick, value: model.headerState)
             .accessibilityElement(children: .combine)
 
-            if model.showFirstCopyHint {
+            if model.showsThumbnailWait {
+                // Preview mode macOS (A1): copying waits, with the way to instant copy.
+                // On one line when it fits, else the link under the sentence.
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .firstTextBaseline, spacing: Design.Spacing.s) {
+                        thumbnailWaitText.fixedSize()
+                        useClipShotLink
+                    }
+                    VStack(alignment: .leading, spacing: Design.Spacing.xs) {
+                        thumbnailWaitText.fixedSize(horizontal: false, vertical: true)
+                        useClipShotLink
+                    }
+                }
+                .font(Design.Typography.note)
+            } else if model.showFirstCopyHint {
                 Text(Copy.Header.firstCopyHint(model.previewMode))
                     .font(Design.Typography.note)
                     .foregroundStyle(.secondary)
@@ -160,6 +174,18 @@ private struct PopoverHeader: View {
         }
         .padding(.horizontal, Design.Spacing.l + Design.Spacing.m)
         .padding(.top, Design.Spacing.m)
+    }
+
+    private var thumbnailWaitText: some View {
+        Text(Copy.ThumbnailWait.hint).foregroundStyle(.secondary)
+    }
+
+    private var useClipShotLink: some View {
+        Button { Task { await model.setPreviewMode(.clipShot) } } label: {
+            Text(Copy.ThumbnailWait.useClipShot)
+        }
+        .buttonStyle(.link)
+        .fixedSize()
     }
 }
 
@@ -195,9 +221,10 @@ private struct MarkupTip: View {
     }
 }
 
-/// Preview mode macOS: copying waits for the thumbnail. Says so, with the way to instant
-/// copy (Addendum A1).
-private struct ThumbnailWaitRow: View {
+/// After an update, while the macOS thumbnail is on: a one-time offer to copy at once, with
+/// what the thumbnail costs. ClipShot never turns the thumbnail off on its own; Copy at once
+/// does it through the backup, and the close button keeps things as they are for good.
+private struct PreviewOfferRow: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
@@ -205,15 +232,25 @@ private struct ThumbnailWaitRow: View {
             HStack(alignment: .firstTextBaseline, spacing: Design.Spacing.m) {
                 Image(systemName: "hourglass")
                     .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.orange)
                     .frame(width: Design.Layout.iconColumn)
                     .accessibilityHidden(true)
-                Text(Copy.ThumbnailWait.message)
+                Text(Copy.ThumbnailWait.offer)
                     .font(Design.Typography.body)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                Button { model.dismissPreviewOffer() } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 16, height: 16)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text(Copy.Action.dismiss))
+                .help(Text(Copy.Action.dismiss))
             }
-            Button { Task { await model.setPreviewMode(.clipShot) } } label: {
+            Button { Task { await model.acceptPreviewOffer() } } label: {
                 Text(Copy.ThumbnailWait.useClipShot)
             }
             .buttonStyle(.bordered)
@@ -223,7 +260,7 @@ private struct ThumbnailWaitRow: View {
         .padding(.horizontal, Design.Spacing.l)
         .padding(.vertical, Design.Spacing.m)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.cardFill))
+        .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.attentionFill))
         .accessibilityElement(children: .contain)
     }
 }

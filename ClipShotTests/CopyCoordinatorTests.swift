@@ -32,7 +32,11 @@ final class CoordinatorHarness {
     let coordinator: CopyCoordinator
     private(set) var failures = 0
 
-    init(createFolder: Bool = true, createDesktop: Bool = false) throws {
+    /// `sleepUntil`: how rescans wait; a test can release them by hand.
+    init(
+        createFolder: Bool = true, createDesktop: Bool = false,
+        sleepUntil: (@Sendable (ContinuousClock.Instant) async throws -> Void)? = nil
+    ) throws {
         let fm = FileManager.default
         home = try Fixtures.makeDir()
         folder = home.appendingPathComponent("Shots", isDirectory: true)
@@ -46,7 +50,8 @@ final class CoordinatorHarness {
         ledger = try RT.ledger()
         coordinator = CopyCoordinator(
             settings: settings, events: DirectoryEventSource(), pasteboard: pasteboard, ledger: ledger,
-            edits: edits, clock: { Date() }, pollInterval: .milliseconds(100), home: home, log: try RT.testLog())
+            edits: edits, clock: { Date() }, pollInterval: .milliseconds(100), home: home, log: try RT.testLog(),
+            sleepUntil: sleepUntil ?? { try await Task.sleep(until: $0, clock: .continuous) })
         coordinator.onFailure = { [weak self] _ in self?.failures += 1 }
     }
 

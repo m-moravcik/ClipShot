@@ -22,7 +22,8 @@ final class PreviewPanelController {
     /// After the last preview left: long enough for its exit to finish before the panel goes.
     private static let hideDelay: Duration = .milliseconds(450)
 
-    private let model: AppModel
+    /// Weak: the model owns this controller.
+    private weak var model: AppModel?
     private var panel: PreviewPanel?
     private var hideTask: Task<Void, Never>?
 
@@ -32,18 +33,18 @@ final class PreviewPanelController {
     }
 
     private func update() {
-        let previews = model.previews
-        guard let newest = previews.visible.last else {
+        guard let model else { return }
+        guard let newest = model.previews.visible.last else {
             hideTask?.cancel()
             hideTask = Task { [weak self] in
                 try? await Task.sleep(for: Self.hideDelay)
-                guard !Task.isCancelled, let self, self.model.previews.items.isEmpty else { return }
+                guard !Task.isCancelled, let self, self.model?.previews.items.isEmpty ?? true else { return }
                 self.panel?.orderOut(nil)
             }
             return
         }
         hideTask?.cancel()
-        let panel = self.panel ?? makePanel()
+        let panel = self.panel ?? makePanel(model)
         self.panel = panel
         if let screen = CaptureScreen.screen(for: newest.file.url) {
             let visible = screen.visibleFrame
@@ -55,12 +56,12 @@ final class PreviewPanelController {
         if !panel.isVisible { panel.orderFrontRegardless() }
     }
 
-    private func makePanel() -> PreviewPanel {
+    private func makePanel(_ model: AppModel) -> PreviewPanel {
         let panel = PreviewPanel(
             contentRect: NSRect(origin: .zero, size: Self.panelSize),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered, defer: true)
-        let hosting = FirstMouseHostingView(rootView: PreviewStack().environment(model))
+        let hosting = FirstMouseHostingView(rootView: PreviewRoot(model: WeakModelBox(model)))
         hosting.sizingOptions = []
         panel.contentView = hosting
         return panel
@@ -97,4 +98,24 @@ private final class FirstMouseHostingView<Content: View>: NSHostingView<Content>
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     // Buttons and gestures need no keyboard focus, so a click leaves it with the user's app.
     override var needsPanelToBecomeKey: Bool { false }
+}
+
+/// The model, held weakly, so the panel's view does not keep it alive.
+@MainActor
+private final class WeakModelBox {
+    weak var value: AppModel?
+
+    init(_ value: AppModel) {
+        self.value = value
+    }
+}
+
+private struct PreviewRoot: View {
+    let model: WeakModelBox
+
+    var body: some View {
+        if let model = model.value {
+            PreviewStack().environment(model)
+        }
+    }
 }

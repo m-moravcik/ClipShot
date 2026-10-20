@@ -16,6 +16,10 @@ enum PreviewCardMetrics {
     static let screenInset: CGFloat = 12
     /// Room around the stack for the shadow and the hover buttons that overhang the card.
     static let margin: CGFloat = 18
+    /// How far the Close button reaches past the card's corner, as on the macOS thumbnail.
+    static let closeOverhang: CGFloat = 7
+    /// Hover is tracked this far past the card, so the overhanging Close button keeps it.
+    static let hoverOverhang: CGFloat = 10
 
     /// The card for an image of `pixels`: aspect-fit into `maxSize`, never smaller than the
     /// minimum (a very thin capture is shown cropped to fill).
@@ -105,6 +109,7 @@ struct PreviewCard: View {
         ZStack {
             picture
             CardInteraction(
+                overhang: PreviewCardMetrics.hoverOverhang,
                 file: item.file, image: item.image,
                 onClick: actions.markup,
                 onHover: hoverChanged,
@@ -112,6 +117,7 @@ struct PreviewCard: View {
                 onSwipeEnded: swipeEnded,
                 onDraggedOut: actions.draggedOut,
                 menu: menuItems)
+                .padding(-PreviewCardMetrics.hoverOverhang)
                 .accessibilityHidden(true)
             overlays
         }
@@ -175,7 +181,7 @@ struct PreviewCard: View {
         ZStack {
             CardButton(symbol: "xmark", label: Copy.Preview.close, action: actions.close)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .offset(x: -7, y: -7)
+                .offset(x: -PreviewCardMetrics.closeOverhang, y: -PreviewCardMetrics.closeOverhang)
             HStack(spacing: 4) {
                 if offerCopy {
                     CardButton(symbol: "doc.on.doc", label: Copy.Action.copyAgain, action: copyAgain)
@@ -224,7 +230,7 @@ struct PreviewCard: View {
         let target = size.width + PreviewCardMetrics.screenInset + PreviewCardMetrics.margin
         withAnimation(Design.Motion.fling(velocity: velocity, distance: target - current)) { dragX = target }
         Task {
-            try? await Task.sleep(for: .milliseconds(200))
+            try? await Task.sleep(for: Design.Motion.flingHandOff)
             actions.swipedAway()
         }
     }
@@ -295,177 +301,4 @@ private struct CardButton: View {
         .accessibilityLabel(Text(label))
         .help(Text(label))
     }
-}
-
-struct CardMenuItem {
-    let title: LocalizedStringResource
-    let action: () -> Void
-    var separatorBefore = false
-}
-
-/// The card's pointer handling, in AppKit, because one press has to become a click (Markup),
-/// a swipe towards the screen edge, or a file drag into another app, decided by where the
-/// pointer goes first. VoiceOver uses the card's own actions instead.
-private struct CardInteraction: NSViewRepresentable {
-    let file: CaptureFile
-    let image: CGImage?
-    let onClick: () -> Void
-    let onHover: (Bool) -> Void
-    let onSwipeChanged: (CGFloat) -> Void
-    let onSwipeEnded: (_ translation: CGFloat, _ velocity: CGFloat) -> Void
-    let onDraggedOut: () -> Void
-    let menu: () -> [CardMenuItem]
-
-    func makeNSView(context: Context) -> CardInteractionView {
-        let view = CardInteractionView()
-        update(view)
-        return view
-    }
-
-    func updateNSView(_ view: CardInteractionView, context: Context) {
-        update(view)
-    }
-
-    private func update(_ view: CardInteractionView) {
-        view.file = file
-        view.image = image
-        view.onClick = onClick
-        view.onHover = onHover
-        view.onSwipeChanged = onSwipeChanged
-        view.onSwipeEnded = onSwipeEnded
-        view.onDraggedOut = onDraggedOut
-        view.menuItems = menu
-    }
-}
-
-final class CardInteractionView: NSView, NSDraggingSource {
-    private enum Gesture {
-        case idle
-        case pressed(NSPoint)
-        case swiping(NSPoint)
-        case dragging
-    }
-
-    /// Movement before a press counts as a drag, as AppKit's own drag threshold.
-    private static let threshold: CGFloat = 4
-
-    var file: CaptureFile?
-    var image: CGImage?
-    var onClick: () -> Void = {}
-    var onHover: (Bool) -> Void = { _ in }
-    var onSwipeChanged: (CGFloat) -> Void = { _ in }
-    var onSwipeEnded: (CGFloat, CGFloat) -> Void = { _, _ in }
-    var onDraggedOut: () -> Void = {}
-    var menuItems: () -> [CardMenuItem] = { [] }
-
-    private var gesture = Gesture.idle
-    /// Recent swipe positions, for the release velocity.
-    private var samples: [(time: TimeInterval, x: CGFloat)] = []
-    private var tracking: NSTrackingArea?
-
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-    override func isAccessibilityElement() -> Bool { false }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let tracking { removeTrackingArea(tracking) }
-        let area = NSTrackingArea(
-            rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self)
-        addTrackingArea(area)
-        tracking = area
-    }
-
-    override func mouseEntered(with event: NSEvent) { onHover(true) }
-    override func mouseExited(with event: NSEvent) { onHover(false) }
-
-    override func mouseDown(with event: NSEvent) {
-        gesture = .pressed(event.locationInWindow)
-    }
-
-    override func mouseDragged(with event: NSEvent) {
-        let point = event.locationInWindow
-        switch gesture {
-        case .pressed(let start):
-            let dx = point.x - start.x, dy = point.y - start.y
-            guard hypot(dx, dy) >= Self.threshold else { return }
-            if dx > 0 && abs(dx) > abs(dy) {
-                gesture = .swiping(start)
-                samples = [(event.timestamp, dx)]
-                onSwipeChanged(dx)
-            } else {
-                gesture = .dragging
-                beginFileDrag(with: event)
-            }
-        case .swiping(let start):
-            let dx = point.x - start.x
-            samples.append((event.timestamp, dx))
-            samples.removeAll { event.timestamp - $0.time > 0.1 }
-            onSwipeChanged(dx)
-        case .idle, .dragging:
-            break
-        }
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        switch gesture {
-        case .pressed:
-            onClick()
-        case .swiping(let start):
-            let dx = event.locationInWindow.x - start.x
-            var velocity: CGFloat = 0
-            if let first = samples.first, event.timestamp - first.time > 0.005 {
-                velocity = (dx - first.x) / CGFloat(event.timestamp - first.time)
-            }
-            onSwipeEnded(dx, velocity)
-        case .idle, .dragging:
-            break
-        }
-        gesture = .idle
-        samples = []
-    }
-
-    override func rightMouseDown(with event: NSEvent) {
-        let menu = NSMenu()
-        for item in menuItems() {
-            if item.separatorBefore { menu.addItem(.separator()) }
-            menu.addItem(ClosureMenuItem(title: String(localized: item.title), action: item.action))
-        }
-        NSMenu.popUpContextMenu(menu, with: event, for: self)
-    }
-
-    /// The file URL and the image, as the macOS thumbnail offers them.
-    private func beginFileDrag(with event: NSEvent) {
-        guard let file else { return }
-        let item = NSPasteboardItem()
-        item.setString(file.url.absoluteString, forType: .fileURL)
-        if let png = PNGConverter.pngData(from: file.url) { item.setData(png, forType: .png) }
-        let dragging = NSDraggingItem(pasteboardWriter: item)
-        let contents = image.map { NSImage(cgImage: $0, size: bounds.size) }
-        dragging.setDraggingFrame(bounds, contents: contents)
-        beginDraggingSession(with: [dragging], event: event, source: self)
-    }
-
-    func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
-        context == .outsideApplication ? [.copy] : []
-    }
-
-    func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
-        if !operation.isEmpty { onDraggedOut() }
-    }
-}
-
-/// A menu item that runs a closure.
-private final class ClosureMenuItem: NSMenuItem {
-    private let run: () -> Void
-
-    init(title: String, action: @escaping () -> Void) {
-        run = action
-        super.init(title: title, action: #selector(fire), keyEquivalent: "")
-        target = self
-    }
-
-    @available(*, unavailable)
-    required init(coder: NSCoder) { fatalError("not used") }
-
-    @objc private func fire() { run() }
 }

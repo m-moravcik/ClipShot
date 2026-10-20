@@ -34,6 +34,18 @@ struct TrashTests {
         #expect(h.preferences.totals.trashed == 1)
     }
 
+    @Test func folderWithoutTrashIsRefusedLikeRetention() async throws {
+        let h = try ModelHarness(hasTrash: false)
+        defer { h.tearDown() }
+        #expect(await h.start())
+        let url = try h.shoot("Screenshot 1.png")
+        let file = try #require(CaptureFile.inspect(url))
+        #expect(await eventually { await h.ledger.contains(path: FolderGuard.canonicalPath(url), resourceID: file.resourceID) })
+        await #expect(throws: AppModel.TrashError.noTrash) { try await h.model.trash(file) }
+        #expect(RT.exists(url))
+        #expect(h.trasher.trashed.isEmpty)
+    }
+
     @Test func replacedFileIsNotTrashed() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }

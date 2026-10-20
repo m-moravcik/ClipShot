@@ -106,6 +106,8 @@ enum Design {
             .interpolatingSpring(flingSpring, initialVelocity: flingVelocity(velocity, distance: distance))
         }
         static let flingSpring = Spring(mass: 1, stiffness: 260, damping: 32)
+        /// After this much of a fling the preview is off screen and leaves the stack.
+        static let flingHandOff: Duration = .milliseconds(200)
         /// The release speed relative to the distance left, as a spring's initial velocity.
         static func flingVelocity(_ velocity: CGFloat, distance: CGFloat) -> Double {
             distance > 0 ? Double(max(0, velocity) / distance) : 0

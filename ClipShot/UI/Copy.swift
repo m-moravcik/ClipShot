@@ -40,9 +40,12 @@ enum Copy {
     // MARK: - Preview mode macOS: copying waits
 
     enum ThumbnailWait {
-        static let message = LocalizedStringResource(
-            "Copying waits until the macOS thumbnail disappears.",
-            comment: "Popover row in Preview mode macOS: macOS saves the file, and ClipShot copies it, only then")
+        static let offer = LocalizedStringResource(
+            "Copying waits until the macOS thumbnail disappears, about 6 seconds after each screenshot.",
+            comment: "One-time popover row after an update, while the macOS floating thumbnail is on: what it costs")
+        static let hint = LocalizedStringResource(
+            "Copying waits for the macOS thumbnail",
+            comment: "Popover header line in Preview mode macOS, before a Copy at once link")
         static let useClipShot = LocalizedStringResource(
             "Copy at once", comment: "Button: switches Preview to ClipShot, which turns the macOS thumbnail off")
     }

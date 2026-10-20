@@ -26,7 +26,8 @@ struct PreviewStack: View {
         .padding([.top, .leading], PreviewCardMetrics.margin)
         .padding([.bottom, .trailing], PreviewCardMetrics.screenInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-        .animation(reduceMotion ? Design.Motion.quick : Design.Motion.stack, value: model.previews.items.map(\.id))
+        // Reduce Motion: no layout movement; the cards' own crossfades carry the change.
+        .animation(reduceMotion ? nil : Design.Motion.stack, value: model.previews.items.map(\.id))
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(Copy.Preview.panel))
     }

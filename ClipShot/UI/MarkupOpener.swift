@@ -44,14 +44,24 @@ final class MarkupOpener: NSObject, NSSharingServiceDelegate {
     }
 
     private var edit: Edit?
+    private let makeService: @MainActor (String) -> NSSharingService?
+    private let openPreview: @MainActor (URL) -> Bool
+
+    /// `makeService` and `openPreview` are seams for tests: the extension may be missing (it
+    /// was verified on macOS 27 only; F-markup), and then Preview.app opens the file.
+    init(
+        makeService: @escaping @MainActor (String) -> NSSharingService? = { NSSharingService(named: NSSharingService.Name($0)) },
+        openPreview: @escaping @MainActor (URL) -> Bool = MarkupOpener.openInPreview
+    ) {
+        self.makeService = makeService
+        self.openPreview = openPreview
+    }
 
     /// One edit at a time; opening another file ends the previous edit as closed.
     func open(_ url: URL, completion: @escaping @MainActor (MarkupResult) -> Void) {
         finish(.closed)
-        guard let service = NSSharingService(named: NSSharingService.Name(Self.extensionIdentifier)),
-              service.canPerform(withItems: [url])
-        else {
-            completion(openInPreview(url) ? .openedInPreview : .failed)
+        guard let service = makeService(Self.extensionIdentifier), service.canPerform(withItems: [url]) else {
+            completion(openPreview(url) ? .openedInPreview : .failed)
             return
         }
         let host = Self.hostWindow(for: url)
@@ -70,7 +80,7 @@ final class MarkupOpener: NSObject, NSSharingServiceDelegate {
         edit.completion(result)
     }
 
-    private func openInPreview(_ url: URL) -> Bool {
+    static func openInPreview(_ url: URL) -> Bool {
         guard let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.previewIdentifier) else {
             return false
         }
@@ -139,7 +149,7 @@ final class MarkupOpener: NSObject, NSSharingServiceDelegate {
             } else {
                 // The extension could not run: Preview.app is the last native path.
                 let url = edit.url
-                finish(openInPreview(url) ? .openedInPreview : .failed)
+                finish(openPreview(url) ? .openedInPreview : .failed)
             }
         }
     }

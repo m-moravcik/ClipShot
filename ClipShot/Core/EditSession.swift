@@ -12,7 +12,14 @@ import Synchronization
 final class EditSession: Sendable {
     static let lifetime: TimeInterval = 30 * 60
 
+    /// Names one session, so the end of an earlier edit of the same file does not end a newer
+    /// one.
+    struct Token: Hashable, Sendable {
+        fileprivate let id = UUID()
+    }
+
     private struct Entry: Sendable {
+        let token: Token
         let path: String
         let resourceID: Data
         let began: Date
@@ -25,18 +32,20 @@ final class EditSession: Sendable {
         self.clock = clock
     }
 
-    func begin(_ file: CaptureFile) {
-        let entry = Entry(path: Self.key(file.url), resourceID: file.resourceID, began: clock())
+    /// Opens a session for `file`, replacing an earlier one for the same file.
+    @discardableResult
+    func begin(_ file: CaptureFile) -> Token {
+        let entry = Entry(token: Token(), path: Self.key(file.url), resourceID: file.resourceID, began: clock())
         entries.withLock { list in
             list.removeAll { $0.path == entry.path }
             list.append(entry)
         }
+        return entry.token
     }
 
-    /// The editor closed.
-    func end(_ file: CaptureFile) {
-        let path = Self.key(file.url)
-        entries.withLock { list in list.removeAll { $0.path == path || $0.resourceID == file.resourceID } }
+    /// The editor of that session closed. A newer session for the same file stays open.
+    func end(_ token: Token) {
+        entries.withLock { list in list.removeAll { $0.token == token } }
     }
 
     func isEditing(path: String, resourceID: Data) -> Bool {

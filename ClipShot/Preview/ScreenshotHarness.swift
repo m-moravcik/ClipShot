@@ -276,6 +276,20 @@ enum ScreenshotHarness {
         scene.prefs["show-thumbnail"] = false
         DemoScene.wait { scene.model.previewMode == .clipShot }
 
+        // An install from before Preview modes, the macOS thumbnail on: the one-time offer.
+        let upgraded = try DemoScene(in: scratch)
+        upgraded.preferences.previewModeApplied = false
+        upgraded.preferences.firstCopyDone = true
+        upgraded.prefs["show-thumbnail"] = true
+        guard upgraded.start() else { fail("the demo folder was not watched") }
+        DemoScene.wait { upgraded.model.showsPreviewOffer }
+        try upgraded.copyDemoScreenshot()
+        for scheme in ColorScheme.allCases {
+            try shots.write(capture(PopoverPanel(scheme: scheme) { MenuContent() }
+                .harnessEnvironment(upgraded.model, updater: updater), scheme: scheme), "popover-preview-offer", scheme)
+        }
+        upgraded.stop()
+
         for scheme in ColorScheme.allCases {
             try shots.write(capture(PreviewMotionSheet(item: single, scheme: scheme)
                 .harnessEnvironment(scene.model), scheme: scheme), "preview-motion", scheme)

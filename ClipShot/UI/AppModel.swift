@@ -32,8 +32,11 @@ final class AppModel {
     private(set) var retentionPreview: Result<RetentionScan, Refusal>?
     /// Why retention, while on, does not run on the current folder; nil when it runs or is off.
     private(set) var retentionRefusal: Refusal?
-    /// `show-thumbnail`, as last read.
-    private(set) var showThumbnail = true
+    /// `show-thumbnail`, as last read; nil until the first read after watching starts, so
+    /// nothing decides on a value ClipShot has not seen.
+    private(set) var showThumbnail: Bool?
+    /// The tour's Start copying is writing the default Preview mode.
+    private var applyingPreviewMode = false
     /// The `type` key, lowercased, as last read.
     private(set) var captureFormat = "png"
     /// A native setting was written while `screencaptureui` was running, so it applies from
@@ -50,10 +53,25 @@ final class AppModel {
     /// The Preview mode in effect: what the user chose, overridden by the system's
     /// `show-thumbnail` (Addendum A1).
     var previewMode: PreviewMode {
-        // Until the default is applied (the first start of watching), the choice is what
-        // will apply; the thumbnail read before that is the old system value.
-        guard preferences.previewModeApplied else { return preferences.previewMode }
+        // Before the first read, and while the tour applies the default, the choice is what
+        // applies.
+        guard !applyingPreviewMode, let showThumbnail else { return preferences.previewMode }
         return .effective(stored: preferences.previewMode, showThumbnail: showThumbnail)
+    }
+
+    /// `show-thumbnail` has been read: only then does ClipShot show its preview or the macOS
+    /// mode's rows.
+    var previewModeKnown: Bool { showThumbnail != nil && !applyingPreviewMode }
+
+    /// An install from before Preview modes, with the macOS thumbnail on: a one-time offer to
+    /// copy at once. ClipShot never turns the thumbnail off on its own.
+    var showsPreviewOffer: Bool {
+        isWatching && previewModeKnown && !preferences.previewModeApplied && previewMode == .macOS
+    }
+
+    /// Preview mode macOS, after the offer: a quiet line in the header says copying waits.
+    var showsThumbnailWait: Bool {
+        isWatching && previewModeKnown && previewMode == .macOS && !showsPreviewOffer
     }
 
     var iconState: StatusIconState {
@@ -66,7 +84,7 @@ final class AppModel {
     }
 
     /// macOS saves no file for a PDF capture while the floating thumbnail is on (spike F2).
-    var pdfSavesNoFile: Bool { showThumbnail && captureFormat == "pdf" }
+    var pdfSavesNoFile: Bool { showThumbnail == true && captureFormat == "pdf" }
 
     /// Where screenshots are going right now: the watched folder, else the configured one.
     var screenshotFolder: URL? { watchedFolder ?? configuredFolder }
@@ -80,7 +98,8 @@ final class AppModel {
         return path
     }
 
-    /// "Paste works once the thumbnail disappears", until the first copy.
+    /// The first-copy hint (when a screenshot can be pasted in this Preview mode), until the
+    /// first copy.
     var showFirstCopyHint: Bool { !preferences.firstCopyDone }
 
     /// The one-time Markup tip, from the third copy until dismissed.
@@ -95,29 +114,29 @@ final class AppModel {
     @ObservationIgnored private let settings: CaptureSettings
     @ObservationIgnored private let screencapturePrefs: any ScreencapturePreferences
     @ObservationIgnored private let backup: PrefsBackup
-    @ObservationIgnored private let home: URL
-    @ObservationIgnored private let pasteboard: any PasteboardWriting
-    @ObservationIgnored private let ledger: ScreenshotLedger
-    @ObservationIgnored private let hasTrash: FolderGuard.TrashLookup
+    @ObservationIgnored let home: URL
+    @ObservationIgnored let pasteboard: any PasteboardWriting
+    @ObservationIgnored let ledger: ScreenshotLedger
+    @ObservationIgnored let hasTrash: FolderGuard.TrashLookup
     @ObservationIgnored private let clock: @Sendable () -> Date
     @ObservationIgnored private let statusInterval: Duration
     @ObservationIgnored private let makeFlashTimer: AppDependencies.MakeFlashTimer
     @ObservationIgnored private let reduceMotion: @MainActor () -> Bool
-    @ObservationIgnored private let playSound: @MainActor () -> Void
-    @ObservationIgnored private let announce: @MainActor (LocalizedStringResource) -> Void
-    @ObservationIgnored private let workspace: any WorkspaceActions
+    @ObservationIgnored let playSound: @MainActor () -> Void
+    @ObservationIgnored let announce: @MainActor (LocalizedStringResource) -> Void
+    @ObservationIgnored let workspace: any WorkspaceActions
     @ObservationIgnored private let screencaptureUIRunning: @MainActor () -> Bool
     @ObservationIgnored private let reconcileLoginItem: @MainActor (Bool?) -> Bool
     @ObservationIgnored private let setLoginItem: @MainActor (Bool) -> Bool
-    @ObservationIgnored private let log: Log
+    @ObservationIgnored let log: Log
     @ObservationIgnored private let logFile: URL
     @ObservationIgnored private let appVersion: String
     @ObservationIgnored private let osVersion: String
     @ObservationIgnored private let coordinator: CopyCoordinator
-    @ObservationIgnored private let edits: EditSession
-    @ObservationIgnored private let trasher: any Trashing
+    @ObservationIgnored let edits: EditSession
+    @ObservationIgnored let trasher: any Trashing
     @ObservationIgnored private let makePreviewHost: @MainActor (AppModel) -> AnyObject?
-    @ObservationIgnored private let openMarkup: @MainActor (URL, @escaping @MainActor (MarkupResult) -> Void) -> Void
+    @ObservationIgnored let openMarkup: @MainActor (URL, @escaping @MainActor (MarkupResult) -> Void) -> Void
     @ObservationIgnored private let pass: RetentionPass
     @ObservationIgnored private let scheduler: RetentionScheduler
 
@@ -145,10 +164,9 @@ final class AppModel {
     @ObservationIgnored private var previewHost: AnyObject?
     /// The pasteboard's change count right after ClipShot's last write: when it differs, the
     /// clipboard holds something else and the preview offers Copy again.
-    @ObservationIgnored private var changeCountAfterCopy: Int?
+    @ObservationIgnored var changeCountAfterCopy: Int?
     /// The last screenshot moved to the Trash from a preview, for Undo.
-    @ObservationIgnored private var lastTrashed: TrashedScreenshot?
-    @ObservationIgnored private var applyingPreviewMode = false
+    @ObservationIgnored var lastTrashed: TrashedScreenshot?
 
     init(dependencies d: AppDependencies) {
         preferences = d.preferences
@@ -220,7 +238,6 @@ final class AppModel {
         coordinator.isEnabled = preferences.copyEnabled
         coordinator.start()
         if previewHost == nil { previewHost = makePreviewHost(self) }
-        if !preferences.previewModeApplied { Task { await applyDefaultPreviewMode() } }
         observePreferences()
         statusTask = Task { [weak self, statusInterval] in
             while !Task.isCancelled {
@@ -231,6 +248,19 @@ final class AppModel {
             }
         }
         scheduler.start()
+    }
+
+    /// The tour's Start copying: starts watching and, the first time, applies the default
+    /// Preview mode (ClipShot: the macOS thumbnail goes off, through the backup). This is the
+    /// user's choice, and the tour's Try it says what it means.
+    func startCopying() {
+        if !preferences.previewModeApplied {
+            applyingPreviewMode = true
+            startWatching()
+            Task { await applyDefaultPreviewMode() }
+        } else {
+            startWatching()
+        }
     }
 
     /// Done or Skip in the welcome tour: the only place that records it as shown. Watching
@@ -283,7 +313,7 @@ final class AppModel {
         changeCountAfterCopy = pasteboard.changeCount
         lastCopied = file
         updateLatest()
-        if previewMode.showsOwnPreview { showPreview(file) }
+        if previewModeKnown, previewMode.showsOwnPreview { showPreview(file) }
         preferences.totals.copied += 1
         preferences.firstCopyDone = true
         clearCopyFailure()
@@ -298,13 +328,13 @@ final class AppModel {
             let image = await Task.detached(priority: .userInitiated) {
                 Thumbnailer.decode(file.url, maxPixelSize: PreviewCardMetrics.imagePixels)
             }.value
-            guard let self, self.isWatching, self.previewMode.showsOwnPreview else { return }
+            guard let self, self.isWatching, self.previewModeKnown, self.previewMode.showsOwnPreview else { return }
             self.previews.show(file, image: image)
         }
     }
 
     private func extraDisplay(_ file: CaptureFile) {
-        guard previewMode.showsOwnPreview else { return }
+        guard previewModeKnown, previewMode.showsOwnPreview else { return }
         previews.addExtraDisplay(file)
     }
 
@@ -341,7 +371,7 @@ final class AppModel {
     }
 
     /// One timer per flash: a copy during the flash restarts the phases on the same timer.
-    private func startFlash() {
+    func startFlash() {
         if flashTimer == nil {
             flashReduceMotion = reduceMotion()
             flash = CopiedFlash(reduceMotion: flashReduceMotion)
@@ -422,141 +452,22 @@ final class AppModel {
         return pasteboard.changeCount != changeCountAfterCopy
     }
 
-    func reveal(_ file: CaptureFile) {
-        workspace.reveal(file.url)
-    }
-
-    // MARK: - Markup
-
-    /// After the editor closes, the session stays this long, so the write that Done made is
-    /// still copied by the rescans that follow it (the last is 3 s after an event).
-    static let editGrace: Duration = .seconds(5)
-
-    /// Opens `file` for annotation in Markup (Addendum A4). While it is open, a save copies
-    /// the edited image even when the file is older than the 30 s copy window.
-    func markup(_ file: CaptureFile) {
-        edits.begin(file)
-        let log = log
-        openMarkup(file.url) { [weak self] result in
-            Task { await log.info("markup \(result.logName)") }
-            guard let self else { return }
-            switch result {
-            case .savedCopy(let data):
-                self.copyEdited(data, of: file)
-                self.endEdit(file)
-            case .savedInPlace, .closed, .failed:
-                self.endEdit(file)
-            case .openedInPreview:
-                // Preview never says when it closes: the session lasts its 30 minutes.
-                break
-            }
-        }
-    }
-
-    private func endEdit(_ file: CaptureFile) {
-        let edits = edits
-        Task {
-            try? await Task.sleep(for: Self.editGrace)
-            edits.end(file)
-        }
-    }
-
-    /// The editor returned an edited copy instead of writing the file: copy that image.
-    private func copyEdited(_ data: Data, of file: CaptureFile) {
-        Task { [weak self] in
-            let png = await Task.detached(priority: .userInitiated) { PNGConverter.pngData(fromImageData: data) }.value
-            guard let self, let png, self.pasteboard.writePNG(png) else { return }
-            self.changeCountAfterCopy = self.pasteboard.changeCount
-            self.startFlash()
-            if self.preferences.copySound { self.playSound() }
-            self.announce(Copy.screenshotCopied)
-        }
-    }
-
-    // MARK: - Trash
-
-    enum TrashError: Error, Equatable {
-        /// Not a screenshot ClipShot saw being taken (or one the user adopted).
-        case notTracked
-        /// Not a direct child of the screenshot folder, or the folder is one ClipShot never
-        /// touches.
-        case outsideFolder
-        /// The file changed since, or the Trash refused it.
-        case failed
-    }
-
-    private struct TrashedScreenshot {
-        let original: URL
-        let inTrash: URL
-    }
-
-    /// Moves a screenshot to the Trash (Addendum A6): only a file in the ledger, only a direct
-    /// child of the watched folder, with the realpath guard retention uses, and only through
-    /// `FileManager.trashItem`. No confirmation: it can be put back.
-    func trash(_ file: CaptureFile) async throws(TrashError) {
-        guard let folder = watchedFolder else { throw .outsideFolder }
-        let path = FolderGuard.canonicalPath(file.url)
-        guard await ledger.contains(path: path, resourceID: file.resourceID) else { throw .notTracked }
-        let home = home
-        let trasher = trasher
-        let outcome = await Task.detached(priority: .userInitiated) { () -> Result<URL?, TrashError> in
-            // The folder resolves, is not one ClipShot never touches, and is the file's
-            // resolved parent: a direct child, whatever spelling the URL had.
-            guard let resolved = FolderGuard.strictRealPath(folder.path),
-                  !FolderGuard.isBroad(resolved, home: CaptureSettings.realPath(home)),
-                  (path as NSString).deletingLastPathComponent == resolved
-            else { return .failure(.outsideFolder) }
-            guard let current = CaptureFile.inspect(file.url), current.resourceID == file.resourceID else {
-                return .failure(.failed)
-            }
-            do {
-                return .success(try trasher.trash(current.url))
-            } catch {
-                return .failure(.failed)
-            }
-        }.value
-        let inTrash: URL?
-        do throws(TrashError) {
-            inTrash = try outcome.get()
-        } catch {
-            throw error
-        }
-        await ledger.remove(path: path, resourceID: file.resourceID)
-        lastTrashed = inTrash.map { TrashedScreenshot(original: file.url, inTrash: $0) }
-        previews.dismiss(file: file, .trash)
-        preferences.totals.trashed += 1
-        let ext = file.url.pathExtension.lowercased()
-        let log = log
-        Task { await log.info("trashed ext=\(ext)") }
-    }
-
-    /// Puts the screenshot last moved to the Trash back where it was, and back in the ledger.
-    /// False when there is nothing to undo, or its place is taken.
-    @discardableResult
-    func undoTrash() async -> Bool {
-        guard let trashed = lastTrashed else { return false }
-        lastTrashed = nil
-        let restored = await Task.detached(priority: .userInitiated) { () -> CaptureFile? in
-            guard !FileManager.default.fileExists(atPath: trashed.original.path) else { return nil }
-            do {
-                try FileManager.default.moveItem(at: trashed.inTrash, to: trashed.original)
-            } catch {
-                return nil
-            }
-            return CaptureFile.inspect(trashed.original)
-        }.value
-        guard let restored else { return false }
-        await ledger.adopt([restored])
-        preferences.totals.trashed = max(0, preferences.totals.trashed - 1)
-        return true
-    }
-
     // MARK: - Native settings
 
     func fixDestination() async {
         let settings = settings
         await Task.detached { settings.fixDestination() }.value
         nativeSettingChanged()
+    }
+
+    /// The upgrade offer's Copy at once.
+    func acceptPreviewOffer() async {
+        await setPreviewMode(.clipShot)
+    }
+
+    /// The upgrade offer's close: never offered again.
+    func dismissPreviewOffer() {
+        preferences.previewModeApplied = true
     }
 
     /// Settings > Capture > Preview. Writes `show-thumbnail` through the backup-once path.
@@ -567,13 +478,12 @@ final class AppModel {
         if !mode.showsOwnPreview { previews.dismissAll() }
     }
 
-    /// The first start of watching applies the default mode once: ClipShot's preview, so the
-    /// macOS thumbnail goes off and copies land at once. Afterwards the system pref is only
+    /// The tour's Start copying applies the chosen mode once (ClipShot by default, so the
+    /// macOS thumbnail goes off and copies land at once). Afterwards the system pref is only
     /// read, never flipped back.
     private func applyDefaultPreviewMode() async {
-        guard !preferences.previewModeApplied, !applyingPreviewMode else { return }
-        applyingPreviewMode = true
         defer { applyingPreviewMode = false }
+        guard !preferences.previewModeApplied else { return }
         let wanted = preferences.previewMode.showsSystemThumbnail
         let settings = settings
         let current = await Task.detached { settings.showThumbnail }.value

@@ -50,6 +50,8 @@ final class CopyCoordinator {
     private let pasteboard: any PasteboardWriting
     private let ledger: ScreenshotLedger
     private let edits: EditSession
+    /// Sleeps until a rescan is due; tests release rescans by hand.
+    private let sleepUntil: @Sendable (ContinuousClock.Instant) async throws -> Void
     private let clock: @Sendable () -> Date
     private let pollInterval: Duration
     private let desktop: URL
@@ -74,6 +76,8 @@ final class CopyCoordinator {
     private var seeding = false
     private var passInFlight = false
     private var passQueued = false
+    /// A queued pass was asked for by a folder event or a rescan, not only by the poll.
+    private var queuedForEvent = false
     private var refreshInFlight = false
     private var refreshQueued = false
     private var rescanDeadlines: [ContinuousClock.Instant] = []
@@ -85,8 +89,12 @@ final class CopyCoordinator {
         settings: CaptureSettings, events: any FolderEventSource, pasteboard: any PasteboardWriting,
         ledger: ScreenshotLedger, edits: EditSession = EditSession(), clock: @escaping @Sendable () -> Date,
         pollInterval: Duration = .seconds(1),
-        home: URL = FileManager.default.homeDirectoryForCurrentUser, log: Log = .shared
+        home: URL = FileManager.default.homeDirectoryForCurrentUser, log: Log = .shared,
+        sleepUntil: @escaping @Sendable (ContinuousClock.Instant) async throws -> Void = {
+            try await Task.sleep(until: $0, clock: .continuous)
+        }
     ) {
+        self.sleepUntil = sleepUntil
         self.settings = settings
         self.events = events
         self.pasteboard = pasteboard
@@ -109,7 +117,7 @@ final class CopyCoordinator {
                 self.requestRefresh()
                 self.pruneMemory()
                 // A file open in Markup may be saved in place, which fires no folder event.
-                if self.edits.isActive { self.requestPass() }
+                if self.edits.isActive { self.requestPass(fromPoll: true) }
             }
         }
     }
@@ -124,6 +132,7 @@ final class CopyCoordinator {
         cancelRescans()
         seeding = false
         passQueued = false
+        queuedForEvent = false
         refreshQueued = false
         configured = nil
         watchedFolder = nil
@@ -207,6 +216,7 @@ final class CopyCoordinator {
         let gen = generation
         cancelRescans()
         passQueued = false
+        queuedForEvent = false
         seeding = true
         configured = plan.configured
         let events = events
@@ -236,10 +246,7 @@ final class CopyCoordinator {
         decider.seed(result.files)
         baseline = Set(result.files.map(FileKey.init))
         recorded = [:]
-        if passQueued {
-            passQueued = false
-            requestPass()
-        }
+        requestQueuedPass()
     }
 
     private func logWatchState(_ result: Retarget) {
@@ -286,11 +293,11 @@ final class CopyCoordinator {
     private func runRescans(token: Int) async {
         while let next = rescanDeadlines.first {
             do {
-                try await Task.sleep(until: next, clock: .continuous)
+                try await sleepUntil(next)
             } catch {
                 return
             }
-            let now = ContinuousClock.now
+            let now = max(ContinuousClock.now, next)
             rescanDeadlines.removeAll { $0 <= now }
             requestPass()
         }
@@ -305,10 +312,13 @@ final class CopyCoordinator {
     }
 
     /// One pass at a time; a request during a pass or a re-target runs once afterwards.
-    private func requestPass() {
+    /// `fromPoll`: the poll asked for it while a file is open in Markup. Such a pass is never
+    /// the last rescan, so a save that is still being written is retried, not a failure.
+    private func requestPass(fromPoll: Bool = false) {
         guard running else { return }
         if seeding || passInFlight {
             passQueued = true
+            if !fromPoll { queuedForEvent = true }
             return
         }
         guard let folder = watchedFolder else { return }
@@ -317,7 +327,7 @@ final class CopyCoordinator {
         let decider = decider
         let copying = isEnabled
         // No rescan left after this one: a screenshot that still does not decode has failed.
-        let lastRescan = rescanDeadlines.isEmpty
+        let lastRescan = !fromPoll && rescanDeadlines.isEmpty
         let clock = clock
         let edits = edits
         Task {
@@ -328,11 +338,16 @@ final class CopyCoordinator {
             if running, gen == generation {
                 finishPass(outcome, copying: copying, lastRescan: lastRescan)
             }
-            if passQueued {
-                passQueued = false
-                requestPass()
-            }
+            requestQueuedPass()
         }
+    }
+
+    private func requestQueuedPass() {
+        guard passQueued else { return }
+        passQueued = false
+        let fromPoll = !queuedForEvent
+        queuedForEvent = false
+        requestPass(fromPoll: fromPoll)
     }
 
     private func finishPass(_ outcome: PassOutcome, copying: Bool, lastRescan: Bool) {

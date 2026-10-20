@@ -90,7 +90,10 @@ final class ModelHarness {
 
     /// `previewModeApplied`: true is an install that already applied its default Preview mode,
     /// so starting does not write `show-thumbnail`; false is a fresh install.
-    init(onboardingShown: Bool = true, previewModeApplied: Bool = true, previewLifetime: Duration = .seconds(5)) throws {
+    init(
+        onboardingShown: Bool = true, previewModeApplied: Bool = true, previewLifetime: Duration = .seconds(5),
+        hasTrash: Bool = true
+    ) throws {
         let fm = FileManager.default
         home = try Fixtures.makeDir()
         folder = home.appendingPathComponent("Shots", isDirectory: true)
@@ -109,7 +112,7 @@ final class ModelHarness {
             preferences: preferences, screencapturePrefs: prefs,
             backup: PrefsBackup(fileURL: backupURL),
             home: home, events: events, pasteboard: pasteboard, ledger: ledger, trasher: trasher,
-            hasTrash: RT.hasTrash, clock: { Date() }, pollInterval: .milliseconds(100),
+            hasTrash: { _ in hasTrash }, clock: { Date() }, pollInterval: .milliseconds(100),
             statusInterval: .milliseconds(100),
             hourly: hourly.eraseToAnyPublisher(), wake: wake.eraseToAnyPublisher(),
             makeFlashTimer: { interval, tolerance, tick in

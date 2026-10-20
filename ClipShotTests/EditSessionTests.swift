@@ -41,9 +41,22 @@ struct EditSessionTests {
         #expect(!edits.isEditing(file), "31 minutes after it began")
         #expect(!edits.isActive)
 
-        edits.begin(file)
-        edits.end(file)
+        let token = edits.begin(file)
+        edits.end(token)
         #expect(!edits.isEditing(file), "the editor closed")
+    }
+
+    @Test func reopenedEditKeepsNewSession() throws {
+        let dir = try Fixtures.makeDir()
+        let file = try #require(CaptureFile.inspect(try Fixtures.write(named: "Screenshot.png", in: dir)))
+        let edits = EditSession()
+        let first = edits.begin(file)
+        // Opened again before the first editor's grace period ran out.
+        let second = edits.begin(file)
+        edits.end(first)
+        #expect(edits.isEditing(file), "the first edit's end leaves the new session open")
+        edits.end(second)
+        #expect(!edits.isEditing(file))
     }
 
     @Test func sessionMatchesByPathOrInode() throws {
@@ -106,6 +119,26 @@ struct EditSessionCopyTests {
         try rewriteInPlace(url, with: again)
         #expect(removexattr(url.path, CaptureMarker.captureFlag, XATTR_NOFOLLOW) == 0)
         #expect(await eventually { await h.writes == [edited, again] })
+    }
+
+    @Test func halfWrittenEditIsRetriedNotReportedAsFailed() async throws {
+        let h = try CoordinatorHarness()
+        defer { h.coordinator.stop() }
+        let then = Date().addingTimeInterval(-Self.old)
+        let url = try Fixtures.write(named: "Screenshot.png", in: h.folder, created: then, modified: then)
+        #expect(await h.start())
+        h.edits.begin(try #require(CaptureFile.inspect(url)))
+
+        // The editor has written half the file: the poll's passes see it and must not give up.
+        let edited = CoordinatorHarness.png(54)
+        try rewriteInPlace(url, with: edited.prefix(edited.count / 2))
+        try await Task.sleep(for: .milliseconds(700))
+        #expect(h.failures == 0)
+        #expect(h.writes.isEmpty)
+
+        try rewriteInPlace(url, with: edited)
+        #expect(await eventually { await h.writes == [edited] })
+        #expect(h.failures == 0)
     }
 
     @Test func oldFileOutsideSessionNeverCopies() async throws {

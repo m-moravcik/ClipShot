@@ -71,7 +71,7 @@ struct WelcomeTour: Equatable {
     mutating func advance(_ model: AppModel) {
         switch primary(model) {
         case .startCopying:
-            model.startWatching()
+            model.startCopying()
             beginTry(model)
         case .next:
             direction = .forward

@@ -53,25 +53,94 @@ struct PreviewModeModelTests {
         #expect(backup(h) == nil, "nothing was written")
     }
 
-    @Test func firstStartAppliesTheDefaultOnce() async throws {
+    @Test func modeIsUnknownUntilTheFirstRead() async throws {
         let h = try ModelHarness(previewModeApplied: false)
         defer { h.tearDown() }
-        #expect(h.model.previewMode == .clipShot, "the default, before anything is read")
-        #expect(h.prefs["show-thumbnail"] == nil)
+        h.prefs["show-thumbnail"] = true
+        #expect(h.model.showThumbnail == nil)
+        #expect(!h.model.previewModeKnown)
+        #expect(!h.model.showsPreviewOffer && !h.model.showsThumbnailWait, "no macOS-mode UI before a read")
+        #expect(h.model.previewMode == .clipShot, "the choice, until the system value is known")
         #expect(await h.start())
-        #expect(await eventually { h.prefs["show-thumbnail"] as? Bool == false })
+        #expect(await eventually { await h.model.previewModeKnown })
+        #expect(h.model.previewMode == .macOS)
+    }
+
+    @Test func upgradeNeverWritesThumbnail() async throws {
+        // Onboarding done before Preview modes existed; the macOS thumbnail is on (no key).
+        let h = try ModelHarness(previewModeApplied: false)
+        defer { h.tearDown() }
+        #expect(await h.start())
+        #expect(await eventually { await h.model.showsPreviewOffer })
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(h.prefs["show-thumbnail"] == nil, "nothing written")
+        #expect(backup(h) == nil)
+        #expect(h.model.previewMode == .macOS)
+        #expect(!h.preferences.previewModeApplied)
+        #expect(!h.model.showsThumbnailWait, "the offer row says it; the header line waits")
+
+        // No preview while the macOS thumbnail is on.
+        try h.shoot("Screenshot 1.png")
+        #expect(await eventually { await h.pasteboard.writes.count == 1 })
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(h.model.previews.items.isEmpty)
+    }
+
+    @Test func offerSwitchUsesBackupOnce() async throws {
+        let h = try ModelHarness(previewModeApplied: false)
+        defer { h.tearDown() }
+        h.prefs["show-thumbnail"] = true
+        #expect(await h.start())
+        #expect(await eventually { await h.model.showsPreviewOffer })
+
+        await h.model.acceptPreviewOffer()
+        #expect(h.prefs["show-thumbnail"] as? Bool == false)
+        #expect(backup(h)?["show-thumbnail"] as? Bool == true, "the original, saved before the write")
         #expect(h.preferences.previewModeApplied)
         #expect(h.model.previewMode == .clipShot)
-        let saved = try #require(backup(h))
-        #expect(saved["show-thumbnail"] == nil, "the backup holds the original: no key")
+        #expect(!h.model.showsPreviewOffer)
 
-        // Later, the system pref turned back on is followed, not fought.
+        // A later write keeps the first backup.
+        await h.model.setPreviewMode(.macOS)
+        await h.model.setPreviewMode(.clipShot)
+        #expect(backup(h)?["show-thumbnail"] as? Bool == true)
+    }
+
+    @Test func offerDismissIsPermanent() async throws {
+        let h = try ModelHarness(previewModeApplied: false)
+        defer { h.tearDown() }
         h.prefs["show-thumbnail"] = true
+        #expect(await h.start())
+        #expect(await eventually { await h.model.showsPreviewOffer })
+
+        h.model.dismissPreviewOffer()
+        #expect(!h.model.showsPreviewOffer)
+        #expect(h.preferences.previewModeApplied)
+        #expect(h.model.showsThumbnailWait, "macOS mode keeps its quiet header line")
+        #expect(h.prefs["show-thumbnail"] as? Bool == true)
+        #expect(backup(h) == nil)
+
         h.model.stopWatching()
         #expect(await h.start())
-        #expect(await eventually { await h.model.previewMode == .macOS })
-        try await Task.sleep(for: .milliseconds(300))
+        #expect(await eventually { await h.model.previewModeKnown })
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(!h.model.showsPreviewOffer, "never offered again")
         #expect(h.prefs["show-thumbnail"] as? Bool == true)
+    }
+
+    @Test func onboardingStartAppliesClipShotMode() async throws {
+        let h = try ModelHarness(onboardingShown: false, previewModeApplied: false)
+        defer { h.tearDown() }
+        h.prefs["show-thumbnail"] = true
+        var tour = WelcomeTour(step: .folder)
+        #expect(tour.primary(h.model) == .startCopying)
+        tour.advance(h.model)
+        #expect(h.model.previewMode == .clipShot, "the tour's Try it never shows the macOS text")
+        #expect(await eventually { h.prefs["show-thumbnail"] as? Bool == false })
+        #expect(await eventually { await h.preferences.previewModeApplied })
+        #expect(backup(h)?["show-thumbnail"] as? Bool == true)
+        #expect(h.model.previewMode == .clipShot)
+        #expect(!h.model.showsPreviewOffer)
     }
 
     @Test func choosingClipShotTurnsThumbnailOffThroughBackup() async throws {
@@ -97,16 +166,17 @@ struct PreviewModeModelTests {
     }
 
     @Test func restoreBringsBackOriginalThumbnail() async throws {
-        let h = try ModelHarness(previewModeApplied: false)
+        let h = try ModelHarness()
         defer { h.tearDown() }
         h.prefs["show-thumbnail"] = true
         #expect(await h.start())
-        #expect(await eventually { h.prefs["show-thumbnail"] as? Bool == false })
+        await h.model.setPreviewMode(.clipShot)
+        #expect(h.prefs["show-thumbnail"] as? Bool == false)
         #expect(await h.model.restorePreviousSettings())
         #expect(h.prefs["show-thumbnail"] as? Bool == true)
         #expect(await eventually { await h.model.previewMode == .macOS })
         try await Task.sleep(for: .milliseconds(300))
-        #expect(h.prefs["show-thumbnail"] as? Bool == true, "restore is not undone by the default")
+        #expect(h.prefs["show-thumbnail"] as? Bool == true, "restore is not undone")
     }
 
     @Test func previewsShowOnlyInClipShotMode() async throws {

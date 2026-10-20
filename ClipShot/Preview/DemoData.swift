@@ -37,6 +37,11 @@ final class DemoScene {
         prefs = DemoScreencapturePreferences(["location": folder.path, "target": "file"])
         preferences = Preferences(store: DemoPreferenceStore())
         preferences.onboardingShown = onboardingShown
+        if onboardingShown {
+            // A current install in Preview mode ClipShot; a fresh one applies it in the tour.
+            preferences.previewModeApplied = true
+            prefs["show-thumbnail"] = false
+        }
         if !onboardingShown {
             // A fresh install: nothing chosen yet, whatever the launch arguments say.
             preferences.launchAtLoginIntent = nil
