@@ -38,7 +38,6 @@ final class Preferences {
     }
     var lastRetention: RetentionResult? { didSet { store(lastRetention, Key.lastRetention) } }
     var totals: Totals { didSet { store(totals, Key.totals) } }
-    var firstCopyDone: Bool { didSet { defaults.set(firstCopyDone, forKey: Key.firstCopyDone) } }
     var markupTipShown: Bool { didSet { defaults.set(markupTipShown, forKey: Key.markupTipShown) } }
     /// The Preview mode the user chose (Addendum A1). What applies also depends on the
     /// system's `show-thumbnail`: see `PreviewMode.effective`.
@@ -58,7 +57,6 @@ final class Preferences {
         launchAtLoginIntent = defaults.object(forKey: Key.launchAtLoginIntent) as? Bool
         lastRetention = Self.load(RetentionResult.self, Key.lastRetention, defaults)
         totals = Self.load(Totals.self, Key.totals, defaults) ?? Totals()
-        firstCopyDone = defaults.object(forKey: Key.firstCopyDone) as? Bool ?? false
         markupTipShown = defaults.object(forKey: Key.markupTipShown) as? Bool ?? false
         previewMode = (defaults.object(forKey: Key.previewMode) as? String).flatMap(PreviewMode.init(rawValue:)) ?? .clipShot
         previewModeApplied = defaults.object(forKey: Key.previewModeApplied) as? Bool ?? false
@@ -72,7 +70,6 @@ final class Preferences {
         static let launchAtLoginIntent = "clipshot.launchAtLoginIntent"
         static let lastRetention = "clipshot.lastRetention"
         static let totals = "clipshot.totals"
-        static let firstCopyDone = "clipshot.firstCopyDone"
         static let markupTipShown = "clipshot.markupTipShown"
         static let previewMode = "clipshot.previewMode"
         static let previewModeApplied = "clipshot.previewModeApplied"

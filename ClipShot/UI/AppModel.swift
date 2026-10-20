@@ -159,6 +159,10 @@ final class AppModel {
     @ObservationIgnored private var runCount = 0
     /// Names the latest `refreshRecent()`, so an older one that finishes later is dropped.
     @ObservationIgnored private var recentGeneration = 0
+    /// Thumbnail decodes in flight, so overlapping refreshes share them.
+    @ObservationIgnored private var decoding: [CaptureFile: Task<CGImage?, Never>] = [:]
+    /// Files on show whose thumbnail could not be decoded; not tried again.
+    @ObservationIgnored private var undecodable: Set<CaptureFile> = []
     /// Names the Undo on offer, so the timer of a replaced one does not end the newer one.
     @ObservationIgnored var undoGeneration = 0
     @ObservationIgnored private var flash = CopiedFlash()
@@ -327,7 +331,6 @@ final class AppModel {
         refreshRecent()
         if previewModeKnown, previewMode.showsOwnPreview { showPreview(file) }
         preferences.totals.copied += 1
-        preferences.firstCopyDone = true
         clearCopyFailure()
         startFlash()
         if preferences.copySound { playSound() }
@@ -360,31 +363,63 @@ final class AppModel {
         let generation = recentGeneration
         let lastCopied = lastCopied
         let folder = isWatching ? watchedFolder : nil
-        let cached = Set(thumbnails.keys)
         let ledger = ledger
+        let coordinator = coordinator
         Task { [weak self] in
+            // A screenshot just copied is in the ledger before the strip is chosen.
+            await coordinator.ledgerSettled()
             let entries = folder == nil ? [] : await ledger.entries()
-            let (shots, decoded) = await Task.detached(priority: .utility) {
-                let shots = RecentScreenshots.select(lastCopied: lastCopied, ledger: entries, folder: folder)
-                var decoded: [CaptureFile: CGImage] = [:]
-                for file in [shots.card].compactMap({ $0 }) + shots.recent where !cached.contains(file) {
-                    decoded[file] = Thumbnailer.decode(file.url, maxPixelSize: LatestCapture.thumbnailPixels)
-                }
-                return (shots, decoded)
+            let shots = await Task.detached(priority: .utility) {
+                RecentScreenshots.select(lastCopied: lastCopied, ledger: entries, folder: folder)
             }.value
             guard let self, generation == self.recentGeneration else { return }
-            self.show(shots, decoded: decoded)
+            let images = await self.thumbnails(for: [shots.card].compactMap { $0 } + shots.recent)
+            guard generation == self.recentGeneration else { return }
+            self.show(shots, images: images)
         }
     }
 
-    private func show(_ shots: RecentScreenshots, decoded: [CaptureFile: CGImage]) {
-        var images = thumbnails.merging(decoded) { old, _ in old }
+    /// The thumbnails of `files`: from the cache, or decoded off the main actor. A decode
+    /// already running for a file (from an earlier refresh) is awaited, not repeated, and a
+    /// file that could not be decoded is not tried again while it is on show.
+    private func thumbnails(for files: [CaptureFile]) async -> [CaptureFile: CGImage] {
+        var pending: [(CaptureFile, Task<CGImage?, Never>)] = []
+        var images: [CaptureFile: CGImage] = [:]
+        for file in files {
+            if let image = thumbnails[file] {
+                images[file] = image
+            } else if !undecodable.contains(file) {
+                let task = decoding[file] ?? Task.detached(priority: .utility) {
+                    Thumbnailer.decode(file.url, maxPixelSize: LatestCapture.thumbnailPixels)
+                }
+                decoding[file] = task
+                pending.append((file, task))
+            }
+        }
+        for (file, task) in pending {
+            let image = await task.value
+            decoding[file] = nil
+            // Kept at once, so a newer refresh that started meanwhile finds it.
+            if let image {
+                images[file] = image
+                if thumbnails[file] == nil { thumbnails[file] = image }
+            } else {
+                undecodable.insert(file)
+            }
+        }
+        return images
+    }
+
+    private func show(_ shots: RecentScreenshots, images: [CaptureFile: CGImage]) {
         // Only what is on show, plus the file an Undo may bring back.
-        let keep = Set([shots.card, undoable?.file].compactMap { $0} + shots.recent)
-        images = images.filter { keep.contains($0.key) }
-        if images != thumbnails { thumbnails = images }
+        let keep = Set([shots.card, undoable?.file].compactMap { $0 } + shots.recent)
+        let cache = thumbnails.merging(images) { old, _ in old }.filter { keep.contains($0.key) }
+        undecodable.formIntersection(keep)
+        if cache != thumbnails { thumbnails = cache }
         if recent != shots.recent { recent = shots.recent }
-        let card = shots.card.map { LatestCapture(file: $0, thumbnail: images[$0]) }
+        let card = shots.card.map {
+            LatestCapture(file: $0, thumbnail: cache[$0], isLastCopied: shots.cardIsLastCopied)
+        }
         if latest != card { latest = card }
     }
 
@@ -398,10 +433,15 @@ final class AppModel {
                 latest = nil
             } else {
                 let next = recent.removeFirst()
-                latest = LatestCapture(file: next, thumbnail: thumbnails[next])
+                latest = LatestCapture(file: next, thumbnail: thumbnails[next], isLastCopied: false)
             }
         }
         refreshRecent()
+    }
+
+    /// Waits until the ledger has every screenshot the coordinator has seen so far.
+    func ledgerSettled() async {
+        await coordinator.ledgerSettled()
     }
 
     private func copyFailed(_ file: CaptureFile) {

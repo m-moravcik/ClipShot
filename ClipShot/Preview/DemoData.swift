@@ -45,7 +45,6 @@ final class DemoScene {
         if !onboardingShown {
             // A fresh install: nothing chosen yet, whatever the launch arguments say.
             preferences.launchAtLoginIntent = nil
-            preferences.firstCopyDone = false
         }
         let logFile = support.appendingPathComponent("clipshot.log")
         let log = Log(fileURL: logFile)
@@ -121,15 +120,16 @@ final class DemoScene {
     }
 
     /// Earlier screenshots ClipShot saw being taken, for the popover's strip: in the ledger,
-    /// minutes to a day old, each picture in its own colours.
+    /// minutes to two days old, each picture in its own colours. One more than the strip
+    /// shows, so it fills up again after a move to the Trash.
     func recentScreenshots() async throws {
-        let ages: [TimeInterval] = [6 * 60, 48 * 60, 3 * 3_600, 26 * 3_600]
+        let ages: [TimeInterval] = [6 * 60, 48 * 60, 3 * 3_600, 26 * 3_600, 50 * 3_600]
         var files: [CaptureFile] = []
         for (index, age) in ages.enumerated() {
             let name = DemoContent.recentScreenshotName(index)
             files.append(try shoot(name, image: DemoContent.screenshotPNG(variant: index + 1), age: age))
         }
-        await ledger.adopt(files)
+        for file in files { await ledger.record(file) }
     }
 
     /// Old screenshots, `count` of them `days` old: in the ledger when `tracked`, otherwise
@@ -268,8 +268,8 @@ enum DemoContent {
     }
 
     static func recentScreenshotName(_ index: Int) -> String {
-        let times = ["09.35.40", "08.53.17", "06.41.02", "07.12.55"]
-        let day = index == 3 ? "2026-10-18" : "2026-10-19"
+        let times = ["09.35.40", "08.53.17", "06.41.02", "07.12.55", "07.48.30"]
+        let day = ["2026-10-19", "2026-10-19", "2026-10-19", "2026-10-18", "2026-10-17"][index % 5]
         return "\(screenshotPrefix) \(day) \(screenshotTime(times[index % times.count])).png"
     }
 
@@ -328,6 +328,7 @@ private struct DemoWindow: View {
         (Color(red: 0.196, green: 0.667, blue: 0.455), Color(red: 0.600, green: 0.850, blue: 0.400)),
         (Color(red: 0.557, green: 0.329, blue: 0.890), Color(red: 0.890, green: 0.490, blue: 0.820)),
         (Color(red: 0.180, green: 0.560, blue: 0.640), Color(red: 0.980, green: 0.780, blue: 0.300)),
+        (Color(red: 0.420, green: 0.440, blue: 0.500), Color(red: 0.950, green: 0.420, blue: 0.560)),
     ]
     private let bars: [CGFloat] = [0.42, 0.58, 0.51, 0.72, 0.66, 0.84, 0.78, 0.93]
     private var coral: Color { Self.palettes[variant % Self.palettes.count].0 }

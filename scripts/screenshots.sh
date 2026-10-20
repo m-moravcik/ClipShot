@@ -55,6 +55,5 @@ CLIPSHOT_SCREENSHOTS="$OUT" LLVM_PROFILE_FILE="$PWD/$DERIVED/screenshots.profraw
     -AppleLocale "$LOCALE" \
     -clipshot.copyEnabled YES \
     -clipshot.copySound NO \
-    -clipshot.firstCopyDone YES \
     -clipshot.markupTipShown YES \
     -clipshot.launchAtLoginIntent YES

@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// Every user-facing string, in one place. English text is the key, as in VibeRes; the
 /// catalog (`Localizable.xcstrings`) carries the translations and the plural forms.
@@ -25,10 +26,10 @@ enum Copy {
         static let paused = LocalizedStringResource(
             "Paused", comment: "Popover header state: the Copy to clipboard toggle is off")
         static let attention = LocalizedStringResource("Needs attention", comment: "Popover header state")
-        static let firstCopyHint = LocalizedStringResource(
+        static let pasteAfterThumbnail = LocalizedStringResource(
             "Paste works once the thumbnail disappears",
             comment: "Popover status row under Copying on, Preview mode macOS while the one-time offer shows: macOS saves the file when its floating thumbnail goes away")
-        static let firstCopyHintInstant = LocalizedStringResource(
+        static let pasteAtOnce = LocalizedStringResource(
             "Screenshots are ready to paste at once",
             comment: "Popover status row under Copying on, Preview mode ClipShot or None: the copy lands the moment the screenshot is taken")
         static let pausedDetail = LocalizedStringResource(
@@ -423,11 +424,12 @@ enum Copy {
             "ClipShot can move the screenshots it saw being made to the Trash. Rename one to keep it.",
             comment: "Welcome tour step 3: what retention does; the period is chosen below")
         /// "Move screenshots older than [30 days] to the Trash": `period` is the choice the
-        /// sentence shows as a pop-up link, such as "30 days".
-        static func tidyPeriod(_ period: String) -> LocalizedStringResource {
-            LocalizedStringResource(
-                "Move screenshots older than \(period) to the Trash",
-                comment: "Welcome tour step 3, beside the retention switch: the period, such as 30 days, is a pop-up choice")
+        /// sentence shows as a pop-up link, such as "30 days". A `Text`, so the link keeps its
+        /// own attributes inside the translated sentence. (Catalog comment: welcome tour step
+        /// 3, beside the retention switch; the period is a pop-up choice.)
+        static func tidyPeriod(_ period: Text) -> Text {
+            let sentence: LocalizedStringKey = "Move screenshots older than \(period) to the Trash"
+            return Text(sentence)
         }
     }
 

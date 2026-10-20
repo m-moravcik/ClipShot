@@ -171,8 +171,8 @@ struct HeaderStatus: Equatable {
 
     var detailText: LocalizedStringResource {
         switch detail {
-        case .pasteAtOnce: Copy.Header.firstCopyHintInstant
-        case .pasteAfterThumbnail: Copy.Header.firstCopyHint
+        case .pasteAtOnce: Copy.Header.pasteAtOnce
+        case .pasteAfterThumbnail: Copy.Header.pasteAfterThumbnail
         case .thumbnailWait: Copy.ThumbnailWait.hint
         case .paused: Copy.Header.pausedDetail
         case .issues(let count): Copy.Header.attentionDetail(count)
@@ -205,7 +205,8 @@ private struct PopoverHeader: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .animation(Design.Motion.quick, value: status)
-        .accessibilityElement(children: .contain)
+        // Title and detail as one element; Copy at once stays an action on it.
+        .accessibilityElement(children: .combine)
         .padding(.horizontal, Design.Spacing.l + Design.Spacing.m)
         .padding(.top, Design.Spacing.l)
     }
@@ -388,7 +389,7 @@ private struct RetentionSummaryRow: View {
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(summary.title)
-                        .font(Design.Typography.body)
+                        .font(Design.Typography.row)
                     if case .on = summary {
                         Text(RetentionSummary.lastCleanup(model.preferences.lastRetention, now: Date()))
                             .font(Design.Typography.cardSubtitle)

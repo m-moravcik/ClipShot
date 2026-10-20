@@ -437,6 +437,7 @@ private struct TidyStep: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var customPeriod = false
+    @State private var menuAnchor = MenuAnchor()
 
     private var scan: RetentionScan? {
         if case .success(let scan) = model.retentionPreview { scan } else { nil }
@@ -482,10 +483,20 @@ private struct TidyStep: View {
     /// The sentence with its period link, and the switch, laid out as `SwitchRow`.
     private func periodRow(_ retention: RetentionPolicy) -> some View {
         HStack(spacing: Design.Spacing.m) {
-            Text(sentence(days: retention.days))
+            Copy.Onboarding.tidyPeriod(periodLink(days: retention.days))
                 .font(Design.Typography.body)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                // The period menu opens under the link, whether a click, the keyboard or
+                // VoiceOver opened it: an anchor view sits on the link's own glyphs.
+                .backgroundPreferenceValue(Text.LayoutKey.self) { layouts in
+                    GeometryReader { proxy in
+                        let rect = Self.linkRect(layouts, in: proxy)
+                        MenuAnchorView(anchor: menuAnchor)
+                            .frame(width: rect.width, height: rect.height)
+                            .offset(x: rect.minX, y: rect.minY)
+                    }
+                }
                 .environment(\.openURL, OpenURLAction { url in
                     guard url == Self.periodURL else { return .systemAction }
                     showPeriodMenu()
@@ -512,21 +523,30 @@ private struct TidyStep: View {
         .padding(.vertical, Design.Spacing.s)
     }
 
-    /// "Move screenshots older than 30 days ▾ to the Trash", the period a link. One
-    /// translated sentence; the period is found in it, so every language keeps its word order.
-    private func sentence(days: Int) -> AttributedString {
-        let period = String(localized: Copy.Retention.days(days))
-        var text = AttributedString(localized: Copy.Onboarding.tidyPeriod(period))
-        if let range = text.range(of: period) {
-            // Never broken across lines: the period and its arrow are one choice.
-            var link = AttributedString(period.replacingOccurrences(of: " ", with: "\u{00A0}") + "\u{00A0}\u{25BE}")
-            link.link = Self.periodURL
-            text.replaceSubrange(range, with: link)
-        }
-        return text
+    /// "30 days ▾" as a link, never broken across lines: the period and its arrow are one
+    /// choice. Marked, so its place in the laid-out sentence can be found.
+    private func periodLink(days: Int) -> Text {
+        let period = String(localized: Copy.Retention.days(days)).replacingOccurrences(of: " ", with: "\u{00A0}")
+        var link = AttributedString(period + "\u{00A0}\u{25BE}")
+        link.link = Self.periodURL
+        return Text(link).customAttribute(PeriodLinkAttribute())
     }
 
-    /// Settings' choices, the current one checked, at the pointer.
+    /// The link's frame in the sentence's coordinates, from the text layout.
+    private static func linkRect(_ layouts: Text.LayoutKey.Value, in proxy: GeometryProxy) -> CGRect {
+        var rect = CGRect.null
+        for anchored in layouts {
+            let origin = proxy[anchored.origin]
+            for line in anchored.layout {
+                for run in line where run[PeriodLinkAttribute.self] != nil {
+                    rect = rect.union(run.typographicBounds.rect.offsetBy(dx: origin.x, dy: origin.y))
+                }
+            }
+        }
+        return rect.isNull ? .zero : rect
+    }
+
+    /// Settings' choices, the current one checked, just under the link.
     private func showPeriodMenu() {
         let current = RetentionPeriod.of(days: model.preferences.retention.days, customRequested: customPeriod)
         let menu = NSMenu()
@@ -538,7 +558,12 @@ private struct TidyStep: View {
             if choice == .custom { menu.addItem(.separator()) }
             menu.addItem(item)
         }
-        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+        if let view = menuAnchor.view, view.window != nil {
+            let below = view.isFlipped ? view.bounds.maxY + 3 : view.bounds.minY - 3
+            menu.popUp(positioning: nil, at: NSPoint(x: view.bounds.minX, y: below), in: view)
+        } else {
+            menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+        }
     }
 
     /// Before the switch: what would go now. After it: what goes at the next cleanup.
@@ -590,5 +615,34 @@ private struct TidyStep: View {
 
     private var folderName: String {
         model.screenshotFolder.map(AttentionPresentation.displayName) ?? ""
+    }
+}
+
+/// Marks the period link inside the tour's sentence.
+private struct PeriodLinkAttribute: TextAttribute {}
+
+/// The view the period menu opens from.
+@MainActor
+private final class MenuAnchor {
+    weak var view: NSView?
+}
+
+private struct MenuAnchorView: NSViewRepresentable {
+    let anchor: MenuAnchor
+
+    func makeNSView(context: Context) -> PassThroughView {
+        let view = PassThroughView()
+        anchor.view = view
+        return view
+    }
+
+    func updateNSView(_ view: PassThroughView, context: Context) {
+        anchor.view = view
+    }
+
+    /// Only a place to open the menu from: clicks go to the link above it.
+    final class PassThroughView: NSView {
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+        override func isAccessibilityElement() -> Bool { false }
     }
 }

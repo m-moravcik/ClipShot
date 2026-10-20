@@ -8,34 +8,41 @@ struct RecentScreenshots: Equatable, Sendable {
     static let count = 4
 
     /// The latest card: the last copied screenshot, or, once that is gone (or nothing was
-    /// copied since launch), the newest screenshot in the ledger.
+    /// copied since launch), the newest screenshot ClipShot saw being taken. Never an older
+    /// file the user adopted for cleanup.
     var card: CaptureFile?
+    /// The card shows the last copied screenshot (its button says Copy again), not a fallback.
+    var cardIsLastCopied = false
     /// The previous screenshots from the ledger, newest first, without the card's.
     var recent: [CaptureFile]
 
-    /// Reads the files. `folder` limits the strip to direct children of the folder being
-    /// watched, so every action on it (Move to Trash above all) applies.
+    /// Reads the files. Everything shown is a direct child of `folder`, the folder being
+    /// watched, so every action on it (Move to Trash above all) applies and nothing from an
+    /// earlier folder stays on show.
     static func select(
         lastCopied: CaptureFile?, ledger: [LedgerEntry], folder: URL?, count: Int = count
     ) -> RecentScreenshots {
-        var card = lastCopied.flatMap { current($0.url, resourceID: $0.resourceID) }
-        var recent: [CaptureFile] = []
         guard let folder, let resolved = FolderGuard.strictRealPath(folder.path) else {
-            return RecentScreenshots(card: card, recent: [])
+            return RecentScreenshots(card: nil, recent: [])
         }
+        let inFolder = { (path: String) in (path as NSString).deletingLastPathComponent == resolved }
+        var card = lastCopied.flatMap { copied in
+            inFolder(FolderGuard.canonicalPath(copied.url)) ? current(copied.url, resourceID: copied.resourceID) : nil
+        }
+        let cardIsLastCopied = card != nil
+        var recent: [CaptureFile] = []
         let cardPath = card.map { FolderGuard.canonicalPath($0.url) }
         let newestFirst = ledger.sorted { ($0.created, $0.path) > ($1.created, $1.path) }
-        for entry in newestFirst
-        where entry.path != cardPath && (entry.path as NSString).deletingLastPathComponent == resolved {
+        for entry in newestFirst where entry.path != cardPath && inFolder(entry.path) {
             guard let file = current(URL(fileURLWithPath: entry.path), resourceID: entry.resourceID) else { continue }
-            if card == nil {
+            if card == nil && !entry.adopted {
                 card = file
-                continue
+            } else if recent.count < count {
+                recent.append(file)
             }
-            recent.append(file)
-            if recent.count == count { break }
+            if card != nil && recent.count == count { break }
         }
-        return RecentScreenshots(card: card, recent: recent)
+        return RecentScreenshots(card: card, cardIsLastCopied: cardIsLastCopied, recent: recent)
     }
 
     /// The file at `url` now, if it is still the same one.

@@ -72,6 +72,11 @@ final class CopyCoordinator {
     private var baseline: Set<FileKey> = []
     /// Fresh screenshots already sent to the ledger, with the time they were sent.
     private var recorded: [FileKey: Date] = [:]
+    /// Versions of files open in Markup already sent to `followEdit`, with the time.
+    private var followed: [FileKey: Date] = [:]
+    /// The last ledger write, each chained after the one before, so they land in order and
+    /// `ledgerSettled()` can wait for all of them.
+    private var ledgerTail: Task<Void, Never>?
 
     private var seeding = false
     private var passInFlight = false
@@ -364,13 +369,12 @@ final class CopyCoordinator {
             if file.isScreenshot, CopyDecider.isFresh(file, now: now),
                !baseline.contains(key), recorded[key] == nil {
                 recorded[key] = now
-                let ledger = ledger
-                Task { await ledger.record(file) }
+                writeLedger { await $0.record(file) }
             }
-            if observation.editing {
+            if observation.editing, followed[key] == nil {
                 // Saved by replacing the file while it is open in Markup: keep it tracked.
-                let ledger = ledger
-                Task { await ledger.followEdit(file) }
+                followed[key] = now
+                writeLedger { await $0.followEdit(file) }
             }
             guard copying else {
                 // While disabled, everything seen counts as handled: no catch-up on re-enable.
@@ -411,6 +415,21 @@ final class CopyCoordinator {
         }
     }
 
+    private func writeLedger(_ write: @escaping @Sendable (ScreenshotLedger) async -> Void) {
+        let previous = ledgerTail
+        let ledger = ledger
+        ledgerTail = Task {
+            await previous?.value
+            await write(ledger)
+        }
+    }
+
+    /// Returns once every ledger write the coordinator has started is done: a screenshot just
+    /// copied is then in the ledger, so Move to Trash on it is not refused.
+    func ledgerSettled() async {
+        await ledgerTail?.value
+    }
+
     private func reportFailure(_ file: CaptureFile) {
         lastFailure = clock()
         onFailure?(file)
@@ -423,6 +442,7 @@ final class CopyCoordinator {
         let now = clock()
         decider.prune(now: now)
         recorded = recorded.filter { now.timeIntervalSince($0.value) <= CopyDecider.memory }
+        followed = followed.filter { now.timeIntervalSince($0.value) <= CopyDecider.memory }
     }
 
     // MARK: - Off-main work

@@ -10,6 +10,9 @@ struct LatestCapture: Identifiable, Equatable, @unchecked Sendable {
     let file: CaptureFile
     /// nil when the file could not be decoded (a PDF, or a file already gone).
     let thumbnail: CGImage?
+    /// The screenshot last copied; false for the newest one shown in its place once that is
+    /// gone, or before any copy this session. Its button then says Copy, not Copy again.
+    var isLastCopied = true
 
     var id: CaptureFile { file }
 
@@ -21,7 +24,7 @@ struct LatestCapture: Identifiable, Equatable, @unchecked Sendable {
     }
 
     static func == (a: LatestCapture, b: LatestCapture) -> Bool {
-        a.file == b.file && a.thumbnail === b.thumbnail
+        a.file == b.file && a.thumbnail === b.thumbnail && a.isLastCopied == b.isLastCopied
     }
 }
 
@@ -105,13 +108,16 @@ struct LatestCaptureCard: View {
             HStack(spacing: Design.Spacing.m) {
                 MarkupThumbnail(image: capture.thumbnail, file: capture.file)
                 VStack(alignment: .leading, spacing: 1) {
+                    // Two lines before anything is cut, so the time at the end of a
+                    // screenshot's name, which tells screenshots apart, stays whole.
                     Text(verbatim: capture.file.url.lastPathComponent)
                         .font(Design.Typography.cardTitle)
-                        .lineLimit(1)
+                        .lineLimit(2)
                         .truncationMode(.middle)
+                        .fixedSize(horizontal: false, vertical: true)
                         .help(Text(verbatim: capture.file.url.lastPathComponent))
                     // Age and size on one line, or one under the other when a long "Just
-                    // now" leaves no room next to the Move to Trash button.
+                    // now" leaves no room.
                     ViewThatFits(in: .horizontal) {
                         HStack(spacing: Design.Spacing.s) {
                             age
@@ -128,7 +134,6 @@ struct LatestCaptureCard: View {
                     .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 0)
-                trashButton
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(Copy.Latest.accessibility(
@@ -153,13 +158,14 @@ struct LatestCaptureCard: View {
         .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.cardFill))
     }
 
-    /// Side by side at their own width, or stacked at the full card width with the labels
-    /// leading.
+    /// Side by side at their own width with Move to Trash at the trailing end, or stacked at
+    /// the full card width with the labels leading and Move to Trash beside Show in Finder.
     @ViewBuilder
     private func actions(stacked: Bool) -> some View {
         Button { copyAgain() } label: {
             Label {
-                Text(Copy.Action.copyAgain)
+                // Copy again for the screenshot just copied; Copy for one shown in its place.
+                Text(capture.isLastCopied ? Copy.Action.copyAgain : Copy.Preview.copy)
             } icon: {
                 Image(systemName: showCheck ? "checkmark" : "doc.on.doc")
                     .contentTransition(reduceMotion ? .opacity : .symbolEffect(.replace))
@@ -167,6 +173,19 @@ struct LatestCaptureCard: View {
             .frame(maxWidth: stacked ? .infinity : nil, alignment: .leading)
         }
         .fixedSize(horizontal: !stacked, vertical: true)
+        if stacked {
+            HStack(spacing: Design.Spacing.s) {
+                revealButton(stacked: true)
+                trashButton
+            }
+        } else {
+            revealButton(stacked: false)
+            Spacer(minLength: 0)
+            trashButton
+        }
+    }
+
+    private func revealButton(stacked: Bool) -> some View {
         Button { model.reveal(capture.file) } label: {
             Label { Text(Copy.Action.showInFinder) } icon: { Image(systemName: "folder") }
                 .frame(maxWidth: stacked ? .infinity : nil, alignment: .leading)
@@ -178,12 +197,8 @@ struct LatestCaptureCard: View {
     private var trashButton: some View {
         Button { trash() } label: {
             Image(systemName: "trash")
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .frame(width: 20, height: 20)
-                .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .fixedSize()
         .help(Text(Copy.Retention.moveToTrash))
         .accessibilityLabel(Text(Copy.Retention.moveToTrash))
     }

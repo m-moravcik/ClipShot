@@ -18,7 +18,6 @@ struct PreferencesTests {
             #expect(p.launchAtLoginIntent == nil)
             #expect(p.lastRetention == nil)
             #expect(p.totals == Totals())
-            #expect(!p.firstCopyDone)
             #expect(!p.markupTipShown)
         }
     }
@@ -34,7 +33,6 @@ struct PreferencesTests {
             let result = RetentionResult(moved: 3, movedBytes: 4096, failed: 1, at: Date(timeIntervalSince1970: 1_000))
             p.lastRetention = result
             p.totals = Totals(copied: 5, freedBytes: 9_000_000_000, trashed: 2)
-            p.firstCopyDone = true
             p.markupTipShown = true
 
             let q = Preferences(store: defaults)
@@ -45,7 +43,6 @@ struct PreferencesTests {
             #expect(q.launchAtLoginIntent == true)
             #expect(q.lastRetention == result)
             #expect(q.totals == Totals(copied: 5, freedBytes: 9_000_000_000, trashed: 2))
-            #expect(q.firstCopyDone)
             #expect(q.markupTipShown)
         }
     }

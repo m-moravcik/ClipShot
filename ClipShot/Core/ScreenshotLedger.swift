@@ -7,18 +7,34 @@ struct LedgerEntry: Codable, Hashable, Sendable {
     let resourceID: Data
     let created: Date
     let size: Int64
+    /// An older screenshot the user chose to clean up, not one ClipShot saw being taken.
+    /// Missing in ledgers written before Addendum A, which only held observed ones.
+    let adopted: Bool
 
-    init(path: String, resourceID: Data, created: Date, size: Int64) {
+    init(path: String, resourceID: Data, created: Date, size: Int64, adopted: Bool = false) {
         self.path = path
         self.resourceID = resourceID
         self.created = created
         self.size = size
+        self.adopted = adopted
     }
 
-    init(_ file: CaptureFile) {
+    init(_ file: CaptureFile, adopted: Bool = false) {
         self.init(
             path: FolderGuard.canonicalPath(file.url), resourceID: file.resourceID,
-            created: file.created, size: file.size)
+            created: file.created, size: file.size, adopted: adopted)
+    }
+
+    private enum CodingKeys: String, CodingKey { case path, resourceID, created, size, adopted }
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            path: try c.decode(String.self, forKey: .path),
+            resourceID: try c.decode(Data.self, forKey: .resourceID),
+            created: try c.decode(Date.self, forKey: .created),
+            size: try c.decode(Int64.self, forKey: .size),
+            adopted: try c.decodeIfPresent(Bool.self, forKey: .adopted) ?? false)
     }
 
     /// Same path **and** same resource identifier.
@@ -58,23 +74,31 @@ actor ScreenshotLedger {
     /// A fresh screenshot the watcher observed.
     func record(_ file: CaptureFile) {
         var map = load()
-        if insert(file, into: &map) { save(map) }
+        if insert(file, adopted: false, into: &map) { save(map) }
     }
 
     /// Older screenshots the user chose to clean up after seeing a preview.
     func adopt(_ files: [CaptureFile]) {
         var map = load()
         var changed = false
-        for file in files where insert(file, into: &map) { changed = true }
+        for file in files where insert(file, adopted: true, into: &map) { changed = true }
         if changed { save(map) }
     }
 
-    /// Removes an entry after its file went to the Trash.
-    func remove(path: String, resourceID: Data) {
+    /// A screenshot put back from the Trash (Undo): back in the ledger as it was before.
+    func restore(_ file: CaptureFile, adopted: Bool) {
         var map = load()
-        guard map[path]?.resourceID == resourceID else { return }
+        if insert(file, adopted: adopted, into: &map) { save(map) }
+    }
+
+    /// Removes an entry after its file went to the Trash. Returns the entry removed.
+    @discardableResult
+    func remove(path: String, resourceID: Data) -> LedgerEntry? {
+        var map = load()
+        guard let entry = map[path], entry.resourceID == resourceID else { return nil }
         map[path] = nil
         save(map)
+        return entry
     }
 
     /// A screenshot open in Markup was saved by replacing it: a new inode at the same path.
@@ -87,7 +111,8 @@ actor ScreenshotLedger {
         var map = load()
         let path = FolderGuard.canonicalPath(file.url)
         guard let old = map[path], old.resourceID != file.resourceID else { return }
-        map[path] = LedgerEntry(path: path, resourceID: file.resourceID, created: old.created, size: file.size)
+        map[path] = LedgerEntry(
+            path: path, resourceID: file.resourceID, created: old.created, size: file.size, adopted: old.adopted)
         save(map)
     }
 
@@ -110,9 +135,9 @@ actor ScreenshotLedger {
 
     /// Returns true when the map changed. Renamed files (same resource identifier, other path)
     /// are "keep": the old entry is dropped and the new path is not added.
-    private func insert(_ file: CaptureFile, into map: inout [String: LedgerEntry]) -> Bool {
+    private func insert(_ file: CaptureFile, adopted: Bool, into map: inout [String: LedgerEntry]) -> Bool {
         guard file.isScreenshot else { return false }
-        let entry = LedgerEntry(file)
+        let entry = LedgerEntry(file, adopted: adopted)
         let renamed = map.values.filter { $0.resourceID == entry.resourceID && $0.path != entry.path }
         if !renamed.isEmpty {
             for old in renamed { map[old.path] = nil }

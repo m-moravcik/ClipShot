@@ -6,9 +6,12 @@ import Testing
 /// (spec Addendum A5, A6).
 @MainActor
 struct RecentTests {
-    /// Screenshots ClipShot saw, `minutes` old each, in the ledger.
+    /// Screenshots ClipShot saw being taken, `minutes` old each, in the ledger; `adopted`:
+    /// older ones the user added to the cleanup instead.
     @discardableResult
-    private func tracked(_ h: ModelHarness, _ names: [(String, Double)]) async throws -> [CaptureFile] {
+    private func tracked(
+        _ h: ModelHarness, _ names: [(String, Double)], adopted: Bool = false
+    ) async throws -> [CaptureFile] {
         let now = Date()
         var files: [CaptureFile] = []
         for (name, minutes) in names {
@@ -16,7 +19,11 @@ struct RecentTests {
             let url = try Fixtures.write(named: name, in: h.folder, created: date, modified: date)
             files.append(try #require(CaptureFile.inspect(url)))
         }
-        await h.ledger.adopt(files)
+        if adopted {
+            await h.ledger.adopt(files)
+        } else {
+            for file in files { await h.ledger.record(file) }
+        }
         return files
     }
 
@@ -194,5 +201,63 @@ struct RecentTests {
         try FileManager.default.moveItem(at: url2, to: renamed)
         try await Task.sleep(for: .milliseconds(1_200))
         #expect(await !h.ledger.contains(path: FolderGuard.canonicalPath(renamed), resourceID: file2.resourceID))
+    }
+
+    // MARK: - The card
+
+    /// Nothing copied this session: the card shows the newest screenshot ClipShot saw being
+    /// taken, with Copy rather than Copy again; never an adopted older file.
+    @Test func cardFallbackIsObservedOnlyAndSaysCopy() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        try await tracked(h, [("Adopted.png", 30)], adopted: true)
+        #expect(await h.start())
+        h.model.refreshRecent()
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(h.model.latest == nil, "only an adopted file: No screenshot copied yet")
+        #expect(names(h.model.recent) == ["Adopted.png"], "the strip still lists it")
+
+        try await tracked(h, [("Seen.png", 40)])
+        h.model.refreshRecent()
+        #expect(await eventually { await h.model.latest?.file.url.lastPathComponent == "Seen.png" })
+        #expect(h.model.latest?.isLastCopied == false)
+        #expect(names(h.model.recent) == ["Adopted.png"])
+
+        try h.shoot("Copied.png")
+        #expect(await eventually { await h.model.latest?.file.url.lastPathComponent == "Copied.png" })
+        #expect(h.model.latest?.isLastCopied == true)
+    }
+
+    /// After a folder change the card never shows a file from the old folder.
+    @Test func cardFollowsTheWatchedFolder() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        #expect(await h.start())
+        try h.shoot("Screenshot 1.png")
+        #expect(await eventually { await h.model.latest?.file.url.lastPathComponent == "Screenshot 1.png" })
+        let other = h.home.appendingPathComponent("Other", isDirectory: true)
+        try FileManager.default.createDirectory(at: other, withIntermediateDirectories: true)
+        try await h.model.setFolder(other)
+        #expect(await eventually { await h.model.watchedFolder?.path == other.path })
+        #expect(await eventually { await h.model.latest == nil })
+        #expect(h.model.lastCopied?.url.lastPathComponent == "Screenshot 1.png", "still the last copy")
+    }
+
+    /// Move to Trash the moment the card shows a new screenshot: its ledger entry, written
+    /// off the main actor, is waited for rather than refused.
+    @Test func trashRightAfterCaptureIsNotRefused() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        #expect(await h.start())
+        for index in 1...5 {
+            let url = try h.shoot("Screenshot \(index).png")
+            let deadline = ContinuousClock.now + .seconds(5)
+            while h.model.lastCopied?.url.lastPathComponent != url.lastPathComponent, ContinuousClock.now < deadline {
+                await Task.yield()
+            }
+            let file = try #require(h.model.lastCopied)
+            try await h.model.trash(file)
+            #expect(!RT.exists(url))
+        }
     }
 }

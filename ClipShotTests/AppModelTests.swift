@@ -214,14 +214,13 @@ struct AppModelTests {
         #expect(await eventually { await h.model.watchedFolder?.path == h.folder.path })
     }
 
-    @Test func firstCopyIsRecorded() async throws {
+    @Test func copyIsCountedAndAnnounced() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }
-        #expect(!h.preferences.firstCopyDone)
         #expect(await h.start())
         try h.shoot("Screenshot 1.png")
         #expect(await eventually { await h.pasteboard.writes.count == 1 })
-        #expect(await eventually { await h.preferences.firstCopyDone })
+        #expect(await eventually { await h.preferences.totals.copied == 1 })
         #expect(h.preferences.totals.copied == 1)
         #expect(h.model.lastCopied?.url.lastPathComponent == "Screenshot 1.png")
         #expect(h.announcements >= 1)

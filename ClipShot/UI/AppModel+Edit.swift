@@ -74,6 +74,8 @@ extension AppModel {
         /// The screenshot as it was shown, for its thumbnail while Undo is offered.
         let file: CaptureFile
         let inTrash: URL
+        /// Its ledger entry was an adopted older file, not one ClipShot saw being taken.
+        var adopted = false
 
         var original: URL { file.url }
     }
@@ -85,6 +87,8 @@ extension AppModel {
     func trash(_ file: CaptureFile) async throws(TrashError) {
         guard let folder = watchedFolder else { throw .outsideFolder }
         let path = FolderGuard.canonicalPath(file.url)
+        // A screenshot copied a moment ago may still be on its way into the ledger.
+        await ledgerSettled()
         guard await ledger.contains(path: path, resourceID: file.resourceID) else { throw .notTracked }
         let home = home
         let trasher = trasher
@@ -115,8 +119,8 @@ extension AppModel {
         } catch {
             throw error
         }
-        await ledger.remove(path: path, resourceID: file.resourceID)
-        offerUndo(inTrash.map { TrashedScreenshot(file: file, inTrash: $0) })
+        let entry = await ledger.remove(path: path, resourceID: file.resourceID)
+        offerUndo(inTrash.map { TrashedScreenshot(file: file, inTrash: $0, adopted: entry?.adopted ?? false) })
         previews.dismiss(file: file, .trash)
         screenshotLeft(file)
         preferences.totals.trashed += 1
@@ -159,7 +163,7 @@ extension AppModel {
             return CaptureFile.inspect(trashed.original)
         }.value
         guard let restored else { return false }
-        await ledger.adopt([restored])
+        await ledger.restore(restored, adopted: trashed.adopted)
         preferences.totals.trashed = max(0, preferences.totals.trashed - 1)
         refreshRecent()
         return true

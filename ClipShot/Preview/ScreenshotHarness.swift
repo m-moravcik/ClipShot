@@ -103,7 +103,8 @@ enum ScreenshotHarness {
             try FileManager.default.moveItem(at: moved.url, to: inTrash)
             scene.model.undoable = AppModel.TrashedScreenshot(file: moved, inTrash: inTrash)
             scene.model.screenshotLeft(moved)
-            DemoScene.wait { scene.model.recent.count == RecentScreenshots.count - 1 }
+            // The strip fills up again from the fifth earlier screenshot.
+            DemoScene.wait { scene.model.recent.count == RecentScreenshots.count && !scene.model.recent.contains(moved) }
             DemoScene.settle(0.6)
             for scheme in ColorScheme.allCases {
                 try shots.write(capture(PopoverPanel(scheme: scheme) { MenuContent() }
@@ -126,7 +127,6 @@ enum ScreenshotHarness {
     private static func renderPaused(_ shots: Shots, scratch: URL) throws {
         let scene = try DemoScene(in: scratch)
         scene.preferences.copyEnabled = false
-        scene.preferences.firstCopyDone = true
         scene.preferences.totals = Totals(copied: 148, freedBytes: 0, trashed: 0)
         guard scene.start() else { fail("the demo folder was not watched") }
         DemoScene.settle()
@@ -142,7 +142,6 @@ enum ScreenshotHarness {
         let scene = try DemoScene(in: scratch)
         scene.prefs["target"] = "clipboard"
         scene.pasteboard.failing = true
-        scene.preferences.firstCopyDone = true
         scene.preferences.retention = RetentionPolicy(enabled: true, days: 30, confirmed: nil)
         guard scene.start() else { fail("the demo folder was not watched") }
         _ = try scene.shoot(DemoContent.screenshotName, image: DemoContent.screenshotPNG)
@@ -185,17 +184,19 @@ enum ScreenshotHarness {
         scene.stop()
     }
 
-    /// Every row the popover can show at once: an attention, the latest card, the Markup tip
-    /// and the update card. Long translations take it past its height cap, where the middle
-    /// scrolls under a fixed header and footer.
+    /// Every row the popover can show at once: an attention, the latest card and the strip,
+    /// the Markup tip and the update card. Long translations take it past its height cap,
+    /// where the middle scrolls under a fixed header and footer.
     private static func renderFull(_ shots: Shots, scratch: URL) throws {
         let scene = try DemoScene(in: scratch)
-        scene.preferences.firstCopyDone = true
         scene.preferences.markupTipShown = false
         scene.preferences.totals = Totals(copied: 3, freedBytes: 1_640_000_000, trashed: 412)
         scene.preferences.retention = RetentionPolicy(enabled: true, days: 30, confirmed: ConfirmedFolder.of(scene.folder))
+        // The strip too, so long translations meet the height cap with every row on show.
+        try awaitTask { try await scene.recentScreenshots() }
         guard scene.start() else { fail("the demo folder was not watched") }
         try scene.copyDemoScreenshot()
+        DemoScene.wait { scene.model.recent.count == RecentScreenshots.count }
         scene.prefs["target"] = "clipboard"
         DemoScene.wait { !scene.model.attentions.isEmpty }
         for scheme in ColorScheme.allCases {
@@ -249,7 +250,6 @@ enum ScreenshotHarness {
     /// of the motion (A3), drawn from the same springs the app animates with.
     private static func renderPreviews(_ shots: Shots, scratch: URL) throws {
         let scene = try DemoScene(in: scratch)
-        scene.preferences.firstCopyDone = true
         guard scene.start() else { fail("the demo folder was not watched") }
         DemoScene.wait { scene.model.previewMode == .clipShot }
         try scene.copyDemoScreenshot()
@@ -300,7 +300,6 @@ enum ScreenshotHarness {
         // An install from before Preview modes, the macOS thumbnail on: the one-time offer.
         let upgraded = try DemoScene(in: scratch)
         upgraded.preferences.previewModeApplied = false
-        upgraded.preferences.firstCopyDone = true
         upgraded.prefs["show-thumbnail"] = true
         guard upgraded.start() else { fail("the demo folder was not watched") }
         DemoScene.wait { upgraded.model.showsPreviewOffer }
