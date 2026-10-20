@@ -213,6 +213,9 @@ struct HeaderStatus: Equatable {
 private struct PopoverHeader: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The symbol's nods: one per new problem, none with Reduce Motion.
+    @State private var nods = 0
+    @State private var nodTask: Task<Void, Never>?
 
     var body: some View {
         let status = HeaderStatus.of(
@@ -223,6 +226,9 @@ private struct PopoverHeader: View {
                 .font(.system(size: 13))
                 .foregroundStyle(status.tint)
                 .contentTransition(reduceMotion ? .opacity : .symbolEffect(.replace))
+                // One nod per new problem, so a problem that arrives with the popover open is
+                // noticed; the row below says what it is. Reduce Motion: none.
+                .symbolEffect(.wiggle, options: .nonRepeating, value: nods)
                 .frame(width: Design.Layout.iconColumn)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
@@ -235,6 +241,19 @@ private struct PopoverHeader: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .animation(Design.Motion.quick, value: status)
+        // After the check has turned into the triangle: a nod during the replace is lost in it.
+        .onChange(of: model.attentionArrivals) { _, _ in
+            guard !reduceMotion else { return }
+            nodTask?.cancel()
+            nodTask = Task {
+                do { try await Task.sleep(for: Design.Motion.nodDelay) } catch { return }
+                nods += 1
+            }
+        }
+        .onDisappear {
+            nodTask?.cancel()
+            nodTask = nil
+        }
         // Title and detail as one element; Copy at once stays an action on it.
         .accessibilityElement(children: .combine)
         .padding(.horizontal, Design.Spacing.l + Design.Spacing.m)

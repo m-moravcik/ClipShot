@@ -162,6 +162,10 @@ enum Design {
         /// The current tour dot is a capsule that slides to the next step.
         static let dots: Animation = layout
 
+        /// The popover header nods (wiggles) once per new problem, once its symbol has turned
+        /// into the triangle. Reduce Motion: no nod.
+        static let nodDelay: Duration = .milliseconds(350)
+
         /// A screenshot that Undo brings back arrives in the row the Undo strip held, growing
         /// from just smaller as it fades in: the reverse of how it left. Reduce Motion: fade.
         static let restoredScale: CGFloat = 0.94

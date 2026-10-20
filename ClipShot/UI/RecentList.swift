@@ -93,7 +93,8 @@ struct RecentSection: View {
 ///
 /// Motion, on `Design.Motion.layout`: a row moved to the Trash shrinks into the Undo strip
 /// in one continuous change (same place, so its height animates while the contents
-/// crossfade), and Undo grows it back. Once Undo is over the strip closes, the rows under it
+/// crossfade), and Undo grows it back, the screenshot arriving from just smaller as it
+/// fades in, so it reads as having come back. Once Undo is over the strip closes, the rows under it
 /// move up and the older screenshot fades in on the last row; the rows above never move. A
 /// new screenshot fades in on top while the others make room. Reduce Motion: the same
 /// crossfades on `quick`.
@@ -112,7 +113,7 @@ struct RecentList: View {
                         RecentRow(
                             file: file, image: model.thumbnails[file], position: index + 1, count: slots.count,
                             onClipboard: model.isOnClipboard(file), hovering: index == hoveredRecent)
-                            .transition(.opacity)
+                            .transition(RecentRow.transition(reduceMotion: reduceMotion))
                     case .trashed:
                         UndoStrip(inTrash: model.undoable?.inTrash)
                             .transition(.opacity)
@@ -251,6 +252,15 @@ struct RecentRow: View {
 
     /// How long Copy shows its checkmark after a copy.
     static let checkDuration: Duration = .milliseconds(1_200)
+
+    /// A row taking the Undo strip's place (Undo put its screenshot back) grows in from just
+    /// smaller as it fades in; it leaves into the strip by fading. Reduce Motion: fades.
+    static func transition(reduceMotion: Bool) -> AnyTransition {
+        guard !reduceMotion else { return .opacity }
+        return .asymmetric(
+            insertion: .scale(scale: Design.Motion.restoredScale).combined(with: .opacity),
+            removal: .opacity)
+    }
 
     private var name: String { file.url.lastPathComponent }
     private var size: String { file.size.formatted(.byteCount(style: .file)) }
