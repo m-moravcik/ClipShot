@@ -213,64 +213,42 @@ struct TrailingActionLayoutTests {
     }
 }
 
-/// The latest card's buttons: one row in every language, the primary taking what the two
-/// square icon buttons leave, all three as tall as each other.
-struct CardActionsLayoutTests {
-    private func frames(primaryHeight: CGFloat) -> [CGRect] {
-        CardActionsLayout.frames(
-            width: 260, buttons: 3, side: 24, spacing: 4, primaryHeight: { _ in primaryHeight })
+/// The latest card's actions: content-sized pills, leading, that wrap onto a second line
+/// rather than stretching or truncating.
+struct FlowLayoutTests {
+    @Test func linesBreakOnlyWhenTheNextOneDoesNotFit() {
+        #expect(FlowLayout.lines(widths: [80, 90, 30], width: 260, spacing: 4) == [[0, 1, 2]])
+        #expect(FlowLayout.lines(widths: [80, 90, 30], width: 208, spacing: 4) == [[0, 1, 2]], "exactly full")
+        #expect(FlowLayout.lines(widths: [80, 90, 30], width: 207, spacing: 4) == [[0, 1], [2]])
+        #expect(FlowLayout.lines(widths: [200, 150, 30], width: 260, spacing: 4) == [[0], [1, 2]])
+        #expect(FlowLayout.lines(widths: [300], width: 260, spacing: 4) == [[0]], "never an empty line")
+        #expect(FlowLayout.lines(widths: [], width: 260, spacing: 4).isEmpty)
     }
 
-    @Test func oneRowWithEqualSquareSecondaries() {
-        let f = frames(primaryHeight: 22)
-        #expect(f.count == 3)
-        #expect(f.allSatisfy { $0.minY == 0 && $0.height == 24 }, "one row, one height")
-        #expect(f[1].size == f[2].size && f[1].width == f[1].height, "two equal squares")
-        #expect(f[0].width == 204, "the primary takes the rest: 260 - 2 * (24 + 4)")
-        #expect(f[1].minX == f[0].maxX + 4 && f[2].minX == f[1].maxX + 4)
-        #expect(f[2].maxX == 260, "flush with the card's trailing edge")
-    }
-
-    /// Square at the buttons' height, or at an icon button's narrowest width where the bezel
-    /// needs more.
-    @Test func sideIsTheLargerOfHeightAndIconWidth() {
-        #expect(CardActionsLayout.side(heights: [22, 18, 18], iconMinWidths: [20, 21]) == 22)
-        #expect(CardActionsLayout.side(heights: [22, 18, 18], iconMinWidths: [25.5, 23]) == 25.5)
-    }
-
-    /// A label that wraps makes the row taller; it never stacks, and the secondaries keep
-    /// their width and take the same height.
-    @Test func aWrappedPrimaryKeepsTheRow() {
-        let f = frames(primaryHeight: 38)
-        #expect(f.allSatisfy { $0.minY == 0 && $0.height == 38 })
-        #expect(f[1].width == 24 && f[2].width == 24)
-        #expect(f[0].width == 204)
-    }
-
-    /// The card's row of real bordered small buttons in 260 pt, laid out; the frames of the
-    /// primary, Show in Finder and Move to Trash, and the row's height.
+    /// The card's three pills, laid out `width` wide; their frames and the row's height.
     @MainActor
     private func layOut(
-        primary label: String, direction: LayoutDirection = .leftToRight
-    ) async throws -> (frames: [CGRect], height: CGFloat) {
+        copy: String, reveal: String, width: CGFloat, direction: LayoutDirection = .leftToRight
+    ) async throws -> (frames: [CGRect], ideal: [CGSize], height: CGFloat) {
         @MainActor final class Frames { var all: [Int: CGRect] = [:] }
         let frames = Frames()
         func tracked(_ index: Int, _ view: some View) -> some View {
             view.onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frames.all[index] = $0 }
         }
-        let row = CardActionsLayout {
-            tracked(0, Button {} label: {
-                Label { Text(verbatim: label).lineLimit(2).multilineTextAlignment(.center) } icon: {
-                    Image(systemName: "doc.on.doc")
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            })
-            tracked(1, Button {} label: { Image(systemName: "folder").frame(maxWidth: .infinity, maxHeight: .infinity) })
-            tracked(2, Button {} label: { Image(systemName: "trash").frame(maxWidth: .infinity, maxHeight: .infinity) })
+        func pill(_ symbol: String, _ title: String?) -> some View {
+            Button {} label: {
+                PillLabel(symbol: symbol, title: title.map { LocalizedStringResource(stringLiteral: $0) })
+            }
+            .buttonStyle(PillButtonStyle())
         }
-        .buttonStyle(.bordered)
-        .controlSize(.small)
-        .frame(width: 260)
+        let pills = [pill("doc.on.doc", copy), pill("folder", reveal), pill("trash", nil)]
+        let ideal = pills.map { NSHostingView(rootView: $0).fittingSize }
+        let row = FlowLayout(spacing: 4, lineSpacing: 4) {
+            tracked(0, pills[0])
+            tracked(1, pills[1])
+            tracked(2, pills[2])
+        }
+        .frame(width: width)
         .environment(\.layoutDirection, direction)
         let view = NSHostingView(rootView: row)
         view.frame = CGRect(origin: .zero, size: view.fittingSize)
@@ -278,41 +256,68 @@ struct CardActionsLayoutTests {
         #expect(await eventually { await frames.all.count == 3 })
         let f = (0..<3).compactMap { frames.all[$0] }
         try #require(f.count == 3)
-        return (f, view.fittingSize.height)
+        return (f, ideal, view.fittingSize.height)
     }
 
-    /// Real bordered buttons in the card's 260 pt: the row is one button tall with the
-    /// English label, and the secondaries come out equal and square.
+    /// English in the card's 260 pt: one line, leading, each pill at its own width, and the
+    /// symbol-only Move to Trash as tall as the pills with a title.
     @MainActor
-    @Test func borderedButtonsShareOneRow() async throws {
-        let (f, height) = try await layOut(primary: "Copy again")
-        #expect(Set(f.map(\.minY)).count == 1 && Set(f.map(\.height)).count == 1, "one row, one height")
-        #expect(f[1].size == f[2].size, "\(f)")
-        #expect(abs(f[1].width - f[1].height) < 0.5, "square")
-        #expect(abs(f[2].maxX - f[0].minX - 260) < 0.5)
+    @Test func pillsAreContentSizedOnOneLine() async throws {
+        let (f, ideal, height) = try await layOut(copy: "Copy again", reveal: "Show in Finder", width: 260)
+        #expect(Set(f.map(\.minY)).count == 1, "one line: \(f)")
+        #expect(f[0].minX == 0, "leading")
+        for i in 0..<3 { #expect(abs(f[i].width - ideal[i].width) < 0.5, "pill \(i) at its own width: \(f[i]) vs \(ideal[i])") }
+        #expect(f[2].height == f[0].height && f[1].height == f[0].height, "one height: \(f)")
+        #expect(f[2].width < f[2].height + 12, "the symbol-only pill stays small: \(f[2])")
         #expect(height == f[0].height)
-        #expect(f[1].width < 28, "square near the control's height, not a bordered button's default width: \(f)")
     }
 
-    /// A label too long for one line (pseudo-German) wraps: the row grows taller but keeps
-    /// its three buttons side by side, at one height, the icon buttons equally wide.
+    /// Doubled German, as pseudo-de: the row wraps; every pill keeps its whole width.
     @MainActor
-    @Test func aWrappedLabelKeepsTheRealRow() async throws {
-        let single = try await layOut(primary: "Copy again")
-        let (f, height) = try await layOut(primary: "Erneut kopieren Erneut kopieren Erneut kopieren")
-        #expect(height > single.height + 8, "two lines: \(height) pt against \(single.height) pt")
-        #expect(Set(f.map(\.minY)).count == 1 && Set(f.map(\.height)).count == 1, "one row, one height: \(f)")
-        #expect(f[1].width == f[2].width && f[1].width == single.frames[1].width, "icon buttons keep their width")
-        #expect(f[0].maxX < f[1].minX && f[1].maxX < f[2].minX)
+    @Test func aLongRowWrapsInsteadOfTruncating() async throws {
+        let (f, ideal, height) = try await layOut(
+            copy: "Erneut kopieren Erneut kopieren", reveal: "Im Finder zeigen Im Finder zeigen", width: 260)
+        #expect(f[1].minY > f[0].maxY, "Show in Finder on the next line: \(f)")
+        #expect(f[1].minX == 0 && f[2].minY == f[1].minY, "it leads the second line, Trash beside it")
+        for i in 0..<3 { #expect(abs(f[i].width - ideal[i].width) < 0.5, "pill \(i) not truncated: \(f[i]) vs \(ideal[i])") }
+        #expect(height > 2 * f[0].height)
     }
 
-    /// Right to left, the row mirrors: the primary at the trailing (right-hand) end becomes
-    /// the leading one on the right, with the icon buttons to its left.
+    /// Right to left, the row mirrors: the first pill at the right-hand edge.
     @MainActor
     @Test func mirrorsRightToLeft() async throws {
-        let (f, _) = try await layOut(primary: "Copy again", direction: .rightToLeft)
+        let (f, _, _) = try await layOut(copy: "Copy again", reveal: "Show in Finder", width: 260, direction: .rightToLeft)
         #expect(f[0].minX > f[1].maxX && f[1].minX > f[2].maxX, "\(f)")
-        #expect(abs(f[0].maxX - f[2].minX - 260) < 0.5)
+        #expect(abs(f[0].maxX - 260) < 0.5)
+    }
+}
+
+/// The card's age in words, and "Just now" for the first minute.
+struct LatestAgeTests {
+    private let now = Date(timeIntervalSinceReferenceDate: 800_000_000)
+    private let en = Locale(identifier: "en_US")
+
+    @Test func naturalRelativeAge() {
+        #expect(LatestCapture.isJustNow(now.addingTimeInterval(-59), now: now))
+        #expect(!LatestCapture.isJustNow(now.addingTimeInterval(-60), now: now))
+        #expect(LatestCapture.relativeAge(now.addingTimeInterval(-(41 * 60 + 24)), now: now, locale: en) == "41 minutes ago")
+        #expect(LatestCapture.relativeAge(now.addingTimeInterval(-2 * 3_600), now: now, locale: en) == "2 hours ago")
+        #expect(LatestCapture.relativeAge(now.addingTimeInterval(-26 * 3_600), now: now, locale: en) == "Yesterday")
+        #expect(LatestCapture.relativeAge(now.addingTimeInterval(5), now: now, locale: en) == "Now", "never in the future")
+    }
+
+    /// Every language of the app gets the age in its own words, never seconds.
+    @Test func everyLanguageSaysItsOwnWords() {
+        for id in ["sk", "cs", "de", "es", "fr"] {
+            let text = LatestCapture.relativeAge(now.addingTimeInterval(-41 * 60), now: now, locale: Locale(identifier: id))
+            #expect(text.contains("41") && !text.contains("ago"), "\(id): \(text)")
+        }
+    }
+
+    @Test func scheduleWakesAtTheEndOfJustNowThenEveryMinute() {
+        let switchAt = now.addingTimeInterval(30)
+        let entries = Array(AgeSchedule(switchAt: switchAt).entries(from: now, mode: .normal).prefix(3))
+        #expect(entries == [now, switchAt, switchAt.addingTimeInterval(60)])
     }
 }
 

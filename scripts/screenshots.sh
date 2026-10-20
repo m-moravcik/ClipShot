@@ -29,7 +29,8 @@
 # The popover pictures show the strip of earlier screenshots under the latest card;
 # popover-recent-hover has the pointer over one of them, with its Copy, Show in Finder and
 # Move to Trash buttons, and popover-recent-hover-white / -dark-shot the same over a white
-# and over a dark screenshot;
+# and over a dark screenshot; popover-pill-hover has the pointer on the card's Show in
+# Finder pill;
 # popover-undo is the popover just after Move to Trash, with its Undo row. Popover and tour
 # pictures carry the window's rounded corners and shadow on a transparent margin.
 #

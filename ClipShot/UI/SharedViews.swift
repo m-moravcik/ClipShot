@@ -259,15 +259,13 @@ struct TrailingActionLayout: Layout {
 }
 
 /// A round button over a screenshot, shown on hover: the floating preview's Close, Copy again
-/// and Move to Trash, and the actions on an earlier screenshot in the popover's strip. A
+/// and Move to Trash. A
 /// shadow and a hairline keep it apart from whatever the picture behind it is; over the
 /// picture it also sits on a `HoverScrim`. The whole square around the circle takes the
 /// click, so neighbouring buttons leave no dead gap between them.
 struct CardButton: View {
     /// The floating preview's size.
     static let diameter: CGFloat = 22
-    /// Three side by side within the strip's 64 pt thumbnail.
-    static let compactDiameter: CGFloat = 20
 
     let symbol: String
     let label: LocalizedStringResource
@@ -303,5 +301,148 @@ struct HoverScrim: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
+    }
+}
+
+/// A screenshot action as a compact pill, VibeRes's profile pill: a 9 pt symbol and an 11 pt
+/// title, or the symbol alone. Use it as the label of a `PillButtonStyle` button.
+struct PillLabel: View {
+    let symbol: String
+    var title: LocalizedStringResource?
+
+    var body: some View {
+        if let title {
+            HStack(spacing: 4) {
+                Image(systemName: symbol)
+                    .font(.system(size: 9))
+                Text(title)
+                    .font(PillButtonStyle.font)
+                    .lineLimit(1)
+            }
+        } else {
+            // A symbol-only pill is as tall as one with a title: an empty line of its font.
+            ZStack {
+                Text(verbatim: " ")
+                    .font(PillButtonStyle.font)
+                    .hidden()
+                Image(systemName: symbol)
+                    .font(.system(size: 9))
+            }
+        }
+    }
+}
+
+/// VibeRes's pill: content-sized, a soft grey at rest, accent on hover, deeper accent while
+/// pressed, and the keyboard focus ring in the pill's shape. `onImage` adds a material
+/// under the pill for one that sits over a screenshot; `compact` is the strip's smaller one.
+struct PillButtonStyle: ButtonStyle {
+    static let font: Font = .system(size: 11, weight: .medium)
+    static let radius: CGFloat = 5
+
+    var compact = false
+    var onImage = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        Pill(configuration: configuration, compact: compact, onImage: onImage)
+    }
+
+    private struct Pill: View {
+        let configuration: ButtonStyleConfiguration
+        let compact: Bool
+        let onImage: Bool
+
+        @State private var hovering = false
+        @Environment(\.isEnabled) private var isEnabled
+        @Environment(\.pillHovered) private var drawnHovered
+
+        private var shape: RoundedRectangle {
+            RoundedRectangle(cornerRadius: PillButtonStyle.radius, style: .continuous)
+        }
+
+        private var fill: Color {
+            if configuration.isPressed { return Color.accentColor.opacity(0.4) }
+            if hovering || drawnHovered { return Color.accentColor.opacity(0.25) }
+            return Color.secondary.opacity(0.18)
+        }
+
+        var body: some View {
+            configuration.label
+                .padding(.horizontal, compact ? 4 : 8)
+                .padding(.vertical, 3)
+                .background {
+                    ZStack {
+                        if onImage { shape.fill(.regularMaterial) }
+                        shape.fill(fill)
+                    }
+                }
+                .overlay {
+                    if onImage { shape.strokeBorder(Color.primary.opacity(0.2), lineWidth: 0.5) }
+                }
+                .shadow(color: .black.opacity(onImage ? 0.3 : 0), radius: 1.5, y: 0.5)
+                .contentShape(shape)
+                .contentShape(.focusEffect, shape)
+                .opacity(isEnabled ? 1 : 0.5)
+                .onHover { hovering = $0 }
+                .animation(Design.Motion.quick, value: hovering)
+        }
+    }
+}
+
+/// Children left to right at their own size, onto the next line when the next one would not
+/// fit, as VibeRes's pill bar: a row that a translation makes too long wraps instead of
+/// stretching or truncating. Only a child wider than the whole row is offered the row's width.
+/// Right to left, SwiftUI mirrors the placement, so the first child is on the right.
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 4
+    var lineSpacing: CGFloat = 4
+
+    /// The indices on each line, for children `widths` wide in a row `width` wide.
+    static func lines(widths: [CGFloat], width: CGFloat, spacing: CGFloat) -> [[Int]] {
+        var lines: [[Int]] = []
+        var current: [Int] = []
+        var used: CGFloat = 0
+        for (index, childWidth) in widths.enumerated() {
+            if !current.isEmpty, used + spacing + childWidth > width {
+                lines.append(current)
+                current = []
+                used = 0
+            }
+            used += (current.isEmpty ? 0 : spacing) + childWidth
+            current.append(index)
+        }
+        if !current.isEmpty { lines.append(current) }
+        return lines
+    }
+
+    private func frames(_ width: CGFloat?, _ subviews: Subviews) -> (frames: [CGRect], size: CGSize) {
+        let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
+        let rowWidth = width ?? (sizes.map(\.width).reduce(0, +) + spacing * CGFloat(max(0, sizes.count - 1)))
+        var frames = Array(repeating: CGRect.zero, count: sizes.count)
+        var y: CGFloat = 0
+        var widest: CGFloat = 0
+        for (lineIndex, line) in Self.lines(widths: sizes.map(\.width), width: rowWidth, spacing: spacing).enumerated() {
+            if lineIndex > 0 { y += lineSpacing }
+            var x: CGFloat = 0
+            let height = line.map { sizes[$0].height }.max() ?? 0
+            for index in line {
+                let size = CGSize(width: min(sizes[index].width, rowWidth), height: sizes[index].height)
+                frames[index] = CGRect(x: x, y: y + (height - size.height) / 2, width: size.width, height: size.height)
+                x += size.width + spacing
+            }
+            widest = max(widest, x - spacing)
+            y += height
+        }
+        return (frames, CGSize(width: width ?? widest, height: y))
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        frames(proposal.width, subviews).size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        for (subview, frame) in zip(subviews, frames(bounds.width, subviews).frames) {
+            subview.place(
+                at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY), proposal: ProposedViewSize(frame.size))
+        }
     }
 }

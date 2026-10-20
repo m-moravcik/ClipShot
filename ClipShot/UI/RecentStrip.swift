@@ -4,7 +4,7 @@ import SwiftUI
 /// The previous screenshots under the latest card (spec Addendum A5): up to four thumbnails,
 /// newest first, hidden when there are none. A click opens Markup and a drag carries the file
 /// into another app. On hover or keyboard focus each one shows the latest card's actions as
-/// round buttons, as the floating preview does: Copy, Show in Finder and Move to Trash. A
+/// small pills, the card's pill style: Copy, Show in Finder and Move to Trash. A
 /// right click offers Copy, Edit with Markup, Show in Finder and Move to Trash, as on the
 /// floating preview; VoiceOver has the same as named actions.
 ///
@@ -101,8 +101,8 @@ struct RecentItem: View {
 
     private var showsActions: Bool { hovering || focus != nil }
 
-    /// The shade behind the bar: the buttons and a little above them.
-    private static let scrimHeight: CGFloat = 30
+    /// The shade behind the bar: the pills and a little above them.
+    private static let scrimHeight: CGFloat = 28
 
     var body: some View {
         ZStack {
@@ -163,23 +163,26 @@ struct RecentItem: View {
         .accessibilityAction(named: Text(Copy.Retention.moveToTrash)) { trash() }
     }
 
-    /// The latest card's three actions, as the floating preview's round buttons.
+    /// The latest card's three actions, as small symbol pills over the picture.
     private var actionBar: some View {
-        HStack(spacing: 1) {
-            CardButton(
-                symbol: showCheck ? "checkmark" : "doc.on.doc", label: Copy.Preview.copy,
-                diameter: CardButton.compactDiameter, action: copy)
-                .contentTransition(reduceMotion ? .opacity : .symbolEffect(.replace))
-                .focused($focus, equals: .copy)
-            CardButton(
-                symbol: "folder", label: Copy.Action.showInFinder,
-                diameter: CardButton.compactDiameter, action: { model.reveal(file) })
+        HStack(spacing: 2) {
+            Button(action: copy) {
+                PillLabel(symbol: showCheck ? "checkmark" : "doc.on.doc")
+                    .contentTransition(reduceMotion ? .opacity : .symbolEffect(.replace))
+            }
+            .help(Text(Copy.Preview.copy))
+            .accessibilityLabel(Text(Copy.Preview.copy))
+            .focused($focus, equals: .copy)
+            Button { model.reveal(file) } label: { PillLabel(symbol: "folder") }
+                .help(Text(Copy.Action.showInFinder))
+                .accessibilityLabel(Text(Copy.Action.showInFinder))
                 .focused($focus, equals: .reveal)
-            CardButton(
-                symbol: "trash", label: Copy.Retention.moveToTrash,
-                diameter: CardButton.compactDiameter, action: trash)
+            Button(action: trash) { PillLabel(symbol: "trash") }
+                .help(Text(Copy.Retention.moveToTrash))
+                .accessibilityLabel(Text(Copy.Retention.moveToTrash))
                 .focused($focus, equals: .trash)
         }
+        .buttonStyle(PillButtonStyle(compact: true, onImage: true))
     }
 
     private func menuItems() -> [CardMenuItem] {

@@ -122,6 +122,10 @@ enum ScreenshotHarness {
             try shots.write(popoverWindow(capturePanel(PopoverPanel(scheme: scheme) { MenuContent() }
                 .harnessEnvironment(scene.model, updater: updater)
                 .environment(\.hoveredRecent, 1), scheme: scheme), scheme: scheme), "popover-recent-hover", scheme)
+            // The pointer on the card's Show in Finder pill.
+            try shots.write(popoverWindow(capturePanel(PopoverPanel(scheme: scheme) { MenuContent() }
+                .harnessEnvironment(scene.model, updater: updater)
+                .environment(\.hoveredCardPill, 1), scheme: scheme), scheme: scheme), "popover-pill-hover", scheme)
             try shots.write(render(HeroScene(popover: popover, scheme: scheme, banner: false)), "hero", scheme)
             try shots.write(render(HeroScene(popover: popover, scheme: scheme, banner: true, icon: image(icon))), "banner", scheme)
 

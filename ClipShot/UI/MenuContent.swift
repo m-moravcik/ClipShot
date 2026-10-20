@@ -601,4 +601,8 @@ extension EnvironmentValues {
     /// The strip's thumbnail at this index is drawn in its hover state, with its actions;
     /// for the screenshot harness, which has no pointer.
     @Entry var hoveredRecent: Int? = nil
+    /// The latest card's action pill at this index is drawn hovered; for the harness.
+    @Entry var hoveredCardPill: Int? = nil
+    /// A `PillButtonStyle` pill is drawn hovered whatever the pointer does; for the harness.
+    @Entry var pillHovered = false
 }

@@ -23,6 +23,16 @@ struct LatestCapture: Identifiable, Equatable, @unchecked Sendable {
         now.timeIntervalSince(created) < justNowInterval
     }
 
+    /// The age in words, as a sentence starts: "41 minutes ago", "2 hours ago", "Yesterday".
+    static func relativeAge(_ created: Date, now: Date, locale: Locale) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.locale = locale
+        formatter.dateTimeStyle = .named
+        formatter.unitsStyle = .full
+        formatter.formattingContext = .beginningOfSentence
+        return formatter.localizedString(for: created, relativeTo: max(now, created))
+    }
+
     static func == (a: LatestCapture, b: LatestCapture) -> Bool {
         a.file == b.file && a.thumbnail === b.thumbnail && a.isLastCopied == b.isLastCopied
     }
@@ -94,6 +104,8 @@ struct LatestCaptureCard: View {
 
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.locale) private var locale
+    @Environment(\.hoveredCardPill) private var hoveredPill
     @State private var showCheck = false
     @State private var checkTask: Task<Void, Never>?
 
@@ -143,15 +155,14 @@ struct LatestCaptureCard: View {
             .accessibilityAction(named: Text(Copy.Preview.editWithMarkup)) { model.markup(capture.file) }
             .accessibilityAction(named: Text(Copy.Retention.moveToTrash)) { trash() }
 
-            // One row in every language: Copy again takes the width the two square icon
-            // buttons leave, and all three are as tall as each other.
-            CardActionsLayout {
-                copyButton
-                revealButton
-                trashButton
+            // Compact pills at their own width, leading, as VibeRes's profile pills; a row too
+            // long for the card in some language wraps rather than truncating.
+            FlowLayout(spacing: Design.Spacing.s, lineSpacing: Design.Spacing.s) {
+                copyButton.environment(\.pillHovered, hoveredPill == 0)
+                revealButton.environment(\.pillHovered, hoveredPill == 1)
+                trashButton.environment(\.pillHovered, hoveredPill == 2)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
+            .buttonStyle(PillButtonStyle())
         }
         .padding(.horizontal, Design.Spacing.l)
         .padding(.vertical, Design.Spacing.m)
@@ -160,36 +171,28 @@ struct LatestCaptureCard: View {
     }
 
     /// Copy again for the screenshot just copied; Copy for one shown in its place. The symbol
-    /// turns into a checkmark for a moment after a copy. A label too long for the row wraps
-    /// onto a second line before anything is cut.
+    /// turns into a checkmark for a moment after a copy.
     private var copyButton: some View {
         Button { copyAgain() } label: {
-            Label {
-                Text(capture.isLastCopied ? Copy.Action.copyAgain : Copy.Preview.copy)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-            } icon: {
-                Image(systemName: showCheck ? "checkmark" : "doc.on.doc")
-                    .contentTransition(reduceMotion ? .opacity : .symbolEffect(.replace))
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            PillLabel(
+                symbol: showCheck ? "checkmark" : "doc.on.doc",
+                title: capture.isLastCopied ? Copy.Action.copyAgain : Copy.Preview.copy)
+                .contentTransition(reduceMotion ? .opacity : .symbolEffect(.replace))
         }
+        .help(Text(capture.isLastCopied ? Copy.Action.copyAgain : Copy.Preview.copy))
     }
 
     private var revealButton: some View {
         Button { model.reveal(capture.file) } label: {
-            Image(systemName: "folder")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            PillLabel(symbol: "folder", title: Copy.Action.showInFinder)
         }
         .help(Text(Copy.Action.showInFinder))
-        .accessibilityLabel(Text(Copy.Action.showInFinder))
     }
 
     /// Move to Trash, with no confirmation: the Undo row above puts it back for 5 s.
     private var trashButton: some View {
         Button { trash() } label: {
-            Image(systemName: "trash")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            PillLabel(symbol: "trash")
         }
         .help(Text(Copy.Retention.moveToTrash))
         .accessibilityLabel(Text(Copy.Retention.moveToTrash))
@@ -202,18 +205,15 @@ struct LatestCaptureCard: View {
         }
     }
 
-    /// "Just now" for the first minute, then the live relative age. The timeline wakes once,
-    /// when the minute is up.
+    /// "Just now" for the first minute, then the age in words ("41 minutes ago", "Yesterday"),
+    /// refreshed once a minute.
     private var age: some View {
         let created = capture.file.created
-        let now = Date()
-        let switchAt = created.addingTimeInterval(LatestCapture.justNowInterval)
-        // The first entry is what renders now; the view gets the entry's date, not the clock.
-        return TimelineView(.explicit(switchAt > now ? [now, switchAt] : [now])) { context in
+        return TimelineView(AgeSchedule(switchAt: created.addingTimeInterval(LatestCapture.justNowInterval))) { context in
             if LatestCapture.isJustNow(created, now: context.date) {
                 Text(Copy.Latest.justNow)
             } else {
-                Text(created, style: .relative)
+                Text(verbatim: LatestCapture.relativeAge(created, now: context.date, locale: locale))
             }
         }
     }
@@ -239,64 +239,16 @@ struct LatestCaptureCard: View {
     }
 }
 
-/// The latest card's buttons, in one row whatever the language: the first (the primary
-/// action) takes the width the others leave; the others are square icon buttons. All share
-/// one height, so a primary label that has to wrap onto a second line makes the whole row
-/// taller rather than stacking it. Frames are worked out left to right; SwiftUI mirrors a
-/// custom layout's placement in a right-to-left layout direction, so there the primary sits
-/// on the right (`CardActionsLayoutTests.mirrorsRightToLeft`).
-struct CardActionsLayout: Layout {
-    var spacing: CGFloat = Design.Spacing.s
+/// The card's age: the moment "Just now" ends, then once a minute.
+struct AgeSchedule: TimelineSchedule {
+    let switchAt: Date
 
-    /// The frames, primary first, in a row `width` wide. The icon buttons are `side` wide,
-    /// and every button is as tall as the taller of `side` and the primary at the width it
-    /// gets (`primaryHeight(width)`).
-    static func frames(
-        width: CGFloat, buttons: Int, side: CGFloat, spacing: CGFloat, primaryHeight: (CGFloat) -> CGFloat
-    ) -> [CGRect] {
-        guard buttons > 0 else { return [] }
-        let secondary = buttons - 1
-        let primaryWidth = max(0, width - CGFloat(secondary) * (side + spacing))
-        let height = max(side, primaryHeight(primaryWidth))
-        var frames = [CGRect(x: 0, y: 0, width: primaryWidth, height: height)]
-        for index in 0..<secondary {
-            frames.append(CGRect(
-                x: primaryWidth + spacing + CGFloat(index) * (side + spacing), y: 0, width: side, height: height))
-        }
-        return frames
-    }
-
-    /// The icon buttons' side: the buttons' one-line height, or an icon button's narrowest
-    /// width where its symbol and the bezel's margins need more (a bordered button does not
-    /// get narrower than that), so they come out square. `heights` are the buttons' own
-    /// heights, `iconMinWidths` the icon buttons' narrowest widths.
-    static func side(heights: [CGFloat], iconMinWidths: [CGFloat]) -> CGFloat {
-        max(heights.max() ?? 0, iconMinWidths.max() ?? 0)
-    }
-
-    private func frames(_ width: CGFloat?, _ subviews: Subviews) -> [CGRect] {
-        guard let primary = subviews.first else { return [] }
-        // A bordered icon button's own width is a default far wider than its symbol; offered
-        // no width, it reports the narrowest it can be.
-        let side = Self.side(
-            heights: subviews.map { $0.sizeThatFits(.unspecified).height },
-            iconMinWidths: subviews.dropFirst().map { $0.sizeThatFits(.zero).width })
-        let ideal = primary.sizeThatFits(.unspecified).width + CGFloat(subviews.count - 1) * (side + spacing)
-        return Self.frames(
-            width: width ?? ideal, buttons: subviews.count, side: side, spacing: spacing,
-            primaryHeight: { primary.sizeThatFits(ProposedViewSize(width: $0, height: nil)).height })
-    }
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let frames = frames(proposal.width, subviews)
-        guard let last = frames.last else { return .zero }
-        return CGSize(width: last.maxX, height: last.height)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        for (subview, frame) in zip(subviews, frames(bounds.width, subviews)) {
-            subview.place(
-                at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY), proposal: ProposedViewSize(frame.size))
+    func entries(from startDate: Date, mode: TimelineScheduleMode) -> AnyIterator<Date> {
+        var next: Date? = startDate
+        return AnyIterator {
+            guard let current = next else { return nil }
+            next = current < switchAt ? switchAt : current.addingTimeInterval(60)
+            return current
         }
     }
 }
