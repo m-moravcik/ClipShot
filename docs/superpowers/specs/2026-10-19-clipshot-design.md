@@ -1,21 +1,19 @@
 # ClipShot - design
 
-**Status:** approved 2026-10-19, revised the same day after plan verification, AI audit and motion review; amended 2026-10-19 evening after Michal used the build (see Addendum A: instant copy with ClipShot's own preview, recent screenshots, delete). The addendum overrides earlier sections where they conflict.
+**Status:** approved 2026-10-19, revised the same day after plan verification, AI audit and motion review; amended 2026-10-19 evening after the owner used the build (see Addendum A: instant copy with ClipShot's own preview, recent screenshots, delete). The addendum overrides earlier sections where they conflict.
 **Date:** 2026-10-19
 **Owner:** Michal Moravčík (`m-moravcik`)
 
 ## Intent
 
 macOS can save a screenshot as a file *or* put it on the clipboard, never both,
-and it shows the floating thumbnail only when it saves a file. Michal wants all
+and it shows the floating thumbnail only when it saves a file. The owner wants all
 three for every capture: the native thumbnail, the saved file, and the image on
-the clipboard ready to paste. He also wants old screenshots to stop piling up.
+the clipboard ready to paste. The owner also wants old screenshots to stop piling up.
 
-Today this runs as a personal launchd agent
-(a launchd copier script:
-a zsh script that copies the newest PNG
-in the screenshot folder with `osascript ... «class PNGf»`). It works, verified
-2026-10-19. ClipShot turns that into a proper public menu bar app in the same
+Today the owner runs this as a personal launchd agent: a small zsh script
+that copies the newest PNG in the screenshot folder with
+`osascript ... «class PNGf»`. It works, verified 2026-10-19. ClipShot turns that into a proper public menu bar app in the same
 family as VibeRes and Eject Guard, with settings for the things we had to
 change by hand with `defaults write com.apple.screencapture`, plus retention.
 
@@ -31,7 +29,7 @@ UI. It does not capture anything itself.
    native destination is set to Clipboard (which disables files and the
    thumbnail, so ClipShot cannot work) and offers a one-click fix.
 3. **Retention**: move screenshots older than N days to the Trash.
-4. **Feels like Michal's other apps**: same design tokens, popover, settings
+4. **Feels like the owner's other apps**: same design tokens, popover, settings
    window, onboarding, icon style, README, release and update path.
 5. **Full public release cycle**: public repo, signed and notarized build,
    Sparkle updates, Homebrew cask, GitHub profile entry, portfolio reference on
@@ -43,7 +41,7 @@ UI. It does not capture anything itself.
 - Changing file format, shadow, filename prefix or other `screencapture` keys
   beyond folder, thumbnail and target. Candidates for later.
 - Anything for screen recordings (`.mov`): no clipboard copy, no retention.
-  Michal: "may be nice in a next version, not needed in the first". Tracked
+  The owner: "may be nice in a next version, not needed in the first". Tracked
   as a GitHub issue for v1.1+.
 - Own editor. Annotation stays native: clicking the floating thumbnail opens
   macOS Markup (draw, text, shapes, crop).
@@ -72,15 +70,15 @@ UI. It does not capture anything itself.
 - If the user picks Desktop, Documents, Downloads or an iCloud folder as the
   save folder, macOS asks for folder access (TCC). Ask lazily, explain in
   app-authored copy, fall back to a clear in-popover warning on denial.
-- Michal's rule: GitHub Actions never run on his accounts. All checks, builds
+- The owner's rule: GitHub Actions never run on the owner's accounts. All checks, builds
   and releases run locally. A `.github/workflows/ci.yml` may exist for
   others' forks, but the release must not depend on it.
-- Michal's rule: the review gate's pipeline is the
+- The owner's rule: the review gate's pipeline is the
   required review.
 
 ## Decisions
 
-### Decided by Michal
+### Decided by the owner
 
 - Name **ClipShot**. Repo `m-moravcik/ClipShot`, public. A tiny unrelated
   `3ricpeng/clipshot` script exists (0 stars, no licence); accepted.
@@ -89,7 +87,7 @@ UI. It does not capture anything itself.
 - Settings: save folder, thumbnail, clipboard copy, retention.
 - Full release cycle (repo, release, GitHub profile, web.pexelo.com portfolio).
 
-### Builder's calls already made (Michal can veto while reading)
+### Builder's calls already made (the owner can veto while reading)
 
 - **Platform:** Swift 6, strict concurrency complete, warnings as errors,
   SwiftUI `MenuBarExtra(.window)` + small AppKit. `LSUIElement`. Universal
@@ -104,7 +102,7 @@ UI. It does not capture anything itself.
   Debug `sk.moravcik.ClipShot.debug`, executable `ClipShot`, support folder
   `~/Library/Application Support/ClipShot/`, log
   `~/Library/Logs/clipshot.log` (0600, rolls at 512 KB, English).
-- **Languages:** en, sk, cs, de, es, fr (es and fr requested by Michal
+- **Languages:** en, sk, cs, de, es, fr (es and fr requested by the owner
   2026-10-19; the same set is being added to VibeRes and Eject Guard).
 - **Version:** first public release **1.0.0** (feature complete, not a beta).
 - **Updates:** Sparkle 2.10.0 pinned, same EdDSA key as the siblings, feed
@@ -132,8 +130,8 @@ UI. It does not capture anything itself.
   other formats macOS can be set to (jpg, heic, tiff, pdf) and for full-screen
   and window captures.
 - Copies the image to `NSPasteboard.general` as **PNG image data only**
-  (`«class PNGf»` / `.png`), the same as the personal script Michal verified
-  pasting in his apps. No file URL on the pasteboard: Slack, Mail, Messages
+  (`«class PNGf»` / `.png`), the same as the personal script the owner verified
+  pasting in everyday apps. No file URL on the pasteboard: Slack, Mail, Messages
   and browsers would then paste a file attachment instead of an inline image.
   Non-PNG captures are converted to PNG for the pasteboard.
 - Never copies the same file twice, never copies a file older than 30 s.
@@ -185,7 +183,7 @@ UI. It does not capture anything itself.
 - **Off by default** on a fresh install (anti-goal: surprise deletion). The
   onboarding offers to turn it on.
 - Period: 7, 14, 30, 60, 90 days or custom; default 30 when enabled.
-- **Only screenshots ClipShot saw being made** (Michal, 2026-10-19). ClipShot
+- **Only screenshots ClipShot saw being made** (the owner, 2026-10-19). ClipShot
   keeps a ledger (`~/Library/Application Support/ClipShot/ledger.json`, 0600)
   of every fresh screenshot it observed while running: path, file resource
   identifier, creation date, size. Retention only ever moves ledger entries.
@@ -287,7 +285,7 @@ Icon Composer `.icon` with SVG layers in the house style (flat glyph on a
 gradient, neutral shadow, translucency off). Concept: a selection marquee
 (capture corners) over a clipboard. Its own gradient colour so it reads as a
 sibling but not a twin (VibeRes indigo-teal, Eject Guard graphite); candidate
-warm coral to amber. Rendered by the preview harness for Michal to approve
+warm coral to amber. Rendered by the preview harness for the owner to approve
 before release.
 
 ## Repo and release cycle
@@ -301,7 +299,7 @@ before release.
   paste), a "Why this exists" paragraph, Uninstall section, and the Homebrew
   one-liner right under the hero.
 - `DEVELOPMENT.md` for internals. Release notes as `release-notes/<version>.md`
-  like Eject Guard, not a hand-edited CHANGELOG.md (Michal's rule: never edit
+  like Eject Guard, not a hand-edited CHANGELOG.md (the owner's rule: never edit
   CHANGELOG.md by hand). Default GitHub labels. Topics include `macos`,
   `menu-bar`, `screenshot`, `screencapture`, `clipboard`, `swift`.
 - Sparkle EdDSA key shared with VibeRes and Eject Guard: accepted risk,
@@ -313,12 +311,10 @@ before release.
 - Release (local): bump version, release notes, `make signed-app`, notarize,
   zip, `gh release create`, sign and commit appcast, push the cask to the tap.
 - After 1.0.0 is live:
-  - GitHub profile `m-moravcik/m-moravcik` README: add ClipShot to the apps
-    list next to VibeRes and Eject Guard.
-  - Portfolio: new reference in the portfolio site
-    (`src/data/portfolioProjects.ts`, assets `src/assets/clipshot/`) using that
-    repo's `portfolio-reference` skill, then its normal deploy.
-- Migration for Michal's machine: after installing 1.0.0, unload and trash the
+  - The author's GitHub profile README: add ClipShot to the apps list next to
+    VibeRes and Eject Guard.
+  - Portfolio: a new reference on web.pexelo.com, then the site's normal deploy.
+- Migration on the owner's machine: after installing 1.0.0, unload and trash the
   personal launchd agent and script so two copiers don't race.
 
 ## Left to the builder
@@ -331,9 +327,9 @@ before release.
 
 ## Addendum A (2026-10-19 evening): instant copy, own preview, recents
 
-Michal used the first build and gave this feedback: "it takes a very long time
+The owner used the first build and gave this feedback: "it takes a very long time
 from the screenshot until the app gets it to the clipboard; this is the main
-point of the app, it must be there immediately". Measured on his Mac: with the
+point of the app, it must be there immediately". Measured on the owner's Mac: with the
 macOS floating thumbnail on, the file appears 6 s after the shortcut (two
 captures, 23:45:47 -> 23:45:53.4 and 23:46:08 -> 23:46:14.3). While the
 thumbnail is visible, macOS keeps the image in memory only; no temporary file
@@ -341,9 +337,8 @@ exists anywhere under the user's temp, cache or container folders. With the
 thumbnail off, the file appears in about 150 ms (spike F-latency). Instant copy
 and the macOS thumbnail therefore exclude each other.
 
-Michal's decision: "ok tak vlastny a cez polish animacie skill to prezen nech
-je to fun a hrave" - ClipShot shows its own floating preview, and its motion is
-designed with the `motion-polish` skill to be fun and playful.
+The owner's decision: ClipShot shows its own floating preview, and its motion
+is designed to be fun and playful.
 
 This overrides: Goal 1 ("while macOS still ... shows the thumbnail"), the
 Constraint "the clipboard copy therefore lands at that moment ... don't try to
@@ -392,9 +387,9 @@ thumbnail disappears.
 
 ### A3. Motion (playful, still in the family)
 
-Designed and reviewed with the `motion-polish` skill. Every animation has a
+Designed and reviewed as a motion study. Every animation has a
 job (confirm the copy, show where the screenshot went, connect states), uses
-springs, and finishes within about 0.45 s. Starting points for the skill, not
+springs, and finishes within about 0.45 s. Starting points for the motion work, not
 a mandate:
 
 - Arrival: the preview springs in from the screen edge with a little
@@ -421,7 +416,7 @@ a mandate:
   editor closes or 30 minutes pass, so a long edit still lands on the
   clipboard. Any other old file still never copies.
 - The popover hint changes from "Click the thumbnail..." to wording that
-  matches what is clickable (fixes Michal's "the hint said click the
+  matches what is clickable (fixes the owner's "the hint said click the
   screenshot to edit, but nothing happened").
 
 ### A5. Recent screenshots in the popover
@@ -447,7 +442,7 @@ Retention is already optional (off by default, period presets or custom days
 in Settings > Retention). The popover gets one quiet row with its state ("Off"
 / "Older than 30 days go to the Trash") that opens Settings > Retention.
 
-Michal: "on the welcome screen it said retention 30 days, that confused me, so
+The owner: "on the welcome screen it said retention 30 days, that confused me, so
 I didn't turn it on". Tour step 3 therefore shows the period as a choice, not
 a fact: one sentence with an inline picker ("Move screenshots older than
 [30 days v] to the Trash", same presets and custom value as Settings), the

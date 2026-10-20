@@ -276,7 +276,7 @@ scripts/release.sh
 8. Fetch the feed and the asset as a client would: verify the feed's own
    signature, and check the length and the enclosure signature against the
    asset.
-9. Update version and sha256 in the tap's cask (`~/Projects/homebrew-clipshot`),
+9. Update version and sha256 in the tap's cask (the local tap clone, `TAP_DIR`),
    `brew audit --cask --strict --online`, `brew style`, push.
 
 It is interactive: `sign_update` asks for access to the EdDSA key in the

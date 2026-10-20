@@ -3,7 +3,7 @@ import SwiftUI
 
 /// The floating previews, stacked: the newest at the bottom, older ones above it.
 ///
-/// Motion (Addendum A3, designed with motion-polish), each with its job:
+/// Motion (Addendum A3), each with its job:
 /// - arrival: springs in from the screen edge with a small overshoot (where the copy went);
 /// - the image lands with a slight scale-up and the Copied badge bounces (the copy happened);
 /// - older previews slide up with a spring when a new one arrives (connects the states);

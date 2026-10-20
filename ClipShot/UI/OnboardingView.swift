@@ -468,7 +468,7 @@ private struct PausedResult: View {
 /// The retention offer with the live preview above its switch, then launch at login.
 /// Switching retention on confirms the folder the preview showed, as Settings does.
 ///
-/// The period is a choice, not a fact (Michal: "it said retention 30 days, that confused
+/// The period is a choice, not a fact (owner feedback: "it said retention 30 days, that confused
 /// me"): one sentence, "Move screenshots older than [30 days] to the Trash", whose period is
 /// a pop-up link with Settings' presets and Custom, next to the switch. The preview above
 /// follows the chosen period.
