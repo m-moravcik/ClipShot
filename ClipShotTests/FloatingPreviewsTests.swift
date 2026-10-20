@@ -73,6 +73,75 @@ struct FloatingPreviewsTests {
         #expect(await eventually(timeout: .seconds(3)) { await previews.items.isEmpty })
     }
 
+    /// I1: hover offers Copy again on the preview whose screenshot is not the one on the
+    /// clipboard, from the same owner as the Copied badge and the popover's rows.
+    @Test func hoverOffersCopyAgainWhereTheScreenshotIsNotOnTheClipboard() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        h.prefs["show-thumbnail"] = false
+        #expect(await h.start())
+        #expect(await eventually { await h.model.previewMode == .clipShot })
+        let previews = h.model.previews
+        let stack = PreviewStack(previews: previews, files: .model(h.model))
+        func offers(_ name: String) throws -> Bool {
+            let item = try #require(previews.visible.first { $0.file.url.lastPathComponent == name })
+            return stack.actions(for: item).offersCopyAgain()
+        }
+
+        try h.shoot("A.png", size: 20)
+        #expect(await eventually { await previews.visible.count == 1 })
+        try h.shoot("B.png", size: 21)
+        #expect(await eventually { await previews.visible.count == 2 })
+        #expect(try offers("A.png"), "B is on the clipboard: the older preview offers Copy again")
+        #expect(try !offers("B.png"), "the clipboard's own screenshot does not")
+
+        // Copy on A's row in the popover: now B's preview offers it, A's does not.
+        #expect(await eventually { await h.model.recent.count == 2 })
+        let rowA = try #require(h.model.recent.first { $0.url.lastPathComponent == "A.png" })
+        #expect(await h.model.copyAgain(file: rowA))
+        #expect(try !offers("A.png"))
+        #expect(try offers("B.png"))
+        #expect(h.model.isOnClipboard(rowA), "the row and the preview agree")
+
+        // Another app copies something: seen at once on hover, so both offer it.
+        h.pasteboard.changeCount += 1
+        #expect(try offers("A.png"))
+        #expect(try offers("B.png"))
+        #expect(previews.clipboardFile == nil)
+    }
+
+    /// Minor 2: rows and previews compare owners one way: by the file's resource ID, so two
+    /// spellings of one path agree; by the standardized path only when there is no ID.
+    @Test func theOwnerIsTheSameFileWhateverItsPathSpelling() throws {
+        let dir = try Fixtures.makeDir()
+        let url = try Fixtures.write(named: "Shot.png", in: dir)
+        let path = url.path
+        let other = path.hasPrefix("/private/") ? String(path.dropFirst("/private".count)) : "/private" + path
+        let a = try #require(CaptureFile.inspect(url))
+        let b = try #require(CaptureFile.inspect(URL(fileURLWithPath: other)))
+        #expect(a.url.path != b.url.path)
+
+        let previews = FloatingPreviews()
+        previews.clipboardFile = a
+        #expect(previews.isOnClipboard(b), "/var and /private/var name the same file")
+        previews.show(b, image: nil)
+        let item = try #require(previews.visible.first)
+        #expect(previews.showsCopied(item))
+        #expect(!previews.offersCopyAgain(item.id))
+
+        // Without an ID, the standardized path decides.
+        func noID(_ path: String) -> CaptureFile {
+            CaptureFile(url: URL(fileURLWithPath: path), created: a.created, modified: a.modified, size: a.size,
+                        resourceID: Data(), isScreenshot: true)
+        }
+        #expect(FloatingPreviews.sameFile(noID("/tmp/x/./y/../Shot.png"), noID("/tmp/x/Shot.png")))
+        #expect(!FloatingPreviews.sameFile(noID("/tmp/x/Shot.png"), noID("/tmp/x/Other.png")))
+        // A file replaced under the same name is another file.
+        let replaced = CaptureFile(url: a.url, created: a.created, modified: a.modified, size: a.size,
+                                   resourceID: Data([1, 2, 3]), isScreenshot: true)
+        #expect(!FloatingPreviews.sameFile(a, replaced))
+    }
+
     @Test func dismissMarksTheExitThenRemoves() async throws {
         let previews = FloatingPreviews()
         let shot = try #require(try files(1).first)
@@ -143,7 +212,7 @@ struct FloatingPreviewsTests {
         #expect(h.pasteboard.writes.count == 1, "paused: nothing written on ClipShot's own")
     }
 
-    @Test func copyAgainIsOfferedOnlyAfterTheClipboardChanged() async throws {
+    @Test func anotherAppsCopyIsSeenByTheChangeCount() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }
         #expect(await h.start())

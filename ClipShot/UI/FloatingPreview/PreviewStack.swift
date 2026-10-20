@@ -56,7 +56,8 @@ struct PreviewStack: View {
         return .asymmetric(insertion: arrive, removal: leave)
     }
 
-    private func actions(for item: PreviewItem) -> PreviewActions {
+    /// Internal for the tests, which hover a preview through it.
+    func actions(for item: PreviewItem) -> PreviewActions {
         let previews = previews
         let files = files
         let file = item.file
@@ -74,7 +75,11 @@ struct PreviewStack: View {
             swipedAway: { previews.dismiss(id, .swipe) },
             draggedOut: { previews.dismiss(id, .close) },
             hover: { previews.setHovering(id, $0) },
-            clipboardChanged: { files.clipboardChanged() })
+            offersCopyAgain: {
+                // Another app's copy is noticed at once, not at the next status tick.
+                files.forgetClipboardIfReplaced()
+                return previews.offersCopyAgain(id)
+            })
     }
 }
 
@@ -90,7 +95,8 @@ struct PreviewFileActions {
     let trash: @MainActor (CaptureFile, UUID) -> Void
     /// Puts back the file that preview moved, and only that one.
     let undo: @MainActor (CaptureFile, UUID) -> Void
-    let clipboardChanged: @MainActor () -> Bool
+    /// Lets go of the clipboard's owner when another app copied something since.
+    let forgetClipboardIfReplaced: @MainActor () -> Void
 
     static func model(_ model: AppModel) -> PreviewFileActions {
         PreviewFileActions(
@@ -108,6 +114,6 @@ struct PreviewFileActions {
                 guard let model else { return }
                 Task { await model.putBack(file, fromPreview: id) }
             },
-            clipboardChanged: { [weak model] in model?.clipboardChangedSinceCopy ?? true })
+            forgetClipboardIfReplaced: { [weak model] in model?.forgetClipboardIfReplaced() })
     }
 }

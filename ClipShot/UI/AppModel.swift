@@ -570,10 +570,10 @@ final class AppModel {
     }
 
     /// `file` is the screenshot ClipShot last put on the clipboard, and it is still there:
-    /// its row says Copy again, as only its floating preview says Copied (U9).
+    /// its row says Copy again, as only its floating preview says Copied (U9). The same
+    /// comparison as the preview's (`FloatingPreviews.isOnClipboard`).
     func isOnClipboard(_ file: CaptureFile) -> Bool {
-        guard let copied = previews.clipboardFile else { return false }
-        return copied.resourceID == file.resourceID && copied.url.lastPathComponent == file.url.lastPathComponent
+        previews.isOnClipboard(file)
     }
 
     /// Waits until the ledger has every screenshot the coordinator has seen so far.

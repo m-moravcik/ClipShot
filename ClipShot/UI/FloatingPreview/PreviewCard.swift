@@ -76,8 +76,9 @@ struct PreviewActions {
     var swipedAway: () -> Void
     var draggedOut: () -> Void
     var hover: (Bool) -> Void
-    /// Whether the clipboard holds something else now, so Copy again is worth offering.
-    var clipboardChanged: () -> Bool
+    /// Whether hover offers Copy again: this preview's screenshot is not the one on the
+    /// clipboard (the same owner the Copied badge follows).
+    var offersCopyAgain: () -> Bool
 }
 
 extension PreviewActions {
@@ -85,7 +86,7 @@ extension PreviewActions {
     static var inert: PreviewActions {
         PreviewActions(
             markup: {}, copy: { false }, reveal: {}, trash: {}, undo: {}, close: {}, swipedAway: {}, draggedOut: {},
-            hover: { _ in }, clipboardChanged: { true })
+            hover: { _ in }, offersCopyAgain: { true })
     }
 }
 
@@ -342,7 +343,7 @@ struct PreviewCard: View {
     }
 
     private func hoverChanged(_ inside: Bool) {
-        if inside { offerCopy = actions.clipboardChanged() }
+        if inside { offerCopy = actions.offersCopyAgain() }
         hovering = inside
         actions.hover(inside)
     }

@@ -66,10 +66,32 @@ final class FloatingPreviews {
     /// "Copied" (U9).
     var clipboardFile: CaptureFile?
 
-    /// Whether `item` is the screenshot on the clipboard now.
+    /// Whether `file` is the screenshot on the clipboard now. The one owner comparison: the
+    /// popover's rows (Copy or Copy again) and the previews (the Copied badge, the hover's
+    /// Copy again) all ask here, so they never disagree.
+    func isOnClipboard(_ file: CaptureFile) -> Bool {
+        guard let copied = clipboardFile else { return false }
+        return Self.sameFile(copied, file)
+    }
+
+    /// The same file: by its resource ID (device and inode), so `/var` and `/private/var`, a
+    /// trailing slash or a rename all agree, and a file replaced under the same name does
+    /// not; by the standardized path only when either has no ID.
+    nonisolated static func sameFile(_ a: CaptureFile, _ b: CaptureFile) -> Bool {
+        if !a.resourceID.isEmpty, !b.resourceID.isEmpty { return a.resourceID == b.resourceID }
+        return a.url.standardizedFileURL.path == b.url.standardizedFileURL.path
+    }
+
+    /// Whether `item` is the screenshot on the clipboard now: it says Copied.
     func showsCopied(_ item: PreviewItem) -> Bool {
-        guard !item.trashed, let file = clipboardFile else { return false }
-        return item.file.url == file.url && item.file.resourceID == file.resourceID
+        !item.trashed && isOnClipboard(item.file)
+    }
+
+    /// Whether preview `id`, under the pointer, offers Copy again: its screenshot is not the
+    /// one on the clipboard, whatever is (another screenshot, or another app's copy).
+    func offersCopyAgain(_ id: UUID) -> Bool {
+        guard let item = items.first(where: { $0.id == id }), item.exit == nil, !item.trashed else { return false }
+        return !showsCopied(item)
     }
 
     /// Called after `items` changed, so the panel can show or hide itself.
