@@ -470,7 +470,7 @@ could end first and pass for nothing. The floating previews' lifetimes, the Undo
 offer and the failure notes run on a `TimerClock`; their tests drive a
 `ManualTimerClock` and check a moment before each deadline exactly.
 
-The sleeps left (22) are there on purpose:
+The sleeps left (23) are there on purpose:
 
 - real run-loop timers and "no tick after" checks of Peg's frame timer
   (`AppModelTests`, the copy animation and Reduce Motion tests);

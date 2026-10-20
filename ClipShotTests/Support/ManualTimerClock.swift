@@ -12,11 +12,15 @@ final class ManualTimerClock: TimerClock, @unchecked Sendable {
     private var waiters: [UUID: Waiter] = [:]
     /// Sleeps cancelled before they were registered.
     private var cancelled: Set<UUID> = []
+    private var started = 0
 
     var now: Duration { lock.withLock { current } }
 
     /// Timers waiting for a later time.
     var waiting: Int { lock.withLock { waiters.count } }
+
+    /// Timers that have started waiting since the clock was made, woken or not.
+    var registered: Int { lock.withLock { started } }
 
     /// Moves time on and wakes every timer whose deadline it reached.
     func advance(by duration: Duration) {
@@ -34,6 +38,7 @@ final class ManualTimerClock: TimerClock, @unchecked Sendable {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
                 let now: Result<Void, any Error>? = lock.withLock {
                     if cancelled.remove(id) != nil { return .failure(CancellationError()) }
+                    started += 1
                     if deadline <= current { return .success(()) }
                     waiters[id] = (deadline, continuation)
                     return nil

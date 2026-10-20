@@ -229,6 +229,8 @@ struct OnboardingTests {
 
         let relaunched = try ModelHarness(onboardingShown: false, relaunching: h)
         defer { relaunched.tearDown() }
+        // The relaunch harness starts from a fresh preferences store; PreferencesTests
+        // covers that the flag itself persists.
         relaunched.preferences.tourCompleted = h.preferences.tourCompleted
         relaunched.model.launch()
         #expect(relaunched.model.isWatching)

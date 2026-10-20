@@ -380,6 +380,8 @@ struct RecentTests {
         clock.advance(by: .milliseconds(2_500))
         try await h.model.trash(files[1])
         #expect(h.model.undoable?.original == files[1].url)
+        // Both timers wait before time moves on, so the first one waking is what is tested.
+        #expect(await eventually { clock.registered == 2 })
         // The first one's time is up; its timer wakes and must not end the second's.
         clock.advance(by: .milliseconds(2_500))
         #expect(await eventually { clock.waiting == 1 }, "only the second's timer still waits")
