@@ -20,10 +20,18 @@ final class AppModel {
     let preferences: Preferences
 
     private(set) var isWatching = false
+    /// The frame of Peg's moment playing in the menu bar; 0 when none plays.
     private(set) var flashPhase = 0
+    /// The moment `flashPhase` belongs to.
+    private(set) var flashMoment: PegMoment = .copied
+    /// The state the icon rested in when the moment started.
+    private(set) var flashFrom: StatusIconState = .idle
     /// Reduce Motion as read when the current flash started.
     private(set) var flashReduceMotion = false
     private(set) var attentions: [Attention] = []
+    /// Goes up once each time a problem appears that was not there before; the popover's
+    /// header nods on it.
+    private(set) var attentionArrivals = 0
     private(set) var lastCopied: CaptureFile?
     /// The folder being watched: the configured one, ~/Desktop while it is missing, or nil.
     private(set) var watchedFolder: URL?
@@ -96,8 +104,23 @@ final class AppModel {
 
     /// Paused until watching starts (the tour's Start copying, or a launch after the tour):
     /// nothing is copied before then, so the icon and its VoiceOver label do not say it is.
+    ///
+    /// A copy says Copied while its animation plays, also over an attention (the copy did
+    /// happen); everything else is the state the icon rests in.
     var iconState: StatusIconState {
-        .resolve(copyEnabled: preferences.copyEnabled && isWatching, attentions: attentions, flashing: flashPhase > 0)
+        .resolve(copyEnabled: preferences.copyEnabled && isWatching, attentions: attentions,
+                 flashing: flashPhase > 0 && flashMoment == .copied)
+    }
+
+    /// The state the icon settles in once nothing plays.
+    var restingIconState: StatusIconState {
+        .resolve(copyEnabled: preferences.copyEnabled && isWatching, attentions: attentions, flashing: false)
+    }
+
+    /// What the menu bar draws now: the resting pose, or the frame of the moment playing.
+    var iconPose: Peg.Pose {
+        Peg.pose(rest: restingIconState, moment: flashPhase > 0 ? flashMoment : nil, phase: flashPhase,
+                 from: flashFrom, reduceMotion: flashReduceMotion)
     }
 
     /// The popover header: copying on, paused or needs attention. Never the brief copied state.
@@ -193,7 +216,7 @@ final class AppModel {
     @ObservationIgnored private var restoring = false
     /// Names the note on show, so the timer of a replaced one does not end the newer one.
     @ObservationIgnored private var noteGeneration = 0
-    @ObservationIgnored private var flash = CopiedFlash()
+    @ObservationIgnored private var flash = PegFlash()
     @ObservationIgnored private var flashTimer: (any FlashTimer)?
     @ObservationIgnored private var statusTask: Task<Void, Never>?
     /// The popover is on screen. Its window stays alive while closed, so only then does the
@@ -205,6 +228,8 @@ final class AppModel {
     @ObservationIgnored private var previewGeneration = 0
     @ObservationIgnored private var observationToken = 0
     @ObservationIgnored private var observedPolicy: RetentionPolicy?
+    /// The Copy to clipboard switch as last seen, so only a real flip plays pause or resume.
+    @ObservationIgnored private var observedCopyEnabled = true
     /// The panel that shows `previews`, made when watching first starts.
     @ObservationIgnored private var previewHost: AnyObject?
     /// The pasteboard's change count right after ClipShot's last write: when it differs, the
@@ -283,6 +308,7 @@ final class AppModel {
             preferences.launchAtLoginIntent = reconcileLoginItem(preferences.launchAtLoginIntent)
         }
         observedPolicy = preferences.retention
+        observedCopyEnabled = preferences.copyEnabled
         coordinator.isEnabled = preferences.copyEnabled
         coordinator.start()
         if previewHost == nil { previewHost = makePreviewHost(self) }
@@ -570,18 +596,35 @@ final class AppModel {
         recomputeAttentions()
     }
 
-    /// One timer per flash: a copy during the flash restarts the phases on the same timer.
-    /// With Reduce Motion the flash is one hold on a single timer, so a copy during it
-    /// starts the hold again on a fresh timer.
+    /// The menu bar's copy animation.
     func startFlash() {
-        if flashTimer != nil, flash.reduceMotion {
+        play(.copied, from: restingIconState)
+    }
+
+    /// Plays `moment` in the menu bar, from the state the icon rested in.
+    ///
+    /// One timer at a time: a moment during another restarts the phases on the same frame
+    /// timer. With Reduce Motion the copy is one hold on a single timer, so anything during
+    /// it starts on a fresh timer, and the other moments do not play at all: their state
+    /// changes in one frame. A copy is never cut short by a change of state: it ends on the
+    /// new resting card instead.
+    private func play(_ moment: PegMoment, from: StatusIconState) {
+        let reduce = reduceMotion()
+        if moment != .copied {
+            guard !reduce else { return }
+            if flashPhase > 0, flashMoment == .copied { return }
+        }
+        let next = PegFlash(moment, reduceMotion: moment == .copied && reduce)
+        if flashTimer != nil, flash.timerInterval != next.timerInterval || flash.reduceMotion {
             flashTimer?.invalidate()
             flashTimer = nil
         }
+        flash = next
+        flashReduceMotion = next.reduceMotion
+        flashMoment = moment
+        flashFrom = from
         if flashTimer == nil {
-            flashReduceMotion = reduceMotion()
-            flash = CopiedFlash(reduceMotion: flashReduceMotion)
-            flashTimer = makeFlashTimer(flash.timerInterval, CopiedFlash.tolerance) { [weak self] in
+            flashTimer = makeFlashTimer(flash.timerInterval, PegFlash.tolerance) { [weak self] in
                 self?.tickFlash()
             }
         }
@@ -1016,8 +1059,16 @@ final class AppModel {
         }
         guard next != attentions else { return }
         let added = next.contains { !attentions.contains($0) }
+        let before = restingIconState
+        let first = attentions.isEmpty && !next.isEmpty
         attentions = next
-        if added { announce(StatusIconState.attention.accessibilityLabel) }
+        if added {
+            attentionArrivals += 1
+            announce(StatusIconState.attention.accessibilityLabel)
+        }
+        // Peg swings into the attention pose once, when something first needs fixing; more
+        // problems while it already shows "!" change nothing in the menu bar.
+        if first { play(.attention, from: before) }
     }
 
     /// `copyEnabled` goes straight to the coordinator; a retention change re-reads the status.
@@ -1035,6 +1086,13 @@ final class AppModel {
     private func preferencesChanged(token: Int) {
         guard isWatching, token == observationToken else { return }
         coordinator.isEnabled = preferences.copyEnabled
+        if preferences.copyEnabled != observedCopyEnabled {
+            observedCopyEnabled = preferences.copyEnabled
+            // The switch's answer, where it shows: unless "!" covers both states.
+            if attentions.isEmpty {
+                preferences.copyEnabled ? play(.resume, from: .paused) : play(.pause, from: .idle)
+            }
+        }
         if preferences.retention != observedPolicy {
             observedPolicy = preferences.retention
             refreshStatus()

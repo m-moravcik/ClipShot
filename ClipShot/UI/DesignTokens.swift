@@ -100,14 +100,33 @@ enum Design {
         /// Move to Trash: shrink and drop, accelerating like something falling.
         static let dropDuration: TimeInterval = 0.24
         static let drop: Animation = .easeIn(duration: dropDuration)
-        /// Moments after the copy the badge bounces, with the menu bar animation.
-        static let badgeDelay: Duration = .milliseconds(120)
+        /// The Copied badge bounces as Peg's clamp bites in the menu bar (`Peg.Beat.clampBounce`),
+        /// so the copy reads as one event on the screen and in the menu bar. Derived from the
+        /// beat, so a retime of Peg keeps the two in step. Reduce Motion: no bounce.
+        static let badgeDelay: Duration = pegged
+        /// Moments after a copy at which Peg's card is pegged: the clamp lands.
+        static let pegged: Duration = .milliseconds(Int((Peg.Beat.clampBounce.lowerBound * 1_000).rounded()))
+
+        /// Hover on the preview lifts it a little towards the pointer, its shadow growing: it
+        /// can be clicked, dragged and swiped. Reduce Motion: the shadow only.
+        static let hover: Animation = .snappy(duration: 0.2)
+        static let hoverLift: CGFloat = 2
+        /// A swipe past the point where letting go dismisses: the card tips and fades a little
+        /// (with a trackpad tick), and comes back if the pointer does. Reduce Motion: the fade.
+        static let swipeCommit: Animation = .snappy(duration: 0.15)
+        static let swipeCommitAngle: Double = 2
+        static let swipeCommitOpacity: Double = 0.85
+        /// A screenshot being dragged out is in hand: its card or row picture ghosts until the
+        /// drag ends; a cancelled drag brings it back. Opacity only, also with Reduce Motion.
+        static let dragGhostOpacity: Double = 0.4
+        /// "+N" pops in when the capture turns out to cover more displays.
+        static let chip: Animation = .snappy(duration: 0.25, extraBounce: 0.1)
 
         // The menu bar copy animation (`Peg`): every copy confirms itself in the menu bar,
         // playful and clearly noticeable: the new card is pinned slowly enough to follow in
         // the corner of the eye, and it is all over in 2.4 s, as VibeRes's switch animation.
         // A MenuBarExtra label is a static image, so it is drawn frame by frame on a timer
-        // that runs only while it plays (`CopiedFlash`).
+        // that runs only while it plays (`PegFlash`).
 
         /// The whole animation, from the first frame back to rest.
         static let menuBarCopy: TimeInterval = 2.4
@@ -115,14 +134,37 @@ enum Design {
         static let menuBarFrameRate: Double = 30
         /// Reduce Motion: the copied pose, held, with no movement.
         static let menuBarHold: TimeInterval = 1.4
+        /// Peg's smaller moments, on the same frame timer, each once and under a second: they
+        /// confirm a change of state where it shows rather than celebrate it. Reduce Motion:
+        /// none of them plays; the state changes in one frame.
+        /// Something first needs attention: the card swings into its "!" pose.
+        static let menuBarAttention: TimeInterval = 0.9
+        /// Copy to clipboard off: the picture fades, the outline breaks into dashes.
+        static let menuBarPause: TimeInterval = 0.6
+        /// Copy to clipboard on: the outline joins up, the peg bites again.
+        static let menuBarResume: TimeInterval = 0.9
 
         // The tour's Try it: the first real copy is the strongest moment in the app.
 
-        /// The success check bounces once as the new card slides in on the menu bar line
-        /// (`Peg.Beat.slideIn`), so the two read as one event. Reduce Motion: no bounce.
-        static let successBounceDelay: Duration = .milliseconds(300)
+        /// The success check bounces once as Peg's clamp bites in the menu bar (`pegged`), so
+        /// the two read as one event. Reduce Motion: no bounce.
+        static let successBounceDelay: Duration = pegged
         /// Faster than the system bounce, so the peak stays well under half a second.
         static let successBounceSpeed: Double = 1.5
+        /// While Try it waits for the user's screenshot, its viewfinder breathes: an
+        /// invitation, not a spinner (ClipShot is idle, the user is the one to act).
+        /// Each step's symbol draws itself in this long after the step appears, once the
+        /// step's own slide has settled. Reduce Motion: neither, the symbol is still.
+        static let drawOnDelay: Duration = .milliseconds(120)
+        /// The first copy ever, once per install, in Try it: small cards burst from the check
+        /// with the bounce, fall and fade. The only celebration in the app. Reduce Motion: none.
+        static let celebration: TimeInterval = 0.9
+        /// The current tour dot is a capsule that slides to the next step.
+        static let dots: Animation = layout
+
+        /// A screenshot that Undo brings back arrives in the row the Undo strip held, growing
+        /// from just smaller as it fades in: the reverse of how it left. Reduce Motion: fade.
+        static let restoredScale: CGFloat = 0.94
 
         // The popover's failure note (A6), said where an Undo or a Move to Trash did not
         // happen. Reduce Motion: `quick` crossfades. The list of recent screenshots, with its

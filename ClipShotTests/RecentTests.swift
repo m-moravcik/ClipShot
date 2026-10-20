@@ -183,7 +183,7 @@ struct RecentTests {
         #expect(h.model.iconState == .copied)
         #expect(names(h.model.recent) == ["C.png", "B.png", "A.png"], "the list keeps its order")
         let timer = try #require(h.timer)
-        timer.fire(CopiedFlash.steps - 1)
+        timer.fire(PegFlash.steps - 1)
         #expect(h.model.flashPhase == 0)
 
         // Paused: a new screenshot is not copied, but a row's Copy still is.
@@ -194,10 +194,12 @@ struct RecentTests {
         try h.shoot("D.png", size: 23)
         #expect(await h.copySettled(after: events))
         #expect(h.pasteboard.writes.count == writes, "paused: nothing is copied on its own")
-        #expect(h.model.flashPhase == 0, "paused: no copy animation on its own")
+        // The switch played Peg's pause moment; nothing played a copy.
+        #expect(h.model.flashPhase == 0 || h.model.flashMoment == .pause, "paused: no copy animation on its own")
         #expect(await h.model.copyAgain(file: try row(h, "B.png")))
         #expect(h.pasteboard.writes.last == (try Data(contentsOf: files[1].url)))
         #expect(h.model.flashPhase > 0)
+        #expect(h.model.flashMoment == .copied)
     }
 
     // MARK: - Move to Trash and Undo

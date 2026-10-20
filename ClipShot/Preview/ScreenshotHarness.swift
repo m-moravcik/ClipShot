@@ -1210,11 +1210,11 @@ private struct MenuBarStatesSheet: View {
             Cell(id: "attention", title: "attention", detail: "", state: .attention, phase: 0),
             Cell(id: "copied-rm", title: "copied", detail: "Reduce Motion", state: .copied, phase: 1, reduceMotion: true),
         ]
-        for phase in 1..<CopiedFlash.steps {
-            let time = String(format: "%.2f s", CopiedFlash.time(phase: phase))
+        for phase in 1..<PegFlash.steps {
+            let time = String(format: "%.2f s", PegFlash.time(phase: phase))
             cells.append(Cell(id: "p\(phase)", title: "\(phase)", detail: time, state: .copied, phase: phase))
         }
-        cells.append(Cell(id: "end", title: "\(CopiedFlash.steps)", detail: "end", state: .idle, phase: 0))
+        cells.append(Cell(id: "end", title: "\(PegFlash.steps)", detail: "end", state: .idle, phase: 0))
         return cells
     }()
 
@@ -1254,7 +1254,7 @@ private struct MenuBarStatesSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(verbatim: Self.title)
                 .font(.system(size: 15, weight: .semibold))
-            Text(verbatim: "Order: idle, paused, attention, copied (held as is with Reduce Motion); then every frame of the \(String(format: "%.1f", CopiedFlash.duration)) s copy animation at \(Int(CopiedFlash.frameRate)) fps (frame, seconds in) and the end, back to idle. Zoom rows are the 1x pixels enlarged 3x.")
+            Text(verbatim: "Order: idle, paused, attention, copied (held as is with Reduce Motion); then every frame of the \(String(format: "%.1f", PegFlash.duration)) s copy animation at \(Int(PegFlash.frameRate)) fps (frame, seconds in) and the end, back to idle. Zoom rows are the 1x pixels enlarged 3x.")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

@@ -4,10 +4,11 @@ import SwiftUI
 enum StatusIconState: Equatable, CaseIterable, Sendable {
     case idle, copied, paused, attention
 
-    /// attention > copied > paused > idle.
+    /// copied > attention > paused > idle: a copy that lands while something needs
+    /// attention still says Copied for its animation, then the icon returns to "!".
     static func resolve(copyEnabled: Bool, attentions: [Attention], flashing: Bool) -> StatusIconState {
-        if !attentions.isEmpty { return .attention }
         if flashing { return .copied }
+        if !attentions.isEmpty { return .attention }
         return copyEnabled ? .idle : .paused
     }
 
@@ -26,15 +27,13 @@ enum StatusIconState: Equatable, CaseIterable, Sendable {
 /// ClipShot's own symbol, `Peg`: a picture pegged on a line. Each state has its own
 /// silhouette, so it reads without colour and at a glance: the picture (idle), a solid card
 /// with a check (copied), a dashed empty card (paused) and a tilted card with "!"
-/// (attention). While copied, `phase` picks the frame of the copy animation
-/// (`CopiedFlash`); with Reduce Motion the copied pose is held as is.
+/// (attention). While one of Peg's moments plays, the pose is its current frame
+/// (`PegFlash`); with Reduce Motion the copied pose is held as is and nothing else moves.
 ///
 /// One template image per pose: the label stays a plain `Image`, which a MenuBarExtra
 /// draws as is, tinted like any template image.
 struct StatusIconArt: View {
-    let state: StatusIconState
-    let phase: Int
-    var reduceMotion = false
+    let pose: Peg.Pose
 
     /// The tallest label the menu bar draws at its own size. MenuBarExtra rasterises a label
     /// that is more than a plain `Image` and scales it down proportionally to this height:
@@ -45,7 +44,14 @@ struct StatusIconArt: View {
     /// the same in every state and frame, so the status item never changes width.
     static let frame = Peg.canvas
 
-    var pose: Peg.Pose { Peg.pose(state: state, phase: phase, reduceMotion: reduceMotion) }
+    init(pose: Peg.Pose) {
+        self.pose = pose
+    }
+
+    /// A resting state, or a frame of the copy animation from the picture to the picture.
+    init(state: StatusIconState, phase: Int = 0, reduceMotion: Bool = false) {
+        pose = Peg.pose(state: state, phase: phase, reduceMotion: reduceMotion)
+    }
 
     var body: some View {
         Image(nsImage: Peg.image(pose))
@@ -54,14 +60,14 @@ struct StatusIconArt: View {
     }
 }
 
-/// The MenuBarExtra label.
+/// The MenuBarExtra label: `pose` is what it draws (a frame of a moment while one plays),
+/// `state` what VoiceOver reads.
 struct StatusIcon: View {
     let state: StatusIconState
-    let phase: Int
-    var reduceMotion = false
+    let pose: Peg.Pose
 
     var body: some View {
-        StatusIconArt(state: state, phase: phase, reduceMotion: reduceMotion)
+        StatusIconArt(pose: pose)
             .accessibilityLabel(Text(state.accessibilityLabel))
     }
 }

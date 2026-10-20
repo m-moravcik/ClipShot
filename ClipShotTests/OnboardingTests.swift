@@ -342,10 +342,10 @@ struct OnboardingTests {
                 "no copy: the popover reappearing, an attention clearing")
         #expect(!TrySuccessMotion.bounces(copiesBefore: 0, copiesNow: 1, showsResult: false, reduceMotion: false))
         #expect(!TrySuccessMotion.bounces(copiesBefore: 0, copiesNow: 1, showsResult: true, reduceMotion: true))
-        // It lands as the new card slides in on the menu bar line.
+        // It lands as Peg's clamp bites on the menu bar line, wherever a retime puts it.
         let delay = Double(Design.Motion.successBounceDelay.components.attoseconds) / 1e18
             + Double(Design.Motion.successBounceDelay.components.seconds)
-        #expect(Peg.Beat.slideIn.contains(delay))
+        #expect(abs(delay - Peg.Beat.clampBounce.lowerBound) < 0.001)
         #expect(Design.Motion.successBounceSpeed > 1, "faster than the system bounce, so it stays short")
     }
 

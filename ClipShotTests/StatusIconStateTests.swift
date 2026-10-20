@@ -15,11 +15,11 @@ struct StatusIconStateTests {
         Case(copyEnabled: true, attention: false, flashing: false, expected: .idle),
         Case(copyEnabled: true, attention: false, flashing: true, expected: .copied),
         Case(copyEnabled: true, attention: true, flashing: false, expected: .attention),
-        Case(copyEnabled: true, attention: true, flashing: true, expected: .attention),
+        Case(copyEnabled: true, attention: true, flashing: true, expected: .copied),
         Case(copyEnabled: false, attention: false, flashing: false, expected: .paused),
         Case(copyEnabled: false, attention: false, flashing: true, expected: .copied),
         Case(copyEnabled: false, attention: true, flashing: false, expected: .attention),
-        Case(copyEnabled: false, attention: true, flashing: true, expected: .attention),
+        Case(copyEnabled: false, attention: true, flashing: true, expected: .copied),
     ]
 
     @Test(arguments: cases)
@@ -78,14 +78,14 @@ struct StatusIconStateTests {
     @Test func copyAnimationStartsAndEndsAtRestAndShowsTheCheck() throws {
         let idle = try Self.label(.idle)
         #expect(Self.difference(try Self.label(.copied, phase: 1), idle) == 0, "first frame")
-        #expect(Self.difference(try Self.label(.copied, phase: CopiedFlash.steps - 1), idle) == 0, "last frame")
+        #expect(Self.difference(try Self.label(.copied, phase: PegFlash.steps - 1), idle) == 0, "last frame")
         let copied = try Self.label(.copied)
-        let held = (1..<CopiedFlash.steps).filter { phase in
+        let held = (1..<PegFlash.steps).filter { phase in
             (try? Self.label(.copied, phase: phase)).map { Self.difference($0, copied) == 0 } ?? false
         }
         #expect(held.count >= 6, "the check holds for at least 0.2 s, frames \(held)")
         // Every frame in between moves: no two in a row stay identical outside the hold.
-        let frames = try (1..<CopiedFlash.steps).map { try Self.label(.copied, phase: $0) }
+        let frames = try (1..<PegFlash.steps).map { try Self.label(.copied, phase: $0) }
         let changes = zip(frames, frames.dropFirst()).filter { Self.difference($0, $1) > 0 }.count
         #expect(changes >= frames.count / 2, "\(changes) of \(frames.count - 1) frames change")
     }
@@ -94,7 +94,7 @@ struct StatusIconStateTests {
     @MainActor
     @Test func reduceMotionHoldsTheCopiedPose() throws {
         let copied = try Self.label(.copied)
-        for phase in 1..<CopiedFlash.steps {
+        for phase in 1..<PegFlash.steps {
             #expect(Self.difference(try Self.label(.copied, phase: phase, reduceMotion: true), copied) == 0, "phase \(phase)")
         }
     }
@@ -104,7 +104,7 @@ struct StatusIconStateTests {
     @Test func sizeIsTheSameInEveryStateAndPhase() {
         var sizes: Set<String> = []
         for state in StatusIconState.allCases {
-            for phase in 0...CopiedFlash.steps {
+            for phase in 0...PegFlash.steps {
                 for reduceMotion in [false, true] {
                     let view = NSHostingView(rootView: StatusIconArt(state: state, phase: phase, reduceMotion: reduceMotion))
                     sizes.insert("\(view.fittingSize)")
@@ -177,8 +177,8 @@ struct StatusIconStateTests {
         let scale = GlyphInk.scale
         let frame = (minX: Int(pad * scale), minY: Int(pad * scale),
                      maxX: Int((pad + Peg.canvas.width) * scale) - 1, maxY: Int((pad + Peg.canvas.height) * scale) - 1)
-        for phase in 1..<CopiedFlash.steps {
-            let t = CopiedFlash.time(phase: phase)
+        for phase in 1..<PegFlash.steps {
+            let t = PegFlash.time(phase: phase)
             let pose = Peg.pose(at: t)
             let image = try #require(GlyphInk.unclipped(pose, pad: pad))
             let box = try #require(GlyphInk.inkBox(image))

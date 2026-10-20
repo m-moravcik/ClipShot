@@ -108,6 +108,12 @@ enum GlyphInk {
         return stride(from: 3, to: pixels.count, by: 4).map { pixels[$0] }
     }
 
+    /// Which pixels of column `x` are more than half covered, over `rows` (from the top).
+    nonisolated static func column(_ image: CGImage, x: Int, rows: ClosedRange<Int>) -> [Bool] {
+        let pixels = alpha(image)
+        return rows.map { pixels[$0 * image.width + x] > 127 }
+    }
+
     /// Where the drawn pixels are, in pixels from the top leading corner; nil when nothing is
     /// drawn.
     nonisolated static func inkBox(_ image: CGImage) -> (minX: Int, minY: Int, maxX: Int, maxY: Int)? {

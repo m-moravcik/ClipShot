@@ -423,8 +423,8 @@ struct AppModelTests {
         #expect(await eventually { await h.model.flashPhase == 1 })
         #expect(h.timers.count == 1)
         let timer = try #require(h.timer)
-        #expect(timer.interval == CopiedFlash.interval)
-        #expect(timer.tolerance == CopiedFlash.tolerance)
+        #expect(timer.interval == PegFlash.interval)
+        #expect(timer.tolerance == PegFlash.tolerance)
         #expect(h.model.iconState == .copied)
         timer.fire(5)
         #expect(h.model.flashPhase == 6)
@@ -435,7 +435,7 @@ struct AppModelTests {
         #expect(h.timers.count == 1, "on the same timer")
         #expect(!timer.invalidated)
 
-        timer.fire(CopiedFlash.steps - 1)
+        timer.fire(PegFlash.steps - 1)
         #expect(h.model.flashPhase == 0)
         #expect(timer.invalidated)
         #expect(h.model.iconState == .idle)
@@ -478,7 +478,7 @@ struct AppModelTests {
         try h.shoot("Screenshot 1.png", size: 17)
         #expect(await eventually { await h.model.flashPhase > 0 })
         let timer = try #require(h.timer)
-        #expect(timer.interval == CopiedFlash.holdDuration)
+        #expect(timer.interval == PegFlash.holdDuration)
         #expect(Peg.pose(state: .copied, phase: h.model.flashPhase, reduceMotion: true) == Peg.pose(.copied))
 
         try h.shoot("Screenshot 2.png", size: 18)
@@ -543,14 +543,14 @@ struct AppModelTests {
         let elapsed = Date().timeIntervalSince(started)
         #expect(h.model.flashPhase == 0)
         #expect(h.model.iconState == .idle)
-        #expect(elapsed > CopiedFlash.duration * 0.8, "ran \(elapsed) s")
+        #expect(elapsed > PegFlash.duration * 0.8, "ran \(elapsed) s")
         // Phase 1 is drawn on the copy; the timer ticks for each later frame and once more to
         // end it. The count is exact however late the run loop fired.
         let ticks = try #require(h.systemFlashTicks.first)
         #expect(h.systemFlashTicks.count == 1, "one timer for the whole animation")
-        #expect(ticks.count == CopiedFlash.steps - 1)
+        #expect(ticks.count == PegFlash.steps - 1)
         try? await Task.sleep(for: .milliseconds(300))
-        #expect(ticks.count == CopiedFlash.steps - 1, "no timer runs after the animation ends")
+        #expect(ticks.count == PegFlash.steps - 1, "no timer runs after the animation ends")
     }
 
     @Test func releasedSystemFlashTimerStopsTicking() async {

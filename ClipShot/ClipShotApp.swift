@@ -49,9 +49,9 @@ struct ClipShotApp: App {
             }
         } label: {
             if let model {
-                StatusIcon(state: model.iconState, phase: model.flashPhase, reduceMotion: model.flashReduceMotion)
+                StatusIcon(state: model.iconState, pose: model.iconPose)
             } else {
-                StatusIcon(state: .idle, phase: 0)
+                StatusIcon(state: .idle, pose: Peg.pose(.idle))
             }
         }
         .menuBarExtraStyle(.window)
