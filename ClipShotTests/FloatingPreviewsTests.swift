@@ -25,18 +25,36 @@ struct FloatingPreviewsTests {
         #expect(previews.visible.count == 3)
     }
 
-    /// U9: only the newest preview says Copied; an Undo preview never does.
-    @Test func onlyTheNewestSaysCopied() throws {
-        let previews = FloatingPreviews()
-        let shots = try files(3)
-        for shot in shots { previews.show(shot, image: nil) }
-        let ids = previews.visible.map(\.id)
-        #expect(previews.newestCopiedID == ids[2])
-        previews.offerUndo(ids[2])
-        #expect(previews.visible.count == 3, "the Undo preview stays")
-        #expect(previews.newestCopiedID == ids[1])
-        previews.endUndo(file: shots[2])
-        #expect(previews.visible.map(\.id) == Array(ids.prefix(2)))
+    /// U9: "Copied" follows the clipboard. Only the screenshot ClipShot last copied says it;
+    /// after its Move to Trash no other preview claims it; Copy again on an older preview
+    /// moves it there; another app's copy takes it away.
+    @Test func copiedFollowsTheClipboard() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        h.prefs["show-thumbnail"] = false
+        #expect(await h.start())
+        #expect(await eventually { await h.model.previewMode == .clipShot })
+        let previews = h.model.previews
+        func copied() -> [String] { previews.visible.filter(previews.showsCopied).map(\.file.url.lastPathComponent) }
+
+        try h.shoot("A.png", size: 20)
+        #expect(await eventually { await previews.visible.count == 1 })
+        try h.shoot("B.png", size: 21)
+        #expect(await eventually { await previews.visible.count == 2 })
+        #expect(copied() == ["B.png"], "the newest copy only")
+
+        let b = try #require(previews.visible.last)
+        await h.model.ledgerSettled()
+        await h.model.moveToTrash(b.file, fromPreview: b.id)
+        #expect(copied().isEmpty, "A was not copied again: it does not claim the clipboard")
+
+        let a = try #require(previews.visible.first)
+        #expect(await h.model.copyAgain(file: a.file))
+        #expect(copied() == ["A.png"], "Copy again moves Copied to A")
+
+        h.pasteboard.changeCount += 1
+        h.model.forgetClipboardIfReplaced()
+        #expect(copied().isEmpty, "another app's copy: nothing says Copied")
     }
 
     @Test func previewLeavesAfterItsLifetimeUnlessHovered() async throws {

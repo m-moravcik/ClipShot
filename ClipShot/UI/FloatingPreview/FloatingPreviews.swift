@@ -61,9 +61,16 @@ final class FloatingPreviews {
     /// The previews on screen, without the ones already leaving.
     var visible: [PreviewItem] { items.filter { $0.exit == nil } }
 
-    /// The newest preview of a screenshot still on show: the only one whose copy is on the
-    /// clipboard, so the only one that says "Copied".
-    var newestCopiedID: UUID? { visible.last(where: { !$0.trashed })?.id }
+    /// The screenshot whose image ClipShot last put on the clipboard, while it is still
+    /// there; nil once something else is (the model keeps it). Only its preview says
+    /// "Copied" (U9).
+    var clipboardFile: CaptureFile?
+
+    /// Whether `item` is the screenshot on the clipboard now.
+    func showsCopied(_ item: PreviewItem) -> Bool {
+        guard !item.trashed, let file = clipboardFile else { return false }
+        return item.file.url == file.url && item.file.resourceID == file.resourceID
+    }
 
     /// Called after `items` changed, so the panel can show or hide itself.
     @ObservationIgnored var onChange: (() -> Void)?

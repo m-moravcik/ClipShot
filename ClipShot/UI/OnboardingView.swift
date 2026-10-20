@@ -527,7 +527,7 @@ private struct TidyStep: View {
                 }
                 SwitchRow(
                     title: Copy.General.launchAtLogin,
-                    isOn: Binding(get: { model.launchAtLogin }, set: { model.setLaunchAtLogin($0) }),
+                    isOn: Binding(get: { model.tourLaunchAtLogin }, set: { model.setLaunchAtLogin($0) }),
                     font: Design.Typography.body)
             }
             .animation(Design.Motion.quick, value: customPeriod)

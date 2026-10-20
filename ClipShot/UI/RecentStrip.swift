@@ -165,7 +165,7 @@ struct RecentItem: View {
 
     /// Between the strip's pills: with `PillButtonStyle`'s compact padding, three pills keep
     /// at least 4 pt from the thumbnail's sides (`RecentItemLayoutTests`).
-    static let barSpacing: CGFloat = 1
+    static let barSpacing: CGFloat = 4
 
     /// The latest card's three actions, as small symbol pills over the picture.
     private var actionBar: some View {

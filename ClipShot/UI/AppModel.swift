@@ -123,8 +123,13 @@ final class AppModel {
         !preferences.markupTipShown && preferences.totals.copied >= Self.markupTipAfterCopies
     }
 
-    /// The stored choice; before there is one (a first tour), the tour's default, on.
-    var launchAtLogin: Bool { preferences.launchAtLoginIntent ?? LoginItem.tourDefault }
+    /// What Settings shows: the stored choice, off until there is one. Mid-tour nothing is
+    /// registered yet, so it says off, as it is.
+    var launchAtLogin: Bool { preferences.launchAtLoginIntent ?? false }
+
+    /// What the tour's switch shows: the stored choice, else the tour's default (on), which
+    /// leaving step 3 registers.
+    var tourLaunchAtLogin: Bool { preferences.launchAtLoginIntent ?? LoginItem.tourDefault }
 
     // MARK: - Collaborators
 
@@ -285,6 +290,7 @@ final class AppModel {
                 // Not held across the sleep, so a released model ends the loop.
                 guard let model = self else { return }
                 model.refreshStatus()
+                model.forgetClipboardIfReplaced()
                 // A screenshot deleted or renamed in Finder leaves the card and the strip;
                 // with the popover closed, that waits until it opens.
                 if model.popoverVisible { model.refreshRecent() }
@@ -406,6 +412,10 @@ final class AppModel {
     private func didWriteClipboard(_ origin: CopyOrigin) {
         changeCountAfterCopy = pasteboard.changeCount
         preferences.totals.copied += 1
+        switch origin {
+        case .observed(let file), .again(let file): previews.clipboardFile = file
+        case .edited: previews.clipboardFile = nil
+        }
         switch origin {
         case .observed(let file):
             lastCopied = file
@@ -647,6 +657,13 @@ final class AppModel {
 
     func dismissMarkupTip() {
         preferences.markupTipShown = true
+    }
+
+    /// Another app copied something since ClipShot's last write: no preview says Copied any
+    /// more. Checked with the status loop, only while ClipShot claims the clipboard.
+    func forgetClipboardIfReplaced() {
+        guard previews.clipboardFile != nil, clipboardChangedSinceCopy else { return }
+        previews.clipboardFile = nil
     }
 
     /// Something other than ClipShot's last copy is on the clipboard now.

@@ -26,7 +26,9 @@ sparkle_tool() {
     generate_keys) expected="$SPARKLE_GENERATE_KEYS_SHA256" ;;
     *) die "no pinned hash for $name" ;;
   esac
-  path="$(find "$derived/SourcePackages/artifacts" -name "$name" -type f -perm +111 -print -quit 2>/dev/null || true)"
+  # Only the tool in the artifact's bin folder, never a namesake elsewhere in it (such
+  # as old_dsa_scripts).
+  path="$(find "$derived/SourcePackages/artifacts" -path "*/Sparkle/bin/$name" -type f -perm +111 -print -quit 2>/dev/null || true)"
   [ -n "$path" ] || die "$name not found under $derived"
   actual="$(shasum -a 256 "$path" | awk '{print $1}')"
   [ "$actual" = "$expected" ] \

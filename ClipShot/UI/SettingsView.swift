@@ -430,6 +430,7 @@ struct RetentionSettings: View {
         }
         .formStyle(.grouped)
         .onAppear { model.refreshPreview() }
+        .onDisappear { model.clearFolderError() }
         .confirmationDialog(
             cleanUpOffer.map { Text(Copy.Retention.cleanUpTitle($0.count, $0.size)) } ?? Text(verbatim: ""),
             isPresented: Binding(get: { cleanUpOffer != nil }, set: { if !$0 { cleanUpOffer = nil } }),
@@ -537,6 +538,10 @@ struct RetentionSettings: View {
             ) {
                 Button { chooseFolder() } label: { Text(Copy.Action.chooseFolder) }
             }
+            // A folder that was refused says why here, where it was chosen.
+            if let error = model.folderError {
+                Note(text: Copy.Capture.folderError(error), systemImage: "exclamationmark.triangle.fill", tint: .red)
+            }
         case .failure(.notConfirmed), nil:
             HStack(spacing: Design.Spacing.m) {
                 ProgressView().controlSize(.small)
@@ -549,11 +554,16 @@ struct RetentionSettings: View {
         model.screenshotFolder.map(AttentionPresentation.displayName) ?? ""
     }
 
-    /// The folder is missing: choose another, as the popover's attention row offers.
+    /// The folder is missing: choose another, as the popover's attention row offers. A
+    /// refusal stays in `folderError`, which the note under it shows.
     private func chooseFolder() {
         guard let url = FolderPicker.choose(startingAt: model.screenshotFolder) else { return }
         Task {
-            try? await model.setFolder(url)
+            do {
+                try await model.setFolder(url)
+            } catch {
+                return
+            }
             model.refreshPreview()
         }
     }

@@ -73,16 +73,16 @@ extension PreviewActions {
     }
 }
 
-/// One floating preview: the screenshot, a Copied badge (on the newest only: older ones are
-/// no longer on the clipboard), "+N" for more displays, and on hover the Markup pencil,
+/// One floating preview: the screenshot, a Copied badge (only while it is the screenshot on
+/// the clipboard), "+N" for more displays, and on hover the Markup pencil,
 /// Close, Copy again and Move to Trash. Click opens Markup, a drag carries the file out, a
 /// swipe towards the screen edge dismisses it. Moved to the Trash from here, it turns into
 /// "Moved to the Trash" with Undo while the Undo lasts; a failed action says why on it.
 struct PreviewCard: View {
     let item: PreviewItem
     let actions: PreviewActions
-    /// The newest screenshot on show: its copy is the one on the clipboard.
-    var isNewest = true
+    /// This screenshot is the one on the clipboard now.
+    var showsCopied = true
     /// The image's scale, fixed; for the render harness's key frames.
     private let imageScale: CGFloat?
 
@@ -96,12 +96,12 @@ struct PreviewCard: View {
     /// `hovering` and `imageScale` exist for the render harness, which draws the hover state
     /// and animation key frames.
     init(
-        item: PreviewItem, actions: PreviewActions, isNewest: Bool = true, hovering: Bool = false,
+        item: PreviewItem, actions: PreviewActions, showsCopied: Bool = true, hovering: Bool = false,
         imageScale: CGFloat? = nil
     ) {
         self.item = item
         self.actions = actions
-        self.isNewest = isNewest
+        self.showsCopied = showsCopied
         self.imageScale = imageScale
         _hovering = State(initialValue: hovering)
         _offerCopy = State(initialValue: hovering)
@@ -191,8 +191,8 @@ struct PreviewCard: View {
                     .clipShape(shape)
                     .transition(.opacity)
             }
-            // Only the newest says Copied; an older one fades it out, and its hover offers
-            // Copy again. A failed action says why in the same place.
+            // Only the screenshot on the clipboard says Copied; another fades it out, and its
+            // hover offers Copy again. A failed action says why in the same place.
             if let failure = item.failure {
                 FailureBadge(failure: failure)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
@@ -202,8 +202,8 @@ struct PreviewCard: View {
                 CopiedBadge(bounce: badgeBounce)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                     .padding(6)
-                    .opacity(isNewest ? 1 : 0)
-                    .animation(Design.Motion.quick, value: isNewest)
+                    .opacity(showsCopied ? 1 : 0)
+                    .animation(Design.Motion.quick, value: showsCopied)
             }
             if item.extraDisplays > 0 {
                 ExtraDisplaysChip(count: item.extraDisplays)
@@ -343,9 +343,11 @@ private struct FailureBadge: View {
 /// A preview whose screenshot it moved to the Trash: "Moved to the Trash" and Undo, at the
 /// spot the preview was, while the Undo lasts (Addendum A6). Undo puts it back without
 /// opening the popover.
-private struct TrashedPreview: View {
+struct TrashedPreview: View {
     let failure: ScreenshotActionFailure?
     let undo: () -> Void
+    /// The words; nil is the failure's message, or "Moved to the Trash". Tests measure others.
+    var text: LocalizedStringResource?
 
     private var icon: some View {
         Image(systemName: failure == nil ? "trash" : "exclamationmark.triangle.fill")
@@ -355,10 +357,11 @@ private struct TrashedPreview: View {
     }
 
     var body: some View {
-        // Undo beside the words, or under them when a translation makes it too wide.
-        TrailingActionLayout(hasIcon: true, iconSpacing: Design.Spacing.m) {
+        // Undo beside the words, or under them when a translation makes it too wide. Tight
+        // spacing, so "Moved to the Trash" stays on one line in English.
+        TrailingActionLayout(hasIcon: true, iconSpacing: Design.Spacing.s + 2, spacing: Design.Spacing.s + 2) {
             icon
-            Text(failure?.message ?? Copy.Recent.moved)
+            Text(text ?? failure?.message ?? Copy.Recent.moved)
                 .font(.system(size: 11, weight: .medium))
                 .fixedSize(horizontal: false, vertical: true)
             if failure == nil {
@@ -369,7 +372,7 @@ private struct TrashedPreview: View {
                 Color.clear.frame(width: 0, height: 0)
             }
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 8)
         .padding(.vertical, 8)
         .frame(width: PreviewCardMetrics.maxSize.width)
         .background(

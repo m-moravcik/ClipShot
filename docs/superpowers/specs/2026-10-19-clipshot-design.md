@@ -307,16 +307,16 @@ before release.
 - Sparkle EdDSA key shared with VibeRes and Eject Guard: accepted risk,
   documented in DEVELOPMENT.md; the private key stays in the login keychain.
 - Development happens on a branch; the repo becomes public only after the
-  review gate passes, right before the 1.0.0 release.
+  review gate passes, right before the 0.9.0 release.
 - Preview/screenshot harness renders README and portfolio images from demo
   data, light and dark, plus a 1920x1080 portfolio banner.
 - Release (local): bump version, release notes, `make signed-app`, notarize,
   zip, `gh release create`, sign and commit appcast, push the cask to the tap.
-- After 1.0.0 is live:
+- After 0.9.0 is live:
   - The author's GitHub profile README: add ClipShot to the apps list next to
     VibeRes and Eject Guard.
   - Portfolio: a new reference on web.pexelo.com, then the site's normal deploy.
-- Migration on the owner's machine: after installing 1.0.0, unload and trash the
+- Migration on the owner's machine: after installing 0.9.0, unload and trash the
   personal launchd agent and script so two copiers don't race.
 
 ## Left to the builder

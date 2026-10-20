@@ -129,7 +129,9 @@ final class MarkupOpener: NSObject, NSSharingServiceDelegate {
             if Self.modified(edit.url) != edit.modified {
                 finish(.savedInPlace)
             } else if let copy = urls.first(where: { $0.standardizedFileURL != edit.url.standardizedFileURL }),
-                      let data = try? Data(contentsOf: copy) {
+                      // Through FileTrust like every screenshot read: this user's, no
+                      // symlink, bounded in size.
+                      case .success(let data) = FileTrust.read(copy) {
                 finish(.savedCopy(data))
             } else {
                 finish(.closed)

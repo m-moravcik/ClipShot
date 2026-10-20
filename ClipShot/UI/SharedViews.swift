@@ -344,9 +344,10 @@ struct PillButtonStyle: ButtonStyle {
     static let font: Font = .system(size: 11, weight: .medium)
     static let radius: CGFloat = 5
     /// The strip's compact pill: narrow enough that three leave a margin inside the 64 pt
-    /// thumbnail, while each still takes clicks over at least 20 pt (`compactHitOutset`).
-    static let compactHorizontalPadding: CGFloat = 3
-    static let compactHitOutset: CGFloat = 1
+    /// thumbnail, while each still takes clicks over at least 20 pt (`compactHitOutset`),
+    /// and neighbours' click areas meet without overlapping (outset twice = bar spacing).
+    static let compactHorizontalPadding: CGFloat = 2
+    static let compactHitOutset: CGFloat = 2
 
     var compact = false
     var onImage = false

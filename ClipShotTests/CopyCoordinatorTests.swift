@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import Testing
 @testable import ClipShot
 
@@ -37,7 +38,7 @@ final class CoordinatorHarness {
         createFolder: Bool = true, createDesktop: Bool = false,
         sleepUntil: (@Sendable (ContinuousClock.Instant) async throws -> Void)? = nil,
         readMarker: @escaping @Sendable (URL) -> Bool = { CaptureMarker.isScreenshot($0) },
-        trust: FileTrust.Policy = .standard
+        trust: FileTrust.Policy = .standard, events: (any FolderEventSource)? = nil
     ) throws {
         let fm = FileManager.default
         home = try Fixtures.makeDir()
@@ -51,7 +52,7 @@ final class CoordinatorHarness {
             log: try RT.testLog())
         ledger = try RT.ledger()
         coordinator = CopyCoordinator(
-            settings: settings, events: DirectoryEventSource(), pasteboard: pasteboard, ledger: ledger,
+            settings: settings, events: events ?? DirectoryEventSource(), pasteboard: pasteboard, ledger: ledger,
             edits: edits, clock: { Date() }, pollInterval: .milliseconds(100), home: home, log: try RT.testLog(),
             sleepUntil: sleepUntil ?? { try await Task.sleep(until: $0, clock: .continuous) },
             readMarker: readMarker, trust: trust)
@@ -378,12 +379,24 @@ struct CopyCoordinatorTests {
         #expect(states.last?.copied == "Screenshot.png")
     }
 
+    /// After `stop()` the folder is no longer watched at all: the watch itself is stopped
+    /// (not only ignored), and a screenshot that a control watcher on the same folder does
+    /// see reaches the stopped coordinator not even as an event.
     @Test func nothingIsCopiedAfterStop() async throws {
-        let h = try CoordinatorHarness()
+        let source = RecordingEventSource()
+        let h = try CoordinatorHarness(events: source)
         #expect(await h.start())
+        #expect(source.isWatching)
         h.coordinator.stop()
+        #expect(await eventually { !source.isWatching }, "stop() stops the watch")
+
+        let control = RecordingEventSource()
+        try control.start(h.folder) {}
+        defer { control.stop() }
         try Fixtures.write(named: "Screenshot.png", contents: CoordinatorHarness.png(47), in: h.folder)
-        #expect(await h.settled())
+        #expect(await eventually { control.delivered > 0 }, "the write fired an event")
+        #expect(source.delivered == 0, "the stopped coordinator's watch saw nothing")
+        #expect(h.coordinator.eventsHandled == 0)
         #expect(h.writes.isEmpty)
         #expect(await h.ledgerNames().isEmpty)
         #expect(h.coordinator.watchedFolder == nil)
@@ -404,5 +417,27 @@ struct CopyCoordinatorTests {
         #expect(await h.settled())
         #expect(h.writes == [data])
         #expect(await h.ledgerNames() == ["New.png"])
+    }
+}
+
+/// A real kqueue watch that says whether it is running and counts the events it delivers.
+final class RecordingEventSource: FolderEventSource, Sendable {
+    private let inner = DirectoryEventSource()
+    private let state = Mutex((watching: false, delivered: 0))
+
+    var isWatching: Bool { state.withLock { $0.watching } }
+    var delivered: Int { state.withLock { $0.delivered } }
+
+    func start(_ folder: URL, onEvent: @escaping @Sendable () -> Void) throws(WatchError) {
+        try inner.start(folder) { [weak self] in
+            self?.state.withLock { $0.delivered += 1 }
+            onEvent()
+        }
+        state.withLock { $0.watching = true }
+    }
+
+    func stop() {
+        inner.stop()
+        state.withLock { $0.watching = false }
     }
 }

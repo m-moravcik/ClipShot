@@ -395,5 +395,22 @@ struct RecentItemLayoutTests {
         let outset = PillButtonStyle.compactHitOutset * 2
         #expect(size.width + outset >= 20)
         #expect(size.height + outset >= 20)
+        // Neighbouring click areas meet but never overlap: a click goes to one pill.
+        #expect(outset <= RecentItem.barSpacing)
+    }
+}
+
+/// The preview's Undo card: "Moved to the Trash" fits one line beside Undo in English, so
+/// it does not wrap while there is room.
+@MainActor
+struct TrashedPreviewLayoutTests {
+    private func height(_ text: LocalizedStringResource) -> CGFloat {
+        NSHostingView(rootView: TrashedPreview(failure: nil, undo: {}, text: text)
+            .environment(\.locale, Locale(identifier: "en"))).fittingSize.height
+    }
+
+    @Test func movedToTheTrashStaysOnOneLineInEnglish() {
+        let oneLine = height(LocalizedStringResource(stringLiteral: "Moved"))
+        #expect(height(Copy.Recent.moved) == oneLine)
     }
 }

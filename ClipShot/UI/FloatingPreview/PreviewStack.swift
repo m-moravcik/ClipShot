@@ -20,9 +20,8 @@ struct PreviewStack: View {
 
     var body: some View {
         VStack(alignment: .trailing, spacing: PreviewCardMetrics.spacing) {
-            let newest = previews.newestCopiedID
             ForEach(previews.items) { item in
-                PreviewCard(item: item, actions: actions(for: item), isNewest: item.id == newest)
+                PreviewCard(item: item, actions: actions(for: item), showsCopied: previews.showsCopied(item))
                     .transition(transition(for: item))
             }
         }

@@ -31,7 +31,7 @@ struct UndoAndFailureTests {
         let item = try #require(h.model.previews.visible.first { $0.id == id })
         #expect(item.trashed, "the preview stays, as Moved to the Trash with Undo")
         #expect(h.model.undoable?.file == file, "the popover offers the same Undo")
-        #expect(h.model.previews.newestCopiedID != id, "an Undo preview says no Copied")
+        #expect(!h.model.previews.showsCopied(item), "an Undo preview says no Copied")
         #expect(h.announced.contains(Copy.Recent.moved.key))
 
         await h.model.putBack(file, fromPreview: id)

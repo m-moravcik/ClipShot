@@ -174,13 +174,15 @@ struct OnboardingTests {
         defer { h.tearDown() }
         var tour = await toStep3(h)
         #expect(tour.step == .tidy)
-        #expect(h.model.launchAtLogin, "the switch starts on")
+        #expect(h.model.tourLaunchAtLogin, "the switch starts on")
+        #expect(!h.model.launchAtLogin, "Settings says off: nothing is registered yet")
         #expect(h.loginItemSets.isEmpty, "nothing registered before the user has seen it")
         #expect(h.loginReconciles == 0, "Start copying did not adopt the system's off")
         tour.advance(h.model) // Done
         #expect(h.loginItemSets == [true])
         #expect(h.preferences.launchAtLoginIntent == true)
-        #expect(h.model.launchAtLogin)
+        #expect(h.model.launchAtLogin, "registered: Settings says on")
+        #expect(h.model.tourLaunchAtLogin)
     }
 
     @Test func switchingItOffInTheTourIsKept() async throws {
@@ -192,6 +194,7 @@ struct OnboardingTests {
         #expect(h.loginItemSets == [false])
         #expect(h.preferences.launchAtLoginIntent == false)
         #expect(!h.model.launchAtLogin)
+        #expect(!h.model.tourLaunchAtLogin)
     }
 
     @Test func skipOnStep3RegistersWhatTheSwitchShowed() async throws {
@@ -222,7 +225,7 @@ struct OnboardingTests {
         h.preferences.launchAtLoginIntent = false
         h.model.launch()
         h.model.replayOnboarding()
-        #expect(!h.model.launchAtLogin)
+        #expect(!h.model.tourLaunchAtLogin)
         var tour = WelcomeTour(step: .tidy)
         tour.advance(h.model) // Done
         #expect(h.loginItemSets.isEmpty)

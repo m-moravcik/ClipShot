@@ -22,15 +22,6 @@ struct CopyPassTests {
 
     private static let twoDaysAgo = Date().addingTimeInterval(-2 * 86_400)
 
-    /// Waits until a pass has finished after `passes` and nothing is left to run.
-    private func settled(_ h: CoordinatorHarness, after passes: Int) async -> Bool {
-        await eventually { await Self.isSettled(h, after: passes) }
-    }
-
-    private static func isSettled(_ h: CoordinatorHarness, after passes: Int) -> Bool {
-        h.coordinator.passesFinished > passes && h.coordinator.isIdle
-    }
-
     @Test func anOldFileIsNeverMarkerReadInAPass() async throws {
         let reads = MarkerReads()
         let h = try CoordinatorHarness(sleepUntil: { _ in }, readMarker: { reads.read($0) })
@@ -45,9 +36,9 @@ struct CopyPassTests {
         // marker is read once, and never again once it is known.
         try Fixtures.write(named: "Old copy.png", in: h.folder, created: Self.twoDaysAgo, modified: Self.twoDaysAgo)
         #expect(await eventually { reads.count("Old copy.png") == 1 })
-        let passes = h.coordinator.passesFinished
+        let events = h.coordinator.eventsHandled
         try Fixtures.write(named: "notes.png", contents: CoordinatorHarness.png(31), in: h.folder, marker: .none)
-        #expect(await settled(h, after: passes))
+        #expect(await h.settled(after: events))
 
         #expect(reads.count("Old.png") == 0)
         #expect(reads.count("Old copy.png") == 1)
@@ -82,9 +73,9 @@ struct CopyPassTests {
             sleepUntil: { _ in }, readMarker: { reads.read($0) }, trust: FileTrust.Policy(owner: getuid() + 1))
         defer { h.coordinator.stop() }
         #expect(await h.start())
-        let passes = h.coordinator.passesFinished
+        let events = h.coordinator.eventsHandled
         try Fixtures.write(named: "Planted.png", contents: CoordinatorHarness.png(32), in: h.folder)
-        #expect(await settled(h, after: passes))
+        #expect(await h.settled(after: events))
         #expect(h.writes.isEmpty)
         #expect(h.failures == 0)
         #expect(reads.count("Planted.png") == 0)
@@ -97,9 +88,9 @@ struct CopyPassTests {
         let h = try CoordinatorHarness(sleepUntil: { _ in }, trust: FileTrust.Policy(maxBytes: 10))
         defer { h.coordinator.stop() }
         #expect(await h.start())
-        let passes = h.coordinator.passesFinished
+        let events = h.coordinator.eventsHandled
         try Fixtures.write(named: "Huge.png", contents: CoordinatorHarness.png(33), in: h.folder)
-        #expect(await settled(h, after: passes))
+        #expect(await h.settled(after: events))
         #expect(h.writes.isEmpty)
         #expect(h.failures == 0)
     }
