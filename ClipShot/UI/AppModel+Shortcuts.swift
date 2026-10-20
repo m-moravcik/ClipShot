@@ -53,6 +53,9 @@ struct CleanUpReport: Equatable, Sendable {
     let count: Int
     let bytes: Int64
     let previewOnly: Bool
+    /// With `previewOnly`: the screenshots the run would move, oldest first (`clipshot clean
+    /// --dry-run` lists them). Empty after a run.
+    var files: [URL] = []
 }
 
 /// The Shortcuts actions and the Focus filter, on the same paths as the popover and Settings
@@ -249,11 +252,13 @@ extension AppModel {
     /// `FileTrust`'s 256 MB, so the first one always fits.
     nonisolated static let shortcutMaxBytes = 512 * 1_024 * 1_024
 
-    /// Copy Latest Screenshot: the popover's Copy on its top row.
-    func shortcutCopyLatest() async throws(ShortcutError) {
+    /// Copy Latest Screenshot: the popover's Copy on its top row. Returns the file copied.
+    @discardableResult
+    func shortcutCopyLatest() async throws(ShortcutError) -> CaptureFile {
         guard shortcutsReady else { throw .notSetUp }
         guard let file = await recentScreenshots(count: 1).first else { throw .noScreenshots }
         guard await copyExplicitly(file) else { throw .copyFailed }
+        return file
     }
 
     /// Pause Copying and Resume Copying: the popover's switch.
@@ -280,7 +285,8 @@ extension AppModel {
         case .success(let scan):
             guard preferences.retention.enabled else { throw .retentionOff }
             if previewOnly {
-                return CleanUpReport(count: scan.expired.count, bytes: scan.expiredBytes, previewOnly: true)
+                return CleanUpReport(
+                    count: scan.expired.count, bytes: scan.expiredBytes, previewOnly: true, files: scan.expired.map(\.url))
             }
             guard !scan.expired.isEmpty else { return CleanUpReport(count: 0, bytes: 0, previewOnly: false) }
             // Something was due but no run happened: the policy changed while it scanned.

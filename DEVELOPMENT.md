@@ -327,6 +327,103 @@ unregister their Debug build on exit (`lsregister -u`); otherwise the Shortcuts 
 list a second ClipShot. A test run's Debug build in another derived data folder stays
 registered until it is unregistered or deleted.
 
+## CLI
+
+`clipshot`, for scripts, terminals and coding agents (Addendum C). Its logic is in
+`ClipShot/Control/` (compiled into the app too, so the suite runs it in process); the tool
+itself is `ClipShotCLI/main.swift`, the Xcode target `clipshot-cli`, which compiles
+`ClipShot/Core` (without `PegFlash.swift`, which needs the UI's design tokens) and
+`ClipShot/Control`, not a copy of them.
+
+| Command | What it does | Needs the app |
+|---|---|---|
+| `clipshot`, `clipshot status [--json]` | Copying on or paused, and why (`manual`, `focus`, `setup`, `notRunning`), the folder, cleanup, the latest screenshot. | No |
+| `clipshot latest [-n N] [--json]` | Paths of the newest 1 to 10 screenshots, newest first, one per line. | No |
+| `clipshot copy [PATH \| --latest] [--json]` | Copies the latest screenshot, or PATH, to the clipboard. | Yes |
+| `clipshot pause`, `clipshot resume` | The Copy to clipboard switch. Already so: exit 0, says so. | Yes |
+| `clipshot clean [--dry-run] [--json]` | Retention's run now; the dry run lists what would go. | Yes |
+| `clipshot help [COMMAND]`, `--help`, `--version` | Help; the version, which is the app's. | No |
+
+Exit codes: 0 ok, 1 error, 2 usage (an unknown command or flag, with that command's help),
+3 ClipShot is not running (the message says `open -a ClipShot`). Errors go to stderr, so
+`$(clipshot latest)` never takes one for a path; with `--json` the error object
+(`{"error":{"code","message"}}`) is on stdout too. `--json` output writes every key, `null`
+included. Messages are English, like the log; the refusals are the Shortcuts' own English
+words.
+
+- **Same paths as Shortcuts.** The app answers on the main actor through the Shortcuts'
+  model methods (`UI/AppModel+Control.swift`): `latest` is Get Recent Screenshots' choice
+  (`recentScreenshots`, then `FileTrust`, a refused file skipped for the next newest) as
+  paths; `copy` is `shortcutCopyLatest`, or for a PATH the row's `copyExplicitly`, so the
+  PNG, the owner of the clipboard, the total and Peg's copy moment are the same, also while
+  paused; `pause` and `resume` are `shortcutSetCopying` (`setCopying`: a pause by hand is
+  never undone by a Focus, a resume during a Focus wins until the Focus changes, Peg plays
+  pause and resume); `clean` is `shortcutCleanUp` (ledger, revalidation, `FolderGuard`, the
+  confirmed folder, 500 per run, Trash only, no Peg moment). Every command but `status`
+  refuses until the welcome tour is completed, as Shortcuts do.
+- **`copy PATH`.** The tool makes PATH absolute against its working directory; the app
+  copies it only when it is directly in the watched folder (the folder's symlinks resolved,
+  the file's never followed), an image ClipShot copies, and `FileTrust` reads it (a regular
+  file of this user, at most 256 MB). Anything else is refused with the reason
+  (`notInFolder`, `refusedFile`). The file does not have to be in the ledger.
+- **Without the app.** `status` and `latest` read for themselves, read-only: the ledger, the
+  folder macOS screenshots go to (`~/Desktop` while it is missing, as the app watches) and
+  the app's own settings (the `sk.moravcik.ClipShot` defaults domain). `latest` uses the
+  same `RecentScreenshots.select` and `FileTrust` rules; before the tour it refuses too.
+  The tool writes nothing: not the ledger, not the log (`Log` goes to /dev/null), no
+  preference.
+
+### The control socket
+
+State changes go through the running app, over a Unix domain socket at
+`~/Library/Application Support/ClipShot/clipshot.sock`; nothing that can change state is
+reachable from a web page (no URL scheme, no network listener). `ControlHost` starts it at
+launch with the app's model; never under XCTest, the harness or the probes.
+
+- **The folder** must be a real folder owned by the user; it is made 0700. The socket is
+  0600 before it can be found.
+- **What is at the path** is read with `lstat` and never followed. A symlink, a file, a
+  folder or another user's socket: the server does not start (and the tool does not
+  connect: "not ClipShot's socket"). A socket of this user that nobody answers on is a
+  leftover from a crash and is replaced; one that answers is another running ClipShot (a
+  Debug build next to the installed one) and is left to it. Replacing never deletes: the
+  new socket is bound under a temporary dot-name in the folder and renamed over the path.
+  The socket file stays after quitting; `clipshot` then gets "connection refused" and says
+  ClipShot is not running.
+- **Each connection** is checked with `getpeereid` before a byte is read: a peer of another
+  user is closed unanswered (the tool checks the server the same way). One JSON request,
+  at most 16 KB, within 2 s; one JSON response, at most 4 MB, written within 5 s; then the
+  connection closes. At most 8 at once. Descriptors are non-blocking, close-on-exec and
+  never raise SIGPIPE; every read and write waits in `poll` against a deadline. The tool
+  waits 20 s for an answer, 120 s for `clean`.
+- **Versioned.** Every request and response carries `"v": 1` (`ControlProtocol.version`),
+  read before the rest; another version gets a clear error on both sides instead of a
+  guess. An unknown command or a request that is not JSON is `badRequest`.
+- `CLIPSHOT_SUPPORT_DIR` makes the tool look for the socket and the ledger in another
+  folder: for tests and development. The app always uses its own.
+
+### How it ships
+
+Inside the app, at `ClipShot.app/Contents/Helpers/clipshot`, built by the app's scheme (an
+embed phase of the `clipshot-cli` target): signed, notarized and stapled with the app, and
+always the app's version (`--version` reads `CFBundleShortVersionString` from an Info.plist
+embedded in the binary). Not `Contents/MacOS`: on a case-insensitive volume `clipshot` there
+is the app's own `ClipShot` executable. VibeRes builds its CLI from source in a Homebrew
+formula; ClipShot does not need one:
+
+- **Homebrew**: the cask's `binary` stanza links the bundled tool into Homebrew's `bin`, so
+  `brew install --cask m-moravcik/clipshot/clipshot` puts `clipshot` on the PATH.
+- **The ZIP**: `ln -s /Applications/ClipShot.app/Contents/Helpers/clipshot /usr/local/bin/clipshot`.
+- **From source**: `make install-cli` (to `/usr/local/bin/clipshot`, as VibeRes;
+  `PREFIX=` to change), `make uninstall-cli` moves it to the Trash.
+
+`scripts/release-signed.sh` signs the tool with the Developer ID identity, its own
+identifier `sk.moravcik.ClipShot.cli`, the hardened runtime and a timestamp, before the
+app, then checks it like every signable item (team, Developer ID authority, runtime,
+timestamp, no debug entitlements) and checks that it is universal and prints the app's
+version. `verify_app` in `scripts/release.sh` repeats those checks on the built app, the
+local ZIP and the downloaded asset.
+
 ## Native settings
 
 ClipShot writes `com.apple.screencapture` with CFPreferences (`location`,
@@ -524,7 +621,9 @@ scripts/release.sh
    ZIP: bundle id `sk.moravcik.ClipShot`, version and build number exactly those
    in `project.yml`, `lipo -archs` is `x86_64 arm64`, signed by the expected
    team (`TEAM_ID`), `SUPublicEDKey` as in `project.yml`, no `get-task-allow`, `spctl -a -vv` says Notarized
-   Developer ID and `stapler validate` passes. The ZIP's top level must be
+   Developer ID and `stapler validate` passes; `Contents/Helpers/clipshot` is universal,
+   verifies, is signed by the team as `sk.moravcik.ClipShot.cli` with the hardened runtime,
+   carries no `get-task-allow` and prints this version. The ZIP's top level must be
    exactly `ClipShot.app`: Sparkle installs any bundle in the archive that has
    the app's name or bundle id, so nothing else may be in it.
 4. Rehearse the appcast on the local ZIP into a temporary feed, with both
@@ -540,8 +639,9 @@ scripts/release.sh
 8. Fetch the feed and the asset as a client would: verify the feed's own
    signature, and check the length and the enclosure signature against the
    asset.
-9. Update version and sha256 in the tap's cask (the local tap clone, `TAP_DIR`),
-   `brew audit --cask --strict --online`, `brew style`, push.
+9. Copy `Casks/clipshot.rb` into the tap (the local tap clone, `TAP_DIR`) with this
+   release's version and sha256, `brew audit --cask --strict --online`, `brew style`,
+   push.
 
 It is interactive: `sign_update` and `generate_keys` ask for access to the EdDSA
 key in the keychain (set `SPARKLE_EDDSA_PRIVATE_KEY_PATH` to use a key file
@@ -578,6 +678,8 @@ ClipShot/Core/      no SwiftUI: capture marker, copy pipeline, ledger, retention
 ClipShot/UI/        the app model, popover, floating preview, Settings, tour,
                     Markup, updater
 ClipShot/Intents/   Shortcuts actions, the Focus filter and the App Shortcuts phrases
+ClipShot/Control/   clipshot: the control socket, its protocol, the commands; in the app and the tool
+ClipShotCLI/        clipshot's main.swift
 ClipShot/Preview/   Debug only: the screenshot harness, the motion demo, demo data
 ClipShot/Resources/ String Catalogs (app, Info.plist, App Shortcuts phrases)
 ClipShot/AppIcon.icon   Icon Composer document
@@ -586,7 +688,7 @@ scripts/            release, appcast, screenshots, motion demo, status item prob
                     spike probes
 docs/               spike, translations, README pictures, design and plan
 release-notes/      one file per version
-Casks/              reference copy of the Homebrew cask
+Casks/              the Homebrew cask, copied to the tap on each release
 ```
 
 Swift 6 language mode, strict concurrency complete, warnings as errors, Debug and
@@ -619,6 +721,7 @@ Swift Testing. Pure logic is tested; views are not, except their layout rules. T
 | `PegMomentTests`, `PegMomentModelTests` | Every moment starts where the icon rested and ends exactly on its resting pose, every frame is a template image that fits the canvas; the model plays them on real state changes only, once, never cuts a copy short, leaves no timer behind, and plays none with Reduce Motion. |
 | `PegActionMomentModelTests`, `PegHandoffTests` | Move to Trash from a row or a preview plays the release, Undo the grip, a fresh open of the popover the squeeze (`PopoverPresence`, and the reader's wiring on a real window); retention, Clean up now, "Also clean up", a refused move, a failed Undo and closing the popover play nothing; precedence (the latest of copy, release and grip wins); a moment that replaces another starts from the pose on show (drawn pixel for pixel), changes no frame of the hand-off more than the two moments do on their own, lets a falling card finish falling, and ends at rest; the squeeze moves whole pixels at 1x and 2x; Reduce Motion holds the key poses on one tick and never squeezes. |
 | `ShortcutsTests` | The actions pick what the popover lists and hand out existing files only (never one outside the folder or a symlink; a refused newest falls back to the next; Get waits for the folder on a launch; the 512 MB cap); Copy Latest Screenshot leaves exactly what the popover's Copy leaves, also while paused; Pause and Resume play the switch's moments; Clean Up keeps retention's refusals, and Preview Only counts what the run then moves; the Focus precedence matrix, a switch between pausing Focus modes, its relaunch and the launch read (known, failed, timed out); nothing runs before or during the tour, and a Focus reported during it applies at its end; the extracted metadata and the phrases in six languages. |
+| `ControlServerTests`, `CommandLineToolTests`, `CLIBinaryTests` | The socket: a round trip; 0700 and 0600; another user's peer closed unanswered; an oversize, silent, non-JSON or other-version request refused before the handler; a symlink, file or folder at the socket path neither followed nor replaced, a stale socket replaced, a live one left to its server, a symlinked folder refused. The tool: its arguments and usage errors, the JSON shapes (every key, `null` included), text output; through a real socket to the model, status and why copying is paused, pause and resume as the switch (Peg, the Focus rule), latest as the popover chooses, copy as the row's Copy also while paused, copy PATH refused outside the folder, for a symlink or a non-image, clean and its dry run with retention's refusals, nothing before the tour; exit 3 without the app; status and latest from the files without it. The built binary inside the app: its version, help, exit codes, a round trip, a symlink not used. |
 | `PreviewMotionTests`, `OnboardingTests` | The swipe commits exactly where a release dismisses; the drag image is lifted off its card; Copy again reports back so the badge bounces; the first copy is celebrated once per install, the burst stays small, short and ends. |
 
 Tests never touch real preferences (`make guards` refuses `UserDefaults` in
@@ -673,7 +776,12 @@ make l10n
 make guards
 make signed-app-dry  # Developer ID signature and checks, no notarization
 make signed-app      # signed, notarized, stapled, zipped to artifacts/
+make cli             # the command line tool alone (it is also built into the app)
+make install-cli     # to /usr/local/bin/clipshot (PREFIX=...); make uninstall-cli
 ```
+
+`DERIVED_DATA=<dir>` builds `cli` and `install-cli` into that folder instead of Xcode's
+default derived data.
 
 `make app` turns the hardened runtime off: with an ad-hoc signature, library
 validation would refuse the Developer ID-signed Sparkle.framework. Signed builds

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
 # Static guards. Fails on:
-#   - removeItem / unlink( anywhere under ClipShot/ (files leave the folder only through trashItem)
+#   - removeItem / unlink( anywhere under ClipShot/ or ClipShotCLI/ (files leave the folder only
+#     through trashItem; the control socket replaces a stale socket by rename)
 #   - Text("...") literals outside #Preview blocks (user-facing strings must be localised keys)
 #   - the em dash (U+2014) in any text file of the repository
 #   - Sparkle's version, revision pin and release-tool hashes out of step
@@ -12,8 +13,8 @@ cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" || exit 1
 fail=0
 report() { printf '\033[31mguard failed:\033[0m %s\n' "$1" >&2; fail=1; }
 
-if grep -rnE 'removeItem|unlink\(' ClipShot --include='*.swift'; then
-  report "removeItem/unlink found under ClipShot/"
+if grep -rnE 'removeItem|unlink\(' ClipShot ClipShotCLI --include='*.swift'; then
+  report "removeItem/unlink found under ClipShot/ or ClipShotCLI/"
 fi
 
 # Tests must not create preference files (removePersistentDomain leaves the plist behind).

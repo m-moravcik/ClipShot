@@ -40,6 +40,8 @@ struct ClipShotApp: App {
                 // Shortcuts actions and the Focus filter act on this model (Addendum C).
                 IntentHost.model = model
                 Task { await model.reconcileFocusAtLaunch { try await CopyingFocusFilter.current.pauseCopying } }
+                // `clipshot` reaches the same model over the control socket (Addendum C).
+                ControlHost.start(model: model)
             }
         }
         _model = State(initialValue: model)

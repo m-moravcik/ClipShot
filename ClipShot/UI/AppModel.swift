@@ -535,14 +535,7 @@ final class AppModel {
     /// (existing files only, direct children of the watched folder), for Shortcuts. Waits for
     /// the folder on a launch that has just started watching, at most `folderWait`.
     func recentScreenshots(count: Int) async -> [CaptureFile] {
-        guard isWatching else { return [] }
-        let clock = ContinuousClock()
-        let deadline = clock.now + Self.folderWait
-        // The coordinator names the folder a few ms after `startWatching()`; Shortcuts may
-        // launch ClipShot just to ask.
-        while isWatching, watchedFolder == nil, clock.now < deadline {
-            try? await Task.sleep(for: .milliseconds(50))
-        }
+        guard isWatching, await watchedFolderSettled() != nil else { return [] }
         await coordinator.ledgerSettled()
         guard isWatching, let folder = watchedFolder else { return [] }
         let entries = await ledger.entries()
@@ -554,6 +547,17 @@ final class AppModel {
 
     /// How long `recentScreenshots` waits for the coordinator to name the folder.
     static let folderWait: Duration = .seconds(2)
+
+    /// The watched folder, waiting up to `folderWait` for the coordinator to name it after
+    /// `startWatching()`: Shortcuts and `clipshot` may launch or reach ClipShot just to ask.
+    func watchedFolderSettled() async -> URL? {
+        let clock = ContinuousClock()
+        let deadline = clock.now + Self.folderWait
+        while isWatching, watchedFolder == nil, clock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        return isWatching ? watchedFolder : nil
+    }
 
     // MARK: - Test hooks
     //

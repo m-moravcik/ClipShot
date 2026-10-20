@@ -196,13 +196,22 @@ APP="$DERIVED_DATA/Build/Products/Release/ClipShot.app"
 # rejects that, and `codesign --verify --deep --strict` does not catch it because
 # a valid ad-hoc signature is still a valid signature.
 #
+# The command line tool, Contents/Helpers/clipshot, is signed here too, with its
+# own identifier, the hardened runtime and a timestamp, whatever the copy phase
+# that embedded it did.
+#
 # Order matters: innermost first, then the framework, then the app. Signing
 # outside-in would seal a hash of contents that are about to change.
 # ---------------------------------------------------------------------------
+step "Re-sign nested code"
+
+CLI="$APP/Contents/Helpers/clipshot"
+CLI_ID="sk.moravcik.ClipShot.cli"
+[ -f "$CLI" ] || die "the app has no command line tool at Contents/Helpers/clipshot"
+
+NESTED=()
 FRAMEWORK="$APP/Contents/Frameworks/Sparkle.framework"
 if [ -d "$FRAMEWORK" ]; then
-  step "Re-sign nested helpers"
-
   # Resolve through Versions/Current rather than hardcoding a letter, but refuse
   # anything that resolves outside the framework.
   VERSIONS_DIR="$FRAMEWORK/Versions"
@@ -212,22 +221,28 @@ if [ -d "$FRAMEWORK" ]; then
     "$(cd "$VERSIONS_DIR" && pwd -P)"/*) : ;;
     *) die "Sparkle version directory resolves outside the framework: $CURRENT" ;;
   esac
-
-  for nested in \
-    "$CURRENT/XPCServices/Downloader.xpc" \
-    "$CURRENT/XPCServices/Installer.xpc" \
-    "$CURRENT/Autoupdate" \
-    "$CURRENT/Updater.app" \
-    "$CURRENT" \
-    "$APP"
-  do
-    [ -e "$nested" ] || continue
-    codesign --force --options runtime --timestamp \
-      --sign "$SIGN_IDENTITY" "$nested" \
-      || die "failed to re-sign $nested"
-    echo "  signed ${nested#"$APP"}"
-  done
+  NESTED=(
+    "$CURRENT/XPCServices/Downloader.xpc"
+    "$CURRENT/XPCServices/Installer.xpc"
+    "$CURRENT/Autoupdate"
+    "$CURRENT/Updater.app"
+    "$CURRENT"
+  )
 fi
+
+codesign --force --options runtime --timestamp --identifier "$CLI_ID" \
+  --sign "$SIGN_IDENTITY" "$CLI" \
+  || die "failed to re-sign $CLI"
+echo "  signed ${CLI#"$APP"}"
+
+# ${NESTED[@]+...}: /bin/bash is 3.2, where an empty array is unbound under set -u.
+for nested in ${NESTED[@]+"${NESTED[@]}"} "$APP"; do
+  [ -e "$nested" ] || continue
+  codesign --force --options runtime --timestamp \
+    --sign "$SIGN_IDENTITY" "$nested" \
+    || die "failed to re-sign $nested"
+  echo "  signed ${nested#"$APP"}"
+done
 
 # ---------------------------------------------------------------------------
 # 3. Verify the signature locally. A bad signature costs seconds here and an
@@ -242,6 +257,14 @@ codesign --verify --deep --strict --verbose=2 "$APP" \
 ARCHS="$(lipo -archs "$APP/Contents/MacOS/ClipShot")"
 [ "$ARCHS" = "x86_64 arm64" ] || die "the app is not universal: lipo -archs says '$ARCHS'"
 echo "Architectures: $ARCHS"
+CLI_ARCHS="$(lipo -archs "$CLI")"
+[ "$CLI_ARCHS" = "x86_64 arm64" ] || die "clipshot is not universal: lipo -archs says '$CLI_ARCHS'"
+CLI_INFO="$(codesign --display --verbose=4 "$CLI" 2>&1)" || die "clipshot is not signed"
+grep -qx "Identifier=$CLI_ID" <<<"$CLI_INFO" \
+  || die "clipshot is signed as $(grep '^Identifier=' <<<"$CLI_INFO" || echo 'no identifier'), expected $CLI_ID"
+CLI_VERSION="$("$CLI" --version)" || die "clipshot --version failed"
+[ "$CLI_VERSION" = "$VERSION" ] || die "clipshot says version '$CLI_VERSION', the app is $VERSION"
+echo "Command line tool: Contents/Helpers/clipshot $CLI_VERSION, $CLI_ARCHS"
 
 # Every signable item, not just the outer bundle: `--verify --deep --strict`
 # accepts a valid ad-hoc signature, so it passes locally while Apple rejects the
