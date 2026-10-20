@@ -173,6 +173,10 @@ extension AppModel {
                 return
             }
             focusChanged(pausing: pausing, immediately: true)
+            // A Focus that ended within its grace just before ClipShot quit left the pause
+            // behind (focusOn false, pausedCopying true): no Focus is on, so it is lifted. A
+            // pause by hand cleared `pausedCopying` and stays.
+            if !pausing { resumeAfterFocus() }
         case .failure(let error):
             let kind = String(describing: type(of: error))
             focusDuringTour = nil

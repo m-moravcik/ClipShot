@@ -430,6 +430,30 @@ struct ShortcutsTests {
         #expect(await logged(h, "focus at launch: no pausing Focus"))
     }
 
+    /// ClipShot quit within the grace after a Focus ended: the Focus is off but still holds
+    /// the pause. With no pausing Focus at launch, copying comes back.
+    @Test func aResumeLostInTheGraceIsMadeAtLaunch() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        h.preferences.copyEnabled = false
+        h.preferences.focusPause = FocusPause(focusOn: false, pausedCopying: true)
+        #expect(await h.start())
+        await h.model.reconcileFocusAtLaunch { false }
+        #expect(h.preferences.copyEnabled && h.preferences.focusPause == FocusPause())
+        #expect(await eventually { await h.model.flashMoment == .resume ? h.model.flashPhase > 0 : false })
+    }
+
+    /// The same, but the user paused by hand meanwhile: the pause stays.
+    @Test func aPauseByHandStaysWhenNoFocusIsOnAtLaunch() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        h.preferences.copyEnabled = false
+        h.preferences.focusPause = FocusPause(focusOn: false, pausedCopying: false)
+        #expect(await h.start())
+        await h.model.reconcileFocusAtLaunch { false }
+        #expect(!h.preferences.copyEnabled)
+    }
+
     @Test func aFocusThatBeganWhileQuitPausesAtLaunch() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }

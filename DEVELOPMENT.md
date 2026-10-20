@@ -300,7 +300,8 @@ App Intents in `ClipShot/Intents/ShortcutsActions.swift`, the logic in
   Focus is on", and only while a Focus that paused copying is known to be on.
 - **The Focus at launch.** `reconcileFocusAtLaunch` reads the filter's `current` value
   once (5 s timeout), applies it at once and logs it, so a Focus that ended or began while
-  ClipShot was not running counts. When the read fails or times out, copying is not left
+  ClipShot was not running counts, as does a Focus whose end ClipShot quit within the
+  grace of (no Focus on, the pause still the Focus's: copying resumes). When the read fails or times out, copying is not left
   paused on a guess: a pause the Focus made is lifted, a pause by hand stays, the stored
   Focus state is cleared, and the log names the error type. While the read runs, the
   popover does not say a Focus paused copying. Check "Focus ends while ClipShot is quit,
