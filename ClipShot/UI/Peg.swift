@@ -178,7 +178,9 @@ enum Peg {
         p.pegPinch = Curve.mix(handoff.pegPinch, pose.pegPinch, k)
         let carriesCard = moment == .copied || moment == .release || moment == .grip
         if !carriesCard { p.card = Card.mix(handoff.card, pose.card, k) }
-        if p.old == nil, var falling = handoff.old, falling != handoff.card {
+        // A card still falling keeps fading, unless it is the card this moment carries on (a
+        // copy cut before its new card slid in).
+        if p.old == nil, handoff.card.opacity > 0, var falling = handoff.old, falling != handoff.card {
             falling.opacity *= 1 - k
             p.old = falling
         }

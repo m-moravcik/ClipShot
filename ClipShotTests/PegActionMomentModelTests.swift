@@ -4,8 +4,9 @@ import Testing
 
 /// Peg answers the user's own actions in the menu bar: Move to Trash lets the picture go,
 /// Undo grips it again, the click that opens the popover squeezes the peg. Retention and
-/// "Also clean up" never play anything; a higher moment is never cut short by a lower one,
-/// and one that replaces another starts from the pose on show.
+/// "Also clean up" never play anything; among copy, release and grip the latest wins, a
+/// change of state is never cut short by a release, grip or squeeze, and a moment that
+/// replaces another starts from the pose on show.
 @MainActor
 struct PegActionMomentModelTests {
     /// A started harness with a screenshot ClipShot saw being taken, its copy played out.
@@ -187,22 +188,88 @@ struct PegActionMomentModelTests {
 
     // MARK: Precedence
 
-    /// copy > attention > release and grip > squeeze: a Move to Trash or an open during a copy
-    /// plays nothing in the menu bar, and the copy runs to its end.
-    @Test func nothingLowerCutsACopyShort() async throws {
+    /// Among copy, release and grip the latest wins: a Move to Trash right after the copy (the
+    /// screenshot just taken, as from its floating preview) lets it go at once, from the pose
+    /// on show, on the same frame timer; VoiceOver no longer says Copied.
+    @Test func aMoveToTrashRightAfterACopyReplacesIt() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        #expect(await h.start())
+        let url = try h.shoot("Screenshot 1.png")
+        let file = try #require(CaptureFile.inspect(url))
+        #expect(await eventually { await h.model.flashMoment == .copied ? h.model.flashPhase == 1 : false })
+        #expect(await eventually { await h.ledger.contains(path: FolderGuard.canonicalPath(url), resourceID: file.resourceID) })
+        let timer = try #require(h.timer)
+        timer.fire(30)
+        #expect(h.model.iconState == .copied)
+        let shown = h.model.iconPose
+        await h.model.moveToTrash(file, fromPreview: UUID())
+        #expect(h.model.flashMoment == .release)
+        #expect(h.model.flashPhase == 1)
+        #expect(h.model.flashHandoff == shown)
+        #expect(h.model.iconPose == shown, "the release starts where the copy was")
+        #expect(h.model.iconState == .idle)
+        #expect(h.timer === timer, "the same frame timer")
+        try playOut(h, .release)
+    }
+
+    /// An Undo while a newer copy plays grips the screenshot back at once, from the pose on show.
+    @Test func anUndoDuringACopyReplacesIt() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }
         #expect(await h.start())
         let file = try await tracked(h)
+        await h.model.moveToTrash(file)
+        try playOut(h, .release)
         try h.shoot("Screenshot 2.png")
+        #expect(await eventually { await h.model.flashMoment == .copied ? h.model.flashPhase == 1 : false })
+        h.timer?.fire(20)
+        let shown = h.model.iconPose
+        await h.model.putBack()
+        #expect(h.model.flashMoment == .grip)
+        #expect(h.model.flashPhase == 1)
+        #expect(h.model.flashHandoff == shown)
+        try playOut(h, .grip)
+    }
+
+    /// The squeeze never cuts a copy short: opening the popover during a copy plays nothing
+    /// more, and the copy runs to its end.
+    @Test func theSqueezeNeverCutsACopy() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        #expect(await h.start())
+        try h.shoot("Screenshot 1.png")
         #expect(await eventually { await h.model.flashMoment == .copied ? h.model.flashPhase == 1 : false })
         let timer = try #require(h.timer)
         timer.fire(10)
-        await h.model.moveToTrash(file)
         h.model.popoverVisibilityChanged(true)
         #expect(h.model.flashMoment == .copied)
         #expect(h.model.flashPhase == 11)
         try playOut(h, .copied)
+    }
+
+    /// Reduce Motion: a Move to Trash during the copy's hold replaces it with the release's
+    /// hold, on a timer of its own length.
+    @Test func reduceMotionReleaseReplacesTheCopyHold() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        h.reduceMotion = true
+        #expect(await h.start())
+        let url = try h.shoot("Screenshot 1.png")
+        let file = try #require(CaptureFile.inspect(url))
+        #expect(await eventually { await h.model.flashMoment == .copied ? h.model.flashPhase == 1 : false })
+        #expect(await eventually { await h.ledger.contains(path: FolderGuard.canonicalPath(url), resourceID: file.resourceID) })
+        let hold = try #require(h.timer)
+        await h.model.moveToTrash(file)
+        #expect(hold.invalidated)
+        #expect(h.model.flashMoment == .release)
+        #expect(h.model.flashHandoff == nil, "no hand-off without movement")
+        #expect(h.model.iconPose == Peg.releaseKeyPose)
+        let release = try #require(h.timer)
+        #expect(release.interval == Design.Motion.menuBarRelease)
+        release.fire()
+        #expect(h.model.flashPhase == 0)
+        #expect(h.model.iconPose == Peg.pose(.idle))
     }
 
     /// A squeeze never cuts a release or a grip short.

@@ -36,15 +36,18 @@ enum PegMoment: Equatable, Sendable, CaseIterable {
         }
     }
 
-    /// Which moment gives way to which: copy > a change of state (attention, pause, resume)
-    /// > release and grip > squeeze. A moment never starts while a higher one plays; it
-    /// replaces a lower or an equal one, from the pose on show.
-    var rank: Int {
+    /// Whether this moment may replace `playing`, from the pose on show; otherwise it does
+    /// not play. Among copy, release and grip the latest event wins: the user's own Move to
+    /// Trash or Undo is fresher news than the copy before it, and trashing a screenshot right
+    /// after it was copied is the common case. A change of state (attention, pause, resume)
+    /// replaces anything but a copy, and never gives way to a release or a grip. The squeeze
+    /// replaces only a squeeze; anything replaces it.
+    func replaces(_ playing: PegMoment) -> Bool {
         switch self {
-        case .copied: 3
-        case .attention, .pause, .resume: 2
-        case .release, .grip: 1
-        case .squeeze: 0
+        case .copied: true
+        case .attention, .pause, .resume: playing != .copied
+        case .release, .grip: playing == .copied || playing == .release || playing == .grip || playing == .squeeze
+        case .squeeze: playing == .squeeze
         }
     }
 

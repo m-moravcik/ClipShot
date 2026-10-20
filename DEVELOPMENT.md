@@ -172,14 +172,19 @@ up now and "Also clean up N older screenshots" play nothing, whatever they move;
 a Move to Trash or an Undo that fails plays nothing either. Closing the popover
 plays nothing.
 
-Precedence: copy > a change of state (attention, pause, resume) > release and
-grip > squeeze (`PegMoment.rank`). A moment never starts while a higher one
-plays; it replaces a lower or equal one from the pose on show
+Precedence (`PegMoment.replaces`): among copy, release and grip the latest
+wins, so a Move to Trash right after a copy (the common case: trashing a bad shot
+from its floating preview) lets the card go at once, and a copy right after a
+Move to Trash pegs the new one up. A change of state (attention, pause, resume)
+replaces anything but a copy, and no release, grip or squeeze cuts it short. The
+squeeze replaces only a squeeze and cuts nothing short. A moment that may not
+replace the one playing does not play. One that may starts from the pose on show
 (`Peg.pose(...handoff:)`): the card on show is the one that drops, fades or
 swings, and the peg, the line and any other card ease from where they were into
 the new moment within `menuBarHandoff` (0.15 s), so nothing jumps. A change of
 state hands over the pose drawn before the state changed. With Reduce Motion a
-higher moment ends a lower hold, so its state shows at once.
+release or grip replaces the copy's hold with its own, and a change of state ends
+a release's or grip's hold, so its state shows at once.
 
 Each ends exactly on its resting pose; an attention fixed while Peg
 still swings ends at once on the new resting pose. A copy plays over an attention (it did
@@ -511,7 +516,7 @@ Swift Testing. Pure logic is tested; views are not, except their layout rules. T
 | `LocalisationTests` | The l10n gate fails on the broken catalogs in `ClipShotTests/Fixtures/l10n`. |
 | `StatusIconStateTests`, `PegFlashTests`, `PopoverLayoutTests` | The menu bar label is never scaled and fits its frame; every state has its own silhouette; Peg matches the siblings' height, width and stroke; the copy animation starts and ends at rest, one timer tick per frame and none after; Reduce Motion holds the copied pose; the bounces are derived from Peg's clamp; the popover's bottom soft scroll edge. |
 | `PegMomentTests`, `PegMomentModelTests` | Every moment starts where the icon rested and ends exactly on its resting pose, every frame is a template image that fits the canvas; the model plays them on real state changes only, once, never cuts a copy short, leaves no timer behind, and plays none with Reduce Motion. |
-| `PegActionMomentModelTests`, `PegHandoffTests` | Move to Trash from a row or a preview plays the release, Undo the grip, opening the popover the squeeze; retention, Clean up now, "Also clean up", a refused move, a failed Undo and closing the popover play nothing; precedence; a moment that replaces another starts from the pose on show (drawn pixel for pixel) and ends at rest; Reduce Motion holds the key poses on one tick and never squeezes. |
+| `PegActionMomentModelTests`, `PegHandoffTests` | Move to Trash from a row or a preview plays the release, Undo the grip, opening the popover the squeeze; retention, Clean up now, "Also clean up", a refused move, a failed Undo and closing the popover play nothing; precedence (the latest of copy, release and grip wins); a moment that replaces another starts from the pose on show (drawn pixel for pixel) and ends at rest; Reduce Motion holds the key poses on one tick and never squeezes. |
 | `PreviewMotionTests`, `OnboardingTests` | The swipe commits exactly where a release dismisses; the drag image is lifted off its card; Copy again reports back so the badge bounces; the first copy is celebrated once per install, the burst stays small, short and ends. |
 
 Tests never touch real preferences (`make guards` refuses `UserDefaults` in

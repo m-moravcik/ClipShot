@@ -617,11 +617,12 @@ final class AppModel {
 
     /// Plays `moment` in the menu bar, from the state the icon rested in.
     ///
-    /// Precedence (`PegMoment.rank`): copy > a change of state (attention, pause, resume) >
-    /// release and grip > squeeze. A moment never starts while a higher one plays: a copy is
-    /// never cut short by a change of state (it ends on the new resting card instead), and a
-    /// Move to Trash during a copy shows in the popover, not in the menu bar. A moment equal or
-    /// higher replaces the one playing, from the pose on show (`flashHandoff`), so nothing jumps.
+    /// Precedence (`PegMoment.replaces`): among copy, release and grip the latest wins; a
+    /// change of state (attention, pause, resume) replaces anything but a copy and gives way to
+    /// nothing below it; the squeeze replaces only a squeeze. A copy is never cut short by a
+    /// change of state (it ends on the new resting card instead). A moment that may replace
+    /// the one playing starts from the pose on show (`flashHandoff`), so nothing jumps; one
+    /// that may not does not play.
     ///
     /// One timer at a time: a moment during another restarts the phases on the same frame
     /// timer. With Reduce Motion a copy, release or grip is one hold on a single timer, so
@@ -632,7 +633,7 @@ final class AppModel {
     private func play(_ moment: PegMoment, from: StatusIconState, shown: Peg.Pose? = nil) {
         let reduce = reduceMotion()
         let playing = flashPhase > 0 ? flashMoment : nil
-        if let playing, playing.rank > moment.rank { return }
+        if let playing, !moment.replaces(playing) { return }
         guard !reduce || moment.reduceMotionHold != nil else {
             if playing != nil { endFlash() }
             return

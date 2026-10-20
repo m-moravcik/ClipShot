@@ -48,13 +48,22 @@ struct PegFlashTests {
         #expect(Design.Motion.menuBarHandoff < PegMoment.squeeze.duration, "a hand-off fits the shortest moment")
     }
 
-    /// copy > attention, pause, resume > release, grip > squeeze.
-    @Test func precedence() {
-        #expect(PegMoment.copied.rank > PegMoment.attention.rank)
-        #expect(PegMoment.attention.rank == PegMoment.pause.rank && PegMoment.pause.rank == PegMoment.resume.rank)
-        #expect(PegMoment.attention.rank > PegMoment.release.rank)
-        #expect(PegMoment.release.rank == PegMoment.grip.rank)
-        #expect(PegMoment.grip.rank > PegMoment.squeeze.rank)
+    /// Which moment replaces which: among copy, release and grip the latest wins; a change of
+    /// state replaces anything but a copy and gives way to none of the user's own actions; the
+    /// squeeze replaces only a squeeze and cuts nothing else short.
+    @Test(arguments: PegMoment.allCases)
+    func precedence(_ next: PegMoment) {
+        let states: [PegMoment] = [.attention, .pause, .resume]
+        let actions: [PegMoment] = [.copied, .release, .grip]
+        for playing in PegMoment.allCases {
+            let expected: Bool = switch next {
+            case .copied, .release, .grip: actions.contains(playing) || playing == .squeeze
+                || (next == .copied && states.contains(playing))
+            case .attention, .pause, .resume: playing != .copied
+            case .squeeze: playing == .squeeze
+            }
+            #expect(next.replaces(playing) == expected, "\(next) over \(playing)")
+        }
     }
 
     /// Reduce Motion: the copy, a release and a grip are one hold each, as long as the copy's

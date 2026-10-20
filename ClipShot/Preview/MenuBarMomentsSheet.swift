@@ -48,6 +48,8 @@ struct MenuBarMomentsSheet: View {
         Play(id: "release-paused", title: "Move to Trash while paused", moment: .release, from: .paused, to: .paused),
         Play(id: "grip", title: "Undo", moment: .grip, from: .idle, to: .idle),
         Play(id: "squeeze", title: "Click that opens the popover", moment: .squeeze, from: .idle, to: .idle),
+        Play(id: "release-over-copy", title: "Move to Trash during the copy (the latest wins)", moment: .release,
+             from: .idle, to: .idle, replacing: (.copied, 30)),
         Play(id: "copy-over-release", title: "Copy during a release (from the falling card)", moment: .copied,
              from: .idle, to: .idle, replacing: (.release, 8)),
         Play(id: "grip-over-release", title: "Undo during a release", moment: .grip, from: .idle, to: .idle,

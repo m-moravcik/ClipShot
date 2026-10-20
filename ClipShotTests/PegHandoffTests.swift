@@ -15,7 +15,7 @@ struct PegHandoffTests {
     }
 
     static let cuts: [Cut] = [
-        // Copy outranks everything: from a release mid-drop, a grip, a squeeze, a swing.
+        // A copy replaces anything: a release mid-drop, a grip, a squeeze, a swing.
         Cut(running: .release, phase: 8, next: .copied),
         Cut(running: .release, phase: 20, next: .copied),
         Cut(running: .grip, phase: 3, next: .copied),
@@ -31,6 +31,13 @@ struct PegHandoffTests {
         Cut(running: .release, phase: 30, next: .pause, from: .idle, to: .paused),
         Cut(running: .squeeze, phase: 2, next: .attention, from: .idle, to: .attention),
         Cut(running: .pause, phase: 6, next: .attention, from: .idle, to: .attention),
+        // The latest of copy, release and grip wins: a release or a grip over a copy, before
+        // its new card slid in (the old card still falling), while it swings, as it drains.
+        Cut(running: .copied, phase: 4, next: .release),
+        Cut(running: .copied, phase: 30, next: .release),
+        Cut(running: .copied, phase: 66, next: .release),
+        Cut(running: .copied, phase: 30, next: .grip),
+        Cut(running: .copied, phase: 40, next: .release, from: .paused, to: .paused),
         // Release and grip over each other, and over the squeeze.
         Cut(running: .release, phase: 12, next: .grip),
         Cut(running: .release, phase: 5, next: .release),
@@ -71,7 +78,14 @@ struct PegHandoffTests {
     /// The hand-off is what removes the jump: started from rest instead, these cuts would
     /// change the picture at once.
     @Test func withoutTheHandoffTheseCutsWouldJump() throws {
-        for cut in [Self.cuts[0], Self.cuts[5], Self.cuts[8], Self.cuts[13]] {
+        let cuts = [
+            Cut(running: .release, phase: 8, next: .copied),
+            Cut(running: .attention, phase: 20, next: .copied, from: .idle, to: .attention),
+            Cut(running: .release, phase: 10, next: .attention, from: .idle, to: .attention),
+            Cut(running: .release, phase: 12, next: .grip),
+            Cut(running: .copied, phase: 30, next: .release),
+        ]
+        for cut in cuts {
             let shown = Self.onShow(cut)
             #expect(try Self.difference(Self.pose(cut, phase: 1, handoff: nil), shown) > 100, "\(cut.testDescription)")
         }
