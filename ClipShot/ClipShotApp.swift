@@ -17,6 +17,10 @@ struct ClipShotApp: App {
         if let output = ScreenshotHarness.requestedOutput {
             ScreenshotHarness.run(into: output)
         }
+        // Task 12e: the menu bar symbol proposals (ClipShot/Preview/SymbolConcepts.swift).
+        if let output = SymbolConceptSheets.requestedOutput {
+            SymbolConceptSheets.run(into: output)
+        }
         #endif
         let model = Self.makeModel(environment: ProcessInfo.processInfo.environment)
         // Resumes watching only when onboarding was already shown; otherwise step 2 starts it.
