@@ -97,7 +97,8 @@ enum GlyphInk {
         return run
     }
 
-    nonisolated private static func alpha(_ image: CGImage) -> [UInt8] {
+    /// Every pixel's coverage, row by row from the top.
+    nonisolated static func alpha(_ image: CGImage) -> [UInt8] {
         let width = image.width, height = image.height
         var pixels = [UInt8](repeating: 0, count: width * height * 4)
         pixels.withUnsafeMutableBytes { buffer in

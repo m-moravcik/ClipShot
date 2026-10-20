@@ -11,7 +11,9 @@ import AppKit
 /// never run there (docs/spike-2026-10-19.md, F-menubar-anim). The copy animation is a
 /// keyframe timeline instead: `pose(at:)` maps a time to a pose, and the phase timer of
 /// `PegFlash` draws one pose per frame while it plays. The same mechanism plays Peg's other
-/// moments (`PegMoment`): swinging into the attention pose, pausing and resuming.
+/// moments (`PegMoment`): swinging into the attention pose, pausing and resuming, letting a
+/// screenshot go to the Trash, gripping it again on Undo, and the squeeze of the click that
+/// opens the popover.
 enum Peg {
     /// The status item's frame. Everything resting stays inside it; the copy animation slides
     /// cards in and out across its edges, which the status item clips.
@@ -70,6 +72,16 @@ enum Peg {
         /// The "!" mark's opacity, 0...1.
         var bang: Double = 0
         var opacity: Double = 1
+
+        /// From `a` at 0 to `b` at 1, every field, exactly `b` at the end.
+        static func mix(_ a: Card, _ b: Card, _ u: Double) -> Card {
+            guard u < 1 else { return b }
+            return Card(
+                dx: Curve.mix(a.dx, b.dx, u), dy: Curve.mix(a.dy, b.dy, u), angle: Curve.mix(a.angle, b.angle, u),
+                fill: Curve.mix(a.fill, b.fill, u), check: Curve.mix(a.check, b.check, u),
+                dash: Curve.mix(a.dash, b.dash, u), picture: Curve.mix(a.picture, b.picture, u),
+                bang: Curve.mix(a.bang, b.bang, u), opacity: Curve.mix(a.opacity, b.opacity, u))
+        }
     }
 
     struct Pose: Hashable, Sendable {
@@ -77,6 +89,9 @@ enum Peg {
         var sag: CGFloat = 0
         var pegLift: CGFloat = 0
         var pegSquash: CGFloat = 1
+        /// How hard the peg's handles are pressed together, 0 at rest: the part above the
+        /// spring narrows (`pinchNarrowing`); negative springs it a little wider.
+        var pegPinch: CGFloat = 0
         var card = Card()
         /// The previous shot falling away.
         var old: Card?
@@ -107,20 +122,67 @@ enum Peg {
     /// `rest` is the state the icon settles in: the copy animation ends on it (a copy while
     /// paused ends on the dashed card, one while something needs attention on the "!" card),
     /// and the other moments always end on theirs. `from` is the state the icon rested in
-    /// when the moment started. Reduce Motion: the copy is a held copied pose; every other
-    /// moment is the resting pose at once.
+    /// when the moment started. Reduce Motion: the copy is a held copied pose, a release or a
+    /// grip a held key pose (`releaseKeyPose`, `gripKeyPose`); every other moment is the
+    /// resting pose at once.
+    ///
+    /// `handoff` is the pose on show when this moment replaced one still playing (nil when it
+    /// started from rest). The moment then starts exactly there and eases into its own course
+    /// within `Design.Motion.menuBarHandoff`, so nothing jumps: the card on show is the one
+    /// that drops, fades or swings, and the peg and the line move on from where they were.
     static func pose(
-        rest: StatusIconState, moment: PegMoment?, phase: Int, from: StatusIconState, reduceMotion: Bool
+        rest: StatusIconState, moment: PegMoment?, phase: Int, from: StatusIconState, reduceMotion: Bool,
+        handoff: Pose? = nil
     ) -> Pose {
         guard let moment, phase > 0 else { return pose(rest) }
         let t = PegFlash.time(phase: phase)
-        switch moment {
-        case .copied: return reduceMotion ? pose(.copied) : pose(at: t, from: from, to: rest)
-        case _ where reduceMotion: return pose(rest)
-        case .attention: return attentionPose(at: t, from: from)
-        case .pause: return pausePose(at: t)
-        case .resume: return resumePose(at: t)
+        if reduceMotion {
+            switch moment {
+            case .copied: return pose(.copied)
+            case .release: return releaseKeyPose
+            case .grip: return gripKeyPose(rest)
+            case .attention, .pause, .resume, .squeeze: return pose(rest)
+            }
         }
+        // The card on show: the one that drops, fades or swings. A copy that replaced another
+        // copy before its new card slid in drops the card still falling.
+        var start = restingCard(from)
+        if let handoff {
+            start = handoff.card.opacity == 0 ? handoff.old ?? handoff.card : handoff.card
+        }
+        var p: Pose
+        switch moment {
+        case .copied: p = pose(at: t, from: from, to: rest, dropping: start)
+        case .attention: p = attentionPose(at: t, start: start)
+        case .pause: p = pausePose(at: t)
+        case .resume: p = resumePose(at: t)
+        case .release: p = releasePose(at: t, dropping: start, rest: rest)
+        case .grip: p = gripPose(at: t, letting: start, rest: rest)
+        case .squeeze: p = squeezePose(at: t, rest: rest)
+        }
+        guard let handoff else { return p }
+        return handedOver(p, from: handoff, moment: moment, at: t)
+    }
+
+    /// `pose` in the first `Design.Motion.menuBarHandoff` of a moment that replaced another:
+    /// the peg and the line ease from where they were; a moment that does not carry the card
+    /// on show itself (attention, pause, resume, squeeze) eases the card from it too; a card
+    /// still falling from the moment replaced keeps falling and fades.
+    static func handedOver(_ pose: Pose, from handoff: Pose, moment: PegMoment, at t: TimeInterval) -> Pose {
+        let k = Curve.easeInOut(Curve.progress(t, 0...Design.Motion.menuBarHandoff))
+        guard k < 1 else { return pose }
+        var p = pose
+        p.sag = Curve.mix(handoff.sag, pose.sag, k)
+        p.pegLift = Curve.mix(handoff.pegLift, pose.pegLift, k)
+        p.pegSquash = Curve.mix(handoff.pegSquash, pose.pegSquash, k)
+        p.pegPinch = Curve.mix(handoff.pegPinch, pose.pegPinch, k)
+        let carriesCard = moment == .copied || moment == .release || moment == .grip
+        if !carriesCard { p.card = Card.mix(handoff.card, pose.card, k) }
+        if p.old == nil, var falling = handoff.old, falling != handoff.card {
+            falling.opacity *= 1 - k
+            p.old = falling
+        }
+        return p
     }
 
     /// Beats of the copy animation, in seconds. It confirms the copy with some character:
@@ -148,9 +210,12 @@ enum Peg {
         pose(at: t, from: .idle, to: .idle)
     }
 
-    /// A frame of the copy animation: the card that drops is the one `from` rested on, and
-    /// the new card turns into `to`'s card as the copied fill drains.
-    static func pose(at t: TimeInterval, from: StatusIconState, to: StatusIconState) -> Pose {
+    /// A frame of the copy animation: the card that drops is the one `from` rested on (or
+    /// `dropping`, the card on show when the copy replaced another moment), and the new card
+    /// turns into `to`'s card as the copied fill drains.
+    static func pose(
+        at t: TimeInterval, from: StatusIconState, to: StatusIconState, dropping: Card? = nil
+    ) -> Pose {
         var p = Pose()
         // Open (its jaw lifts off the card), shut, then a little bounce as the clamp lands:
         // it bites past its rest, squashing, and springs back.
@@ -162,10 +227,10 @@ enum Peg {
 
         let drop = Curve.progress(t, Beat.oldDrop)
         if drop < 1 {
-            var old = restingCard(from)
+            var old = dropping ?? restingCard(from)
             old.dy += 13 * Curve.easeIn(drop)
             old.angle += -12 * drop
-            old.opacity = 1 - drop * drop
+            old.opacity *= 1 - drop * drop
             p.old = old
         }
 
@@ -223,13 +288,18 @@ enum Peg {
     }
 
     static func attentionPose(at t: TimeInterval, from: StatusIconState) -> Pose {
+        attentionPose(at: t, start: restingCard(from))
+    }
+
+    /// The attention swing from the card `start` (its picture, dashes and mark).
+    static func attentionPose(at t: TimeInterval, start: Card) -> Pose {
         var p = Pose()
         // The line takes the jolt, a little.
         p.sag = 1.2 * Curve.wobble(Curve.progress(t, AttentionBeat.jolt), cycles: 1)
         let tilt = Curve.easeOut(Curve.progress(t, AttentionBeat.tilt))
         let angle = attentionAngle * tilt
             + AttentionBeat.swingAngle * Curve.wobble(Curve.progress(t, AttentionBeat.swing), cycles: 1.5)
-        let start = restingCard(from), end = restingCard(.attention)
+        let end = restingCard(.attention)
         let u = Curve.easeInOut(Curve.progress(t, AttentionBeat.mark))
         p.card = Card(
             dy: min(attentionLift * tilt, bottomRoom - cornerDrop(angle)),
@@ -278,6 +348,130 @@ enum Peg {
         return p
     }
 
+    // MARK: The user's own actions
+
+    /// Beats of letting a screenshot go to the Trash, as shares of its length
+    /// (`Design.Motion.menuBarRelease`): the jaws open, the card drops out of the frame and
+    /// fades while the line, rid of its weight, springs up; the jaws close on nothing with a
+    /// snap; a beat of the empty line; then the resting card comes back. The user's own
+    /// action, seen in place, so shorter than the copy.
+    enum ReleaseBeat {
+        static let length = Design.Motion.menuBarRelease
+        static let pegOpen = 0.0...(0.12 * length)
+        static let drop = (0.06 * length)...(0.42 * length)
+        static let lineKick = (0.08 * length)...(0.5 * length)
+        static let pegShut = (0.4 * length)...(0.5 * length)
+        static let snap = (0.48 * length)...(0.68 * length)
+        static let back = (0.68 * length)...(0.94 * length)
+        /// How far the card falls, in points: from its place to out of the frame.
+        static let fall: CGFloat = 14
+    }
+
+    /// A frame of letting go: `dropping` is the card on show, `rest` the state the icon
+    /// returns to.
+    static func releasePose(at t: TimeInterval, dropping: Card, rest: StatusIconState) -> Pose {
+        var p = Pose()
+        let snap = Curve.wobble(Curve.progress(t, ReleaseBeat.snap), cycles: 1.5)
+        p.pegLift = jawOpen * Curve.easeOut(Curve.progress(t, ReleaseBeat.pegOpen))
+            * (1 - Curve.easeIn(Curve.progress(t, ReleaseBeat.pegShut)))
+            - 0.7 * snap
+        p.pegSquash = 1 - 0.25 * snap
+        p.sag = -1.2 * Curve.wobble(Curve.progress(t, ReleaseBeat.lineKick), cycles: 1)
+        let drop = Curve.progress(t, ReleaseBeat.drop)
+        if drop < 1 {
+            var card = dropping
+            card.dy += ReleaseBeat.fall * Curve.easeIn(drop)
+            card.angle += -10 * drop
+            card.opacity *= 1 - drop * drop
+            p.card = card
+        } else {
+            var card = restingCard(rest)
+            card.opacity = Curve.easeInOut(Curve.progress(t, ReleaseBeat.back))
+            p.card = card
+        }
+        return p
+    }
+
+    /// Reduce Motion's release: the jaws open on the empty line, held, then the resting pose.
+    static let releaseKeyPose = Pose(pegLift: jawOpen, card: Card(opacity: 0))
+
+    /// Beats of gripping a screenshot again on Undo, as shares of its length
+    /// (`Design.Motion.menuBarGrip`): the jaws open and the card on show fades, the picture
+    /// rises into the open jaws, and the peg clamps with the copy's bite and bounce while the
+    /// line takes the weight. The reverse of letting go.
+    enum GripBeat {
+        static let length = Design.Motion.menuBarGrip
+        static let pegOpen = 0.0...(0.15 * length)
+        static let fadeOld = 0.0...(0.2 * length)
+        static let rise = (0.08 * length)...(0.55 * length)
+        static let appear = (0.08 * length)...(0.3 * length)
+        static let pegShut = (0.5 * length)...(0.62 * length)
+        static let clampBounce = (0.6 * length)...(0.92 * length)
+        /// How far below its place the picture starts rising, in points.
+        static let depth: CGFloat = 5
+    }
+
+    /// A frame of gripping: `letting` is the card on show, which fades as the jaws open;
+    /// the card that rises is `rest`'s.
+    static func gripPose(at t: TimeInterval, letting: Card, rest: StatusIconState) -> Pose {
+        var p = Pose()
+        let bounce = Curve.wobble(Curve.progress(t, GripBeat.clampBounce), cycles: 1.5)
+        p.pegLift = jawOpen * Curve.easeOut(Curve.progress(t, GripBeat.pegOpen))
+            * (1 - Curve.easeIn(Curve.progress(t, GripBeat.pegShut)))
+            - 0.9 * bounce
+        p.pegSquash = 1 - 0.3 * bounce
+        p.sag = 1.2 * bounce
+        let fade = Curve.progress(t, GripBeat.fadeOld)
+        if fade < 1 {
+            var old = letting
+            old.opacity *= 1 - Curve.easeOut(fade)
+            p.old = old
+        }
+        var card = restingCard(rest)
+        let rise = Curve.easeOut(Curve.progress(t, GripBeat.rise))
+        // Caught, the card bobs with the line, never so far that its corner leaves the frame.
+        card.dy += GripBeat.depth * (1 - rise) + (rise < 1 ? 0 : min(0.9 * p.sag, max(0, bottomRoom - cornerDrop(card.angle) - card.dy)))
+        card.opacity = Curve.easeInOut(Curve.progress(t, GripBeat.appear))
+        p.card = card
+        return p
+    }
+
+    /// Reduce Motion's grip: the picture just under the open jaws, held, then the resting
+    /// pose with the jaws shut on it.
+    static func gripKeyPose(_ rest: StatusIconState) -> Pose {
+        var card = restingCard(rest)
+        card.dy += GripBeat.depth / 2
+        return Pose(pegLift: jawOpen, card: card)
+    }
+
+    /// Beats of the squeeze when the popover opens: the handles are pressed together and the
+    /// jaws open about a point, then the peg springs back past its rest once. It answers the
+    /// click as it lands; the popover opens at the same time, never after it.
+    enum SqueezeBeat {
+        static let length = Design.Motion.menuBarSqueeze
+        static let press = 0.0...(0.3 * length)
+        static let spring = (0.3 * length)...(0.8 * length)
+        /// The jaws open this far at the hardest squeeze, in points.
+        static let open: CGFloat = 1
+    }
+
+    static func squeezePose(at t: TimeInterval, rest: StatusIconState) -> Pose {
+        var p = pose(rest)
+        let pressed = Curve.easeOut(Curve.progress(t, SqueezeBeat.press))
+        let u = Curve.progress(t, SqueezeBeat.spring)
+        // Back from fully pressed, past rest once, and settled exactly at the end.
+        let back = u >= 1 ? 0 : (1 - u) * exp(-2.5 * u) * cos(.pi * 1.5 * u)
+        let pinch = t < SqueezeBeat.spring.lowerBound ? pressed : back
+        p.pegPinch = pinch
+        p.pegLift = SqueezeBeat.open * pinch
+        return p
+    }
+
+    /// How far the jaws open to let go or take a card, in points.
+    static let jawOpen: CGFloat = 1.3
+    /// The handles' share of their width lost at the hardest squeeze.
+    static let pinchNarrowing: CGFloat = 0.4
+
     /// How far the resting card's outline may move down and stay inside the frame.
     static let bottomRoom = canvas.height - (card.maxY + stroke / 2)
 
@@ -325,8 +519,7 @@ enum Peg {
         var pegTransform = scale(1, (peg.height - open) / peg.height, around: CGPoint(x: 11, y: peg.minY))
             .concatenating(CGAffineTransform(translationX: 0, y: bite))
             .concatenating(scale(1, pose.pegSquash, around: CGPoint(x: 11, y: peg.maxY + bite)))
-        let body = CGPath(roundedRect: peg, cornerWidth: pegRadius, cornerHeight: pegRadius,
-                          transform: &pegTransform)
+        let body = pegBody(pinch: pose.pegPinch, transform: &pegTransform)
         erase(body.copy(strokingWithWidth: pegGap, lineCap: .round, lineJoin: .round, miterLimit: 10), in: context)
         context.addPath(body)
         context.fillPath()
@@ -336,6 +529,22 @@ enum Peg {
 
         context.endTransparencyLayer()
         context.restoreGState()
+    }
+
+    /// The peg's body. Squeezed (`pinch` > 0), its handles, above the spring, narrow around
+    /// the peg's middle while the jaws below keep their width; at rest it is one rounded bar.
+    private static func pegBody(pinch: CGFloat, transform: inout CGAffineTransform) -> CGPath {
+        guard pinch != 0 else {
+            return CGPath(roundedRect: peg, cornerWidth: pegRadius, cornerHeight: pegRadius, transform: &transform)
+        }
+        let body = CGMutablePath()
+        let handles = CGRect(x: peg.minX, y: peg.minY, width: peg.width, height: spring.y + pegRadius - peg.minY)
+        var narrow = scale(1 - pinchNarrowing * pinch, 1, around: CGPoint(x: peg.midX, y: peg.minY))
+            .concatenating(transform)
+        body.addPath(CGPath(roundedRect: handles, cornerWidth: pegRadius, cornerHeight: pegRadius, transform: &narrow))
+        let jaws = CGRect(x: peg.minX, y: spring.y, width: peg.width, height: peg.maxY - spring.y)
+        body.addPath(CGPath(roundedRect: jaws, cornerWidth: pegRadius, cornerHeight: pegRadius, transform: &transform))
+        return body
     }
 
     /// One card, at the card's place in the canvas. The size tests measure the card on its own.

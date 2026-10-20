@@ -32,7 +32,50 @@ struct PegFlashTests {
         #expect(PegMoment.attention.duration >= 1.8 && PegMoment.attention.duration <= PegMoment.copied.duration)
     }
 
-    @Test(arguments: [PegMoment.copied, .attention, .pause, .resume])
+    /// The user's own actions, seen in place: release about 1.0-1.3 s, grip 0.8-1.0 s, the
+    /// squeeze 180-250 ms, all shorter than the copy, each a whole number of frames.
+    @Test func userMomentsTimeFromTheirTokens() {
+        #expect(PegMoment.release.duration == Design.Motion.menuBarRelease)
+        #expect(PegMoment.grip.duration == Design.Motion.menuBarGrip)
+        #expect(PegMoment.squeeze.duration == Design.Motion.menuBarSqueeze)
+        #expect((1.0...1.3).contains(PegMoment.release.duration))
+        #expect((0.8...1.0).contains(PegMoment.grip.duration))
+        #expect((0.18...0.25).contains(PegMoment.squeeze.duration))
+        for moment in [PegMoment.release, .grip, .squeeze] {
+            #expect(moment.duration < PegMoment.copied.duration)
+            #expect(abs(Double(moment.steps - 1) * PegFlash.interval - moment.duration) < 1e-9)
+        }
+        #expect(Design.Motion.menuBarHandoff < PegMoment.squeeze.duration, "a hand-off fits the shortest moment")
+    }
+
+    /// copy > attention, pause, resume > release, grip > squeeze.
+    @Test func precedence() {
+        #expect(PegMoment.copied.rank > PegMoment.attention.rank)
+        #expect(PegMoment.attention.rank == PegMoment.pause.rank && PegMoment.pause.rank == PegMoment.resume.rank)
+        #expect(PegMoment.attention.rank > PegMoment.release.rank)
+        #expect(PegMoment.release.rank == PegMoment.grip.rank)
+        #expect(PegMoment.grip.rank > PegMoment.squeeze.rank)
+    }
+
+    /// Reduce Motion: the copy, a release and a grip are one hold each, as long as the copy's
+    /// hold or the moment itself; the others do not play.
+    @Test func reduceMotionHolds() {
+        #expect(PegMoment.copied.reduceMotionHold == Design.Motion.menuBarHold)
+        #expect(PegMoment.release.reduceMotionHold == Design.Motion.menuBarRelease)
+        #expect(PegMoment.grip.reduceMotionHold == Design.Motion.menuBarGrip)
+        for moment in [PegMoment.attention, .pause, .resume, .squeeze] {
+            #expect(moment.reduceMotionHold == nil)
+        }
+        for moment in [PegMoment.copied, .release, .grip] {
+            var flash = PegFlash(moment, reduceMotion: true)
+            #expect(flash.timerInterval == moment.reduceMotionHold)
+            flash.restart()
+            #expect(flash.tick() == 1)
+            #expect(flash.tick() == 0)
+        }
+    }
+
+    @Test(arguments: PegMoment.allCases)
     func everyMomentRunsThroughItsFramesAndEnds(_ moment: PegMoment) {
         var flash = PegFlash(moment)
         flash.restart()

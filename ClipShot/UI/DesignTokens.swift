@@ -140,6 +140,20 @@ enum Design {
         static let menuBarPause: TimeInterval = 0.6
         /// Copy to clipboard on: the outline joins up, the peg bites again.
         static let menuBarResume: TimeInterval = 0.9
+        /// The user's own actions, seen in place where they act, so shorter than the copy.
+        /// Move to Trash from the popover or a preview: the jaws open, the card drops out and
+        /// fades, the jaws close empty, the resting card comes back. Reduce Motion: the open,
+        /// empty jaws held as long.
+        static let menuBarRelease: TimeInterval = 1.2
+        /// Undo of that move: a picture rises into the open jaws and Peg clamps. Reduce Motion:
+        /// the picture under the open jaws held as long.
+        static let menuBarGrip: TimeInterval = 0.9
+        /// The click that opens the popover: the handles squeeze, the jaws open a point, and Peg
+        /// springs back, as the popover opens. Reduce Motion: nothing.
+        static let menuBarSqueeze: TimeInterval = 0.2
+        /// A moment that replaces one still playing starts from the pose on show and eases
+        /// into its own course within this, so the icon never jumps.
+        static let menuBarHandoff: TimeInterval = 0.15
 
         // The tour's Try it: the first real copy is the strongest moment in the app.
 

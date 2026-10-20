@@ -28,6 +28,9 @@ final class AppModel {
     private(set) var flashFrom: StatusIconState = .idle
     /// Reduce Motion as read when the current flash started.
     private(set) var flashReduceMotion = false
+    /// The pose on show when the current moment replaced one still playing, which it starts
+    /// from; nil when it started at rest.
+    private(set) var flashHandoff: Peg.Pose?
     private(set) var attentions: [Attention] = []
     /// Goes up once each time a problem appears that was not there before; the popover's
     /// header nods on it.
@@ -118,9 +121,13 @@ final class AppModel {
     }
 
     /// What the menu bar draws now: the resting pose, or the frame of the moment playing.
-    var iconPose: Peg.Pose {
-        Peg.pose(rest: restingIconState, moment: flashPhase > 0 ? flashMoment : nil, phase: flashPhase,
-                 from: flashFrom, reduceMotion: flashReduceMotion)
+    var iconPose: Peg.Pose { iconPose(rest: restingIconState) }
+
+    /// What the menu bar draws with `rest` as the resting state: before a change of state is
+    /// applied, the pose still on show.
+    private func iconPose(rest: StatusIconState) -> Peg.Pose {
+        Peg.pose(rest: rest, moment: flashPhase > 0 ? flashMoment : nil, phase: flashPhase,
+                 from: flashFrom, reduceMotion: flashReduceMotion, handoff: flashHandoff)
     }
 
     /// The popover header: copying on, paused or needs attention. Never the brief copied state.
@@ -390,11 +397,13 @@ final class AppModel {
 
     /// The popover opened or closed. Opening re-reads what it shows: a screenshot deleted in
     /// Finder meanwhile leaves the list, and Copy again moves off a screenshot that is no
-    /// longer on the clipboard.
+    /// longer on the clipboard. Peg answers the click that opened it with a squeeze, as the
+    /// popover appears; closing it plays nothing.
     func popoverVisibilityChanged(_ visible: Bool) {
         guard visible != popoverVisible else { return }
         popoverVisible = visible
         if visible {
+            play(.squeeze, from: restingIconState)
             forgetClipboardIfReplaced()
             refreshRecent()
             refreshStatus()
@@ -608,18 +617,28 @@ final class AppModel {
 
     /// Plays `moment` in the menu bar, from the state the icon rested in.
     ///
+    /// Precedence (`PegMoment.rank`): copy > a change of state (attention, pause, resume) >
+    /// release and grip > squeeze. A moment never starts while a higher one plays: a copy is
+    /// never cut short by a change of state (it ends on the new resting card instead), and a
+    /// Move to Trash during a copy shows in the popover, not in the menu bar. A moment equal or
+    /// higher replaces the one playing, from the pose on show (`flashHandoff`), so nothing jumps.
+    ///
     /// One timer at a time: a moment during another restarts the phases on the same frame
-    /// timer. With Reduce Motion the copy is one hold on a single timer, so anything during
-    /// it starts on a fresh timer, and the other moments do not play at all: their state
-    /// changes in one frame. A copy is never cut short by a change of state: it ends on the
-    /// new resting card instead.
-    private func play(_ moment: PegMoment, from: StatusIconState) {
+    /// timer. With Reduce Motion a copy, release or grip is one hold on a single timer, so
+    /// anything during it starts on a fresh timer; the other moments do not play at all: their
+    /// state changes in one frame, ending a lower hold so it shows at once.
+    ///
+    /// `shown`: the pose on show, when the state it was drawn with has changed already.
+    private func play(_ moment: PegMoment, from: StatusIconState, shown: Peg.Pose? = nil) {
         let reduce = reduceMotion()
-        if moment != .copied {
-            guard !reduce else { return }
-            if flashPhase > 0, flashMoment == .copied { return }
+        let playing = flashPhase > 0 ? flashMoment : nil
+        if let playing, playing.rank > moment.rank { return }
+        guard !reduce || moment.reduceMotionHold != nil else {
+            if playing != nil { endFlash() }
+            return
         }
-        let next = PegFlash(moment, reduceMotion: moment == .copied && reduce)
+        let handoff = playing != nil && !reduce && !flashReduceMotion ? shown ?? iconPose : nil
+        let next = PegFlash(moment, reduceMotion: reduce)
         if flashTimer != nil, flash.timerInterval != next.timerInterval || flash.reduceMotion {
             flashTimer?.invalidate()
             flashTimer = nil
@@ -628,6 +647,7 @@ final class AppModel {
         flashReduceMotion = next.reduceMotion
         flashMoment = moment
         flashFrom = from
+        flashHandoff = handoff
         if flashTimer == nil {
             flashTimer = makeFlashTimer(flash.timerInterval, PegFlash.tolerance) { [weak self] in
                 self?.tickFlash()
@@ -1079,6 +1099,7 @@ final class AppModel {
         guard next != attentions else { return }
         let added = next.contains { !attentions.contains($0) }
         let before = restingIconState
+        let shown = iconPose
         let first = attentions.isEmpty && !next.isEmpty
         attentions = next
         if added {
@@ -1087,7 +1108,7 @@ final class AppModel {
         }
         // Peg swings into the attention pose once, when something first needs fixing; more
         // problems while it already shows "!" change nothing in the menu bar.
-        if first { play(.attention, from: before) }
+        if first { play(.attention, from: before, shown: shown) }
         // Fixed while it still swings: the icon goes to its resting pose at once, so the "!"
         // never swings in after the problem is gone and agrees with what VoiceOver reads.
         if attentions.isEmpty, flashPhase > 0, flashMoment == .attention { endFlash() }
@@ -1109,10 +1130,13 @@ final class AppModel {
         guard isWatching, token == observationToken else { return }
         coordinator.isEnabled = preferences.copyEnabled
         if preferences.copyEnabled != observedCopyEnabled {
+            // The pose on show before the switch: the resting state it was drawn with.
+            let shown = iconPose(rest: .resolve(copyEnabled: observedCopyEnabled, attentions: attentions, flashing: false))
             observedCopyEnabled = preferences.copyEnabled
             // The switch's answer, where it shows: unless "!" covers both states.
             if attentions.isEmpty {
-                preferences.copyEnabled ? play(.resume, from: .paused) : play(.pause, from: .idle)
+                preferences.copyEnabled
+                    ? play(.resume, from: .paused, shown: shown) : play(.pause, from: .idle, shown: shown)
             }
         }
         if preferences.retention != observedPolicy {
@@ -1260,6 +1284,9 @@ extension AppModel {
             TrashedScreenshot(file: file, inTrash: $0, adopted: entry?.adopted ?? false, listed: listed)
         }
         offerUndo(trashed)
+        // The user's own Move to Trash, seen in the menu bar: Peg lets the picture go.
+        // Retention and "Also clean up" never come here.
+        play(.release, from: restingIconState)
         if let preview, trashed != nil {
             previews.offerUndo(preview)
             previews.dismiss(file: file, .trash, except: preview)
@@ -1331,6 +1358,8 @@ extension AppModel {
         if undoable == trashed { undoable = nil }
         preferences.totals.trashed = max(0, preferences.totals.trashed - 1)
         refreshRecent()
+        // Back, and Peg grips it again.
+        play(.grip, from: restingIconState)
         announce(Copy.Recent.putBack)
         return true
     }

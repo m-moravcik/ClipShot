@@ -1,8 +1,10 @@
 import Foundation
 
 /// A one-shot animation of the menu bar icon, Peg. Each has a job: the copy confirms a copy;
-/// the others confirm a change of state where it shows. None loops, none repeats on its own.
-enum PegMoment: Equatable, Sendable {
+/// attention, pause and resume confirm a change of state where it shows; release, grip and
+/// squeeze answer the user's own action (Move to Trash, Undo, the click that opens the
+/// popover) in place. None loops, none repeats on its own.
+enum PegMoment: Equatable, Sendable, CaseIterable {
     /// A copy landed: the new card is pegged up, shows a check, and turns into the card the
     /// icon rests on.
     case copied
@@ -12,6 +14,15 @@ enum PegMoment: Equatable, Sendable {
     case pause
     /// Copying was switched back on: the outline joins up and the peg bites again.
     case resume
+    /// A screenshot moved to the Trash from the popover or a preview: the jaws open, the card
+    /// drops out and fades, the jaws close empty, and the resting card comes back. Never for
+    /// retention or a cleanup.
+    case release
+    /// Undo of that move: a picture rises into the open jaws and Peg clamps.
+    case grip
+    /// The click on the icon that opens the popover: the handles squeeze, the jaws open a
+    /// point, and Peg springs back.
+    case squeeze
 
     var duration: TimeInterval {
         switch self {
@@ -19,6 +30,33 @@ enum PegMoment: Equatable, Sendable {
         case .attention: Design.Motion.menuBarAttention
         case .pause: Design.Motion.menuBarPause
         case .resume: Design.Motion.menuBarResume
+        case .release: Design.Motion.menuBarRelease
+        case .grip: Design.Motion.menuBarGrip
+        case .squeeze: Design.Motion.menuBarSqueeze
+        }
+    }
+
+    /// Which moment gives way to which: copy > a change of state (attention, pause, resume)
+    /// > release and grip > squeeze. A moment never starts while a higher one plays; it
+    /// replaces a lower or an equal one, from the pose on show.
+    var rank: Int {
+        switch self {
+        case .copied: 3
+        case .attention, .pause, .resume: 2
+        case .release, .grip: 1
+        case .squeeze: 0
+        }
+    }
+
+    /// With Reduce Motion: how long the moment's key pose is held, as one plain hold; nil for
+    /// a moment that does not play at all (its state changes in one frame, or, for the
+    /// squeeze, nothing shows).
+    var reduceMotionHold: TimeInterval? {
+        switch self {
+        case .copied: Design.Motion.menuBarHold
+        case .release: Design.Motion.menuBarRelease
+        case .grip: Design.Motion.menuBarGrip
+        case .attention, .pause, .resume, .squeeze: nil
         }
     }
 
@@ -34,8 +72,9 @@ enum PegMoment: Equatable, Sendable {
 /// after the last frame ends the moment and reports 0, `duration` after the first.
 ///
 /// With Reduce Motion there is nothing to animate: the copy is a plain hold of the copied
-/// pose, and a single tick after `holdDuration` ends it, so the menu bar is not redrawn 72
-/// times with the same picture. The other moments do not play at all (the model never starts
+/// pose, a release or a grip a plain hold of its key pose, and a single tick after the hold
+/// (`PegMoment.reduceMotionHold`) ends it, so the menu bar is not redrawn frame after frame
+/// with the same picture. The other moments do not play at all (the model never starts
 /// them), so their state changes in one frame.
 struct PegFlash: Sendable {
     static let frameRate = Design.Motion.menuBarFrameRate
@@ -57,7 +96,9 @@ struct PegFlash: Sendable {
     }
 
     /// How often the timer driving this flash ticks.
-    var timerInterval: TimeInterval { reduceMotion ? Self.holdDuration : Self.interval }
+    var timerInterval: TimeInterval {
+        reduceMotion ? moment.reduceMotionHold ?? Self.holdDuration : Self.interval
+    }
 
     var steps: Int { moment.steps }
 

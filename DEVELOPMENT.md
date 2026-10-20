@@ -155,10 +155,33 @@ frame by frame by a 30 fps timer that runs only while one plays (`PegFlash`):
 | Attention | when something first needs fixing | 2.0 s | the "!" pose at once |
 | Pause | Copy to clipboard switched off | 0.6 s | the dashed card at once |
 | Resume | Copy to clipboard switched on | 0.9 s | the picture at once |
+| Release | Move to Trash from a row, its menu or a floating preview | 1.2 s | the open, empty jaws held 1.2 s |
+| Grip | Undo of that move | 0.9 s | the picture under the open jaws held 0.9 s |
+| Squeeze | the click on the icon that opens the popover | 0.2 s | nothing |
 
 Copy and attention come unasked, so they are slow enough to catch at a glance;
 pause and resume answer a switch the user is looking at in the popover, so they
-are short. Each ends exactly on its resting pose; an attention fixed while Peg
+are short. Release, grip and squeeze answer the user's own action where it
+happens, so they are shorter than the copy: on Move to Trash the jaws open, the
+card drops out of the frame and fades, the jaws snap shut on nothing, and after a
+beat the resting card comes back; on Undo the card on show fades, a picture rises
+into the open jaws and Peg clamps with the copy's bite; on the click that opens
+the popover the handles are pressed together, the jaws open a point and Peg
+springs back, while the popover opens (it never waits for Peg). Retention, Clean
+up now and "Also clean up N older screenshots" play nothing, whatever they move;
+a Move to Trash or an Undo that fails plays nothing either. Closing the popover
+plays nothing.
+
+Precedence: copy > a change of state (attention, pause, resume) > release and
+grip > squeeze (`PegMoment.rank`). A moment never starts while a higher one
+plays; it replaces a lower or equal one from the pose on show
+(`Peg.pose(...handoff:)`): the card on show is the one that drops, fades or
+swings, and the peg, the line and any other card ease from where they were into
+the new moment within `menuBarHandoff` (0.15 s), so nothing jumps. A change of
+state hands over the pose drawn before the state changed. With Reduce Motion a
+higher moment ends a lower hold, so its state shows at once.
+
+Each ends exactly on its resting pose; an attention fixed while Peg
 still swings ends at once on the new resting pose. A copy plays over an attention (it did
 happen) and ends on the card the icon rests on, dashed while paused or "!"
 while something needs attention; a change of state never cuts a copy short. The
@@ -231,7 +254,7 @@ bundles and system locations.
 
 ## The menu bar icon
 
-ClipShot's own symbol, Peg: a picture pegged on a line, drawn in `UI/Peg.swift`
+ClipShot's own symbol, Peg: a picture pegged on a line (a clothes peg on a darkroom line), drawn in `UI/Peg.swift`
 with Core Graphics as one template image per pose, in a fixed 22 x 16 pt frame
 so the status item never changes width and the menu bar never scales it down.
 Each state has its own silhouette:
@@ -247,16 +270,44 @@ On every copy the peg opens, the last shot drops, the new one slides in along
 the line, gets pegged with a squash, swings and bobs, develops from the bottom
 and shows the check, then turns back into the card it rests on: 72 frames in
 2.4 s (`Peg.pose(at:from:to:)`, driven by `PegFlash`). Its other moments swing
-the card into the "!" pose, break the outline into dashes, and join it up again
-(see Motion). With Reduce Motion the copied card is held for 1.4 s, no
+the card into the "!" pose, break the outline into dashes, join it up again, let
+the card go to the Trash, grip it again on Undo and squeeze the peg as the
+popover opens (see Motion). With Reduce Motion the copied card is held for 1.4 s, no
 movement, and the other states change in one frame. The idle glyph is as tall as VibeRes's, no
 wider than Eject Guard's drive and drawn in the same stroke weight; tests pin
 all three.
 
 `scripts/screenshots.sh` renders every state and every frame of the copy
-animation (`menubar-states.png`), every frame of every moment
-(`menubar-moments.png`, and one PNG per frame in `peg-frames/` for GIFs), and
-the optical size next to VibeRes and Eject Guard (`menubar-optical-size.png`).
+animation (`menubar-states.png`), every frame of every moment, and of moments
+that replace one still playing (`menubar-moments.png`, and one PNG per frame in
+`peg-frames/` at 4x, `peg-frames@1x/` and `peg-frames@2x/` at the menu bar's
+own pixels, for GIFs), and the optical size next to VibeRes and Eject Guard
+(`menubar-optical-size.png`).
+
+### Knowing the popover opened
+
+A `.window` MenuBarExtra gives no click callback, and its status item button
+belongs to SwiftUI (no target or action). ClipShot learns of the click from the
+popover's window: `WindowVisibilityReader` reports it open when it is ordered in
+and either key or unoccluded. The window becomes key as the click opens it,
+before the window server reports it unoccluded, so the squeeze starts with the
+click; closing reports closed only once the window is off screen
+(`WindowVisibilityReader.isOpen`, `AppModel.popoverVisibilityChanged`).
+
+### The label in the menu bar while the popover is open
+
+`scripts/status-item-probe.sh` runs a Debug build's real `MenuBarExtra` on demo
+data, opens the popover by pressing its own status item button in-process, plays
+a Copy, a Move to Trash and an Undo from the popover's rows, and records the image
+the status item button holds at each step (`build/status-item-probe/`). It never
+captures the screen. On 2026-10-20 every sample was the model's frame or the one
+before it (the label is redrawn on the next display pass): 22 distinct images
+during a copy, 11 during a release, 9 during a grip. On that Mac a menu bar
+manager (Thaw) hid the Debug build's item, so its MenuBarExtra could not open
+and the probe used a stand-in: the popover's own view in a key panel of the app.
+That proves the label keeps animating while one of the app's windows is open and
+key; run the probe with the Debug item allowed in the menu bar to check the real
+popover.
 
 ## Languages
 
@@ -425,7 +476,8 @@ ClipShot/Preview/   Debug only: the screenshot harness, the motion demo, demo da
 ClipShot/Resources/ String Catalogs
 ClipShot/AppIcon.icon   Icon Composer document
 ClipShotTests/      Swift Testing suites; fixtures from the spike and for l10n
-scripts/            release, appcast, screenshots, motion demo, guards, l10n, spike probes
+scripts/            release, appcast, screenshots, motion demo, status item probe, guards, l10n,
+                    spike probes
 docs/               spike, translations, README pictures, design and plan
 release-notes/      one file per version
 Casks/              reference copy of the Homebrew cask
@@ -459,6 +511,7 @@ Swift Testing. Pure logic is tested; views are not, except their layout rules. T
 | `LocalisationTests` | The l10n gate fails on the broken catalogs in `ClipShotTests/Fixtures/l10n`. |
 | `StatusIconStateTests`, `PegFlashTests`, `PopoverLayoutTests` | The menu bar label is never scaled and fits its frame; every state has its own silhouette; Peg matches the siblings' height, width and stroke; the copy animation starts and ends at rest, one timer tick per frame and none after; Reduce Motion holds the copied pose; the bounces are derived from Peg's clamp; the popover's bottom soft scroll edge. |
 | `PegMomentTests`, `PegMomentModelTests` | Every moment starts where the icon rested and ends exactly on its resting pose, every frame is a template image that fits the canvas; the model plays them on real state changes only, once, never cuts a copy short, leaves no timer behind, and plays none with Reduce Motion. |
+| `PegActionMomentModelTests`, `PegHandoffTests` | Move to Trash from a row or a preview plays the release, Undo the grip, opening the popover the squeeze; retention, Clean up now, "Also clean up", a refused move, a failed Undo and closing the popover play nothing; precedence; a moment that replaces another starts from the pose on show (drawn pixel for pixel) and ends at rest; Reduce Motion holds the key poses on one tick and never squeezes. |
 | `PreviewMotionTests`, `OnboardingTests` | The swipe commits exactly where a release dismisses; the drag image is lifted off its card; Copy again reports back so the badge bounces; the first copy is celebrated once per install, the burst stays small, short and ends. |
 
 Tests never touch real preferences (`make guards` refuses `UserDefaults` in
@@ -570,7 +623,8 @@ Motion is judged in motion: `scripts/motion-demo.sh` (light, or `dark`) plays
 the real views on demo data live, in a floating window at the top left of the
 main screen, for 30 s: the tour's Try it with Peg and the first-copy
 celebration, the floating preview, the popover's Undo, its strip closing, its
-header's nod, and Peg's attention, pause and resume. Record the screen
+header's nod, Peg's attention, pause and resume, and the popover's Peg letting a
+row go to the Trash and gripping it again on Undo. Record the screen
 meanwhile and crop to the window. Like the harness, it never touches this Mac's
 screenshot settings, folder, clipboard or preferences. Hover, swipe and drag
 need a pointer and a Force Touch trackpad, so they are checked by hand; their

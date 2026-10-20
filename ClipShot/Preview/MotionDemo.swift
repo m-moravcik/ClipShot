@@ -58,7 +58,7 @@ enum MotionDemo {
             try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
             let reduce = reduceMotion
             let tour = try DemoScene(in: scratch, onboardingShown: false, liveMotion: true, reduceMotion: reduce)
-            let popover = try DemoScene(in: scratch, liveMotion: true, reduceMotion: reduce)
+            let popover = try DemoScene(in: scratch, liveMotion: true, reduceMotion: reduce, trashInHome: true)
             try ScreenshotHarness.awaitTask { try await popover.recentScreenshots() }
             guard popover.start() else { ScreenshotHarness.fail("the demo folder was not watched") }
             DemoScene.wait { popover.model.recent.count == RecentScreenshots.count }
@@ -108,7 +108,7 @@ enum MotionDemo {
                 created: first.created.addingTimeInterval(0.01), modified: first.modified,
                 size: first.size, resourceID: Data(), isScreenshot: true))
             at(Cue.trashRow)
-            try moveToDemoTrash(popover, popover.model.recent[1])
+            try moveToTrash(popover, popover.model.recent[1])
             at(Cue.undo)
             try ScreenshotHarness.awaitTask { await popover.model.putBack() }
             at(Cue.attention)
@@ -128,7 +128,7 @@ enum MotionDemo {
             at(Cue.secondCopy)
             _ = try tour.shoot("Screenshot 2026-10-20 at 09.42.10.png", image: DemoContent.screenshotPNG(variant: 2))
             at(Cue.trashAgain)
-            try moveToDemoTrash(popover, popover.model.recent[2])
+            try moveToTrash(popover, popover.model.recent[2])
             at(Cue.nextStep)
             advance()
             // The Undo ends (as its 5 s would): the strip closes, the rows below move up and
@@ -176,19 +176,15 @@ enum MotionDemo {
             context: nil, eventNumber: 0, clickCount: 1, pressure: type == .leftMouseUp ? 0 : 1)!
     }
 
-    /// The demo Trash refuses every move, so the file goes to a Trash folder in the demo home,
-    /// and Undo then puts it back through the real path.
-    private static func moveToDemoTrash(_ scene: DemoScene, _ file: CaptureFile) throws {
-        let trash = scene.home.appendingPathComponent(".Trash", isDirectory: true)
-        try FileManager.default.createDirectory(at: trash, withIntermediateDirectories: true)
-        let inTrash = trash.appendingPathComponent(file.url.lastPathComponent)
-        try FileManager.default.moveItem(at: file.url, to: inTrash)
-        scene.model.showUndoForHarness(AppModel.TrashedScreenshot(file: file, inTrash: inTrash))
-        scene.model.screenshotLeft(file)
+    /// Move to Trash as a row asks for it, through the real path into the demo home's Trash
+    /// folder, so Peg lets the picture go and Undo puts it back through the real path too.
+    private static func moveToTrash(_ scene: DemoScene, _ file: CaptureFile) throws {
+        try ScreenshotHarness.awaitTask { await scene.model.moveToTrash(file) }
     }
 
-    /// Everything side by side: the menu bar (and Peg three times larger), the tour, the
-    /// everyday popover and the floating preview.
+    /// Everything side by side: the menu bar (and Peg three times larger) of the tour and of
+    /// the everyday popover (its Move to Trash and Undo), the tour, the everyday popover and
+    /// the floating preview.
     private struct Stage: View {
         let tour: AppModel
         let popover: AppModel
@@ -197,14 +193,8 @@ enum MotionDemo {
         var body: some View {
             HStack(alignment: .top, spacing: 20) {
                 VStack(alignment: .leading, spacing: 10) {
-                    caption("Menu bar")
-                    StatusIconArt(pose: tour.iconPose)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(RoundedRectangle(cornerRadius: 5).fill(Color.primary.opacity(0.08)))
-                    caption("Peg, 3x")
-                    Image(nsImage: Peg.image(tour.iconPose, scale: 3))
-                        .renderingMode(.template)
+                    menuBar("Menu bar", tour)
+                    menuBar("Popover's", popover)
                 }
                 .frame(width: 90, alignment: .leading)
                 panel { OnboardingView(tour: WelcomeTour(step: .folder)).environment(tour) }
@@ -218,6 +208,19 @@ enum MotionDemo {
             .environment(SettingsRouter())
             .environment(UpdateStatus())
             .environment(\.colorScheme, scheme)
+        }
+
+        private func menuBar(_ title: String, _ model: AppModel) -> some View {
+            VStack(alignment: .leading, spacing: 10) {
+                caption(title)
+                StatusIconArt(pose: model.iconPose)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(RoundedRectangle(cornerRadius: 5).fill(Color.primary.opacity(0.08)))
+                caption("Peg, 3x")
+                Image(nsImage: Peg.image(model.iconPose, scale: 3))
+                    .renderingMode(.template)
+            }
         }
 
         private func caption(_ text: String) -> some View {

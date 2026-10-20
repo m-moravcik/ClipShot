@@ -21,6 +21,16 @@ struct ClipShotApp: App {
         if let scheme = MotionDemo.requested {
             MotionDemo.run(scheme)
         }
+        // The real menu bar on demo data: checks that Peg's moments reach the status item
+        // while the popover is open (scripts/status-item-probe.sh). No updater, no real model.
+        if let output = StatusItemProbe.requestedOutput {
+            let model = MainActor.assumeIsolated { StatusItemProbe.makeModel() }
+            _model = State(initialValue: model)
+            updater = nil
+            updateStatus = MainActor.assumeIsolated { UpdateStatus() }
+            MainActor.assumeIsolated { StatusItemProbe.start(into: output) }
+            return
+        }
         #endif
         let model = Self.makeModel(environment: ProcessInfo.processInfo.environment)
         // Resumes watching only when onboarding was already shown; otherwise step 2 starts it.

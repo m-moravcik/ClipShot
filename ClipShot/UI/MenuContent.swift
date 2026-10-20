@@ -622,8 +622,19 @@ private struct MenuRow: View {
 /// Reports whether the window this view sits in is on screen. A MenuBarExtra's window is
 /// ordered out, not torn down, when the popover closes, so `onAppear` and `onDisappear`
 /// cannot tell an open popover from a closed one; the window's occlusion state can.
+///
+/// It is also how ClipShot knows the menu bar icon was clicked: a `.window` MenuBarExtra
+/// gives no click callback, and its status item button belongs to SwiftUI. The window
+/// becomes key as the click opens it, a frame or more before the window server reports it
+/// unoccluded, so becoming key counts as open too: Peg's squeeze starts with the click.
+/// Closing (resigning key, then ordered out) reports closed only once it is off screen.
 struct WindowVisibilityReader: NSViewRepresentable {
     let changed: @MainActor (Bool) -> Void
+
+    /// Open: ordered in, and either key (the click that opened it) or unoccluded.
+    static func isOpen(visible: Bool, key: Bool, unoccluded: Bool) -> Bool {
+        visible && (key || unoccluded)
+    }
 
     func makeNSView(context: Context) -> ReaderView {
         let view = ReaderView()
@@ -637,31 +648,35 @@ struct WindowVisibilityReader: NSViewRepresentable {
 
     final class ReaderView: NSView {
         var changed: @MainActor (Bool) -> Void = { _ in }
-        private var observer: NSObjectProtocol?
+        private var observers: [NSObjectProtocol] = []
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
-            if let observer { NotificationCenter.default.removeObserver(observer) }
-            observer = nil
+            for observer in observers { NotificationCenter.default.removeObserver(observer) }
+            observers = []
             if let window {
-                observer = NotificationCenter.default.addObserver(
-                    forName: NSWindow.didChangeOcclusionStateNotification, object: window, queue: .main
-                ) { [weak self] _ in
-                    MainActor.assumeIsolated { self?.report() }
+                let names = [NSWindow.didChangeOcclusionStateNotification, NSWindow.didBecomeKeyNotification]
+                observers = names.map { name in
+                    NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
+                        MainActor.assumeIsolated { self?.report() }
+                    }
                 }
             }
             report()
         }
 
         private func report() {
-            changed(window.map { $0.isVisible && $0.occlusionState.contains(.visible) } ?? false)
+            changed(window.map {
+                WindowVisibilityReader.isOpen(
+                    visible: $0.isVisible, key: $0.isKeyWindow, unoccluded: $0.occlusionState.contains(.visible))
+            } ?? false)
         }
 
         override func hitTest(_ point: NSPoint) -> NSView? { nil }
         override func isAccessibilityElement() -> Bool { false }
 
         isolated deinit {
-            if let observer { NotificationCenter.default.removeObserver(observer) }
+            for observer in observers { NotificationCenter.default.removeObserver(observer) }
         }
     }
 }
