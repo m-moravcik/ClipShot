@@ -117,7 +117,9 @@ struct PreviewCard: View {
     @State private var inHand = false
 
     /// `hovering`, `imageScale` and `dragX` exist for the render harness, which draws the
-    /// hover state and animation key frames.
+    /// hover state and animation key frames. A hovered card offers Copy again only when it
+    /// does not say Copied, as `FloatingPreviews.offersCopyAgain` decides in the app, so a
+    /// render never shows the badge and Copy again together.
     init(
         item: PreviewItem, actions: PreviewActions, showsCopied: Bool = true, hovering: Bool = false,
         imageScale: CGFloat? = nil, dragX: CGFloat = 0
@@ -127,9 +129,15 @@ struct PreviewCard: View {
         self.showsCopied = showsCopied
         self.imageScale = imageScale
         _hovering = State(initialValue: hovering)
-        _offerCopy = State(initialValue: hovering)
+        _offerCopy = State(initialValue: Self.offersCopyAgain(hovering: hovering, showsCopied: showsCopied))
         _dragX = State(initialValue: dragX)
         _swiping = State(initialValue: dragX > 0)
+    }
+
+    /// A card drawn hovered offers Copy again only when it does not say Copied: the badge and
+    /// Copy again are never on show together (`FloatingPreviews.offersCopyAgain`).
+    nonisolated static func offersCopyAgain(hovering: Bool, showsCopied: Bool) -> Bool {
+        hovering && !showsCopied
     }
 
     /// The image starts this much smaller and lands into the card.

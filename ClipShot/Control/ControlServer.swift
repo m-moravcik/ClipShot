@@ -263,7 +263,7 @@ final class ControlServer: Sendable {
     /// that ends later is not heard, and the connection's place is free again either way.
     private func handle(_ request: ControlRequest, client: Int32) {
         let once = AnswerOnce()
-        let claim = { once.claim() }
+        let claim: @Sendable () -> Bool = { once.claim() }
         let handler = handler
         let timeout = limits.timeout(for: request.command)
         Task {

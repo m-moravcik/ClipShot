@@ -21,6 +21,10 @@ struct ClipShotApp: App {
         if let scheme = MotionDemo.requested {
             MotionDemo.run(scheme)
         }
+        // The README's hero animation, rendered frame by frame off screen (scripts/readme-hero.sh).
+        if let output = ReadmeHero.requestedOutput {
+            ReadmeHero.run(into: output)
+        }
         // The real menu bar on demo data: checks that Peg's moments reach the status item
         // while the popover is open (scripts/status-item-probe.sh). No updater, no real model.
         if let output = StatusItemProbe.requestedOutput {

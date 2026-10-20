@@ -15,8 +15,9 @@ committing; the names stay the same, so nothing else needs editing.
 | File | Shows |
 |---|---|
 | `icon.png` | App icon at 512 px, as macOS draws it; the README header |
-| `hero-{light,dark}.png` | The popover open under its menu bar icon |
-| `preview-hover-{light,dark}.png` | ClipShot's floating preview with its hover buttons |
+| `popover-{light,dark}.png` | The popover: copying on, the four most recent screenshots, the switch and the cleanup summary |
+| `popover-paused-focus-{light,dark}.png` | The popover while a Focus filter paused copying |
+| `preview-hover-{light,dark}.png` | ClipShot's floating preview under the pointer, just taken: Copied, the Markup pencil, Close and Move to Trash |
 | `popover-undo-{light,dark}.png` | The popover just after Move to Trash, with the Undo strip in place of the trashed row |
 | `settings-capture-{light,dark}.png` | Settings > Capture: the save folder, the Preview picker, Restore previous settings |
 | `settings-retention-{light,dark}.png` | Settings > Retention: the period and what would go to the Trash now |
@@ -54,5 +55,6 @@ With `CLIPSHOT_SCREENSHOTS_LIVE=1` they come from a window on screen through
 ScreenCaptureKit instead; that needs Screen Recording for the Debug build, which
 the harness never asks for.
 
-The demo video of the real flow (the shortcut, the floating preview, a paste into
-a chat) is recorded by hand on a real screen; it is not rendered here.
+The animated hero at the top of the README (`docs/hero.gif`, `docs/hero-dark.gif`) is
+rendered too, frame by frame off screen, by `scripts/readme-hero.sh`; see
+[DEVELOPMENT.md](../../DEVELOPMENT.md#reviewing-the-ui).

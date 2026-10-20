@@ -122,6 +122,15 @@ struct FloatingPreviewsTests {
         #expect(previews.clipboardFile == nil)
     }
 
+    /// A card drawn hovered (the README picture, the motion sheet) never shows the Copied
+    /// badge and Copy again together, a state the app cannot reach.
+    @Test func aHoveredCardNeverShowsCopiedAndCopyAgainTogether() {
+        #expect(!PreviewCard.offersCopyAgain(hovering: true, showsCopied: true))
+        #expect(PreviewCard.offersCopyAgain(hovering: true, showsCopied: false))
+        #expect(!PreviewCard.offersCopyAgain(hovering: false, showsCopied: false))
+        #expect(!PreviewCard.offersCopyAgain(hovering: false, showsCopied: true))
+    }
+
     /// Minor 2: rows and previews compare owners one way: by the file's resource ID, so two
     /// spellings of one path agree; by the standardized path only when there is no ID.
     @Test func theOwnerIsTheSameFileWhateverItsPathSpelling() throws {

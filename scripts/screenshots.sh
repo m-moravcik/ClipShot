@@ -28,7 +28,7 @@
 # onboarding-3-tidy-fresh (step 3 on a fresh install, offering the older screenshots),
 # settings-retention-older (the offer for screenshots from before ClipShot ran),
 # settings-capture-attention (the destination guard), onboarding-* (every tour step, and
-# Try it blocked by an attention), hero (popover under the menu bar, README) and banner
+# Try it blocked by an attention), hero (popover under the menu bar) and banner
 # (1920x1080). Plus icon.png, menubar-states.png, menubar-moments.png (every frame of Peg's
 # moments) with peg-frames/ (one PNG per frame, for GIFs) and menubar-optical-size.png (the
 # states beside VibeRes and Eject Guard, sized as the menu bar draws them). The floating preview:

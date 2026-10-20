@@ -322,7 +322,7 @@ with a number parameter must be count-neutral ("Get recent screenshots (${count}
 have plural variations in every language.
 
 Every Debug build is an app with these actions. xcodebuild registers what it builds with
-LaunchServices, so `scripts/screenshots.sh`, `motion-demo.sh` and `status-item-probe.sh`
+LaunchServices, so `scripts/screenshots.sh`, `motion-demo.sh`, `readme-hero.sh` and `status-item-probe.sh`
 unregister their Debug build on exit (`lsregister -u`); otherwise the Shortcuts app can
 list a second ClipShot. A test run's Debug build in another derived data folder stays
 registered until it is unregistered or deleted.
@@ -703,13 +703,13 @@ ClipShot/UI/        the app model, popover, floating preview, Settings, tour,
 ClipShot/Intents/   Shortcuts actions, the Focus filter and the App Shortcuts phrases
 ClipShot/Control/   clipshot: the control socket, its protocol, the commands; in the app and the tool
 ClipShotCLI/        clipshot's main.swift
-ClipShot/Preview/   Debug only: the screenshot harness, the motion demo, demo data
+ClipShot/Preview/   Debug only: the screenshot harness, the motion demo, the README hero, demo data
 ClipShot/Resources/ String Catalogs (app, Info.plist, App Shortcuts phrases)
 ClipShot/AppIcon.icon   Icon Composer document
 ClipShotTests/      Swift Testing suites; fixtures from the spike and for l10n
-scripts/            release, appcast, screenshots, motion demo, status item probe, guards, l10n,
-                    spike probes
-docs/               spike, translations, README pictures, design and plan
+scripts/            release, appcast, screenshots, README hero, motion demo, status item probe,
+                    guards, l10n, spike probes
+docs/               spike, translations, README pictures and hero GIFs, design and plan
 release-notes/      one file per version
 Casks/              the Homebrew cask, copied to the tap on each release
 ```
@@ -835,11 +835,13 @@ scripts/screenshots.sh          # English, into build/screenshots/en
 scripts/screenshots.sh sk       # one language
 scripts/screenshots.sh all      # all six, one build
 scripts/readme-screenshots.sh   # render English and copy the README set into docs/screenshots
+scripts/readme-hero.sh          # render the README's animated hero into docs/hero.gif and docs/hero-dark.gif
 ```
 
 It renders the popover in every state, every attention row, every Settings tab,
 every tour step, the floating preview and its motion as key frames, the menu bar
-states, the icon, and the hero and the 1920x1080 banner, in light and dark.
+states, the icon, and the popover under the menu bar and the 1920x1080 banner, in
+light and dark.
 Everything is demo data in `build/screenshots-scratch`: an in-memory
 `com.apple.screencapture`, a pasteboard that never reaches the system, a Trash
 that refuses every move. Nothing on the Mac that renders is read or changed. The
@@ -868,4 +870,15 @@ screenshot settings, folder, clipboard or preferences. Hover, swipe and drag
 need a pointer and a Force Touch trackpad, so they are checked by hand; their
 end states are key frames in `preview-motion`.
 
-The README video of the real flow (shortcut, preview, paste) is recorded by hand.
+The README's hero is rendered, not recorded: `scripts/readme-hero.sh`
+(`Preview/ReadmeHero.swift`) draws the key moment frame by frame off screen on a
+demo desktop, ⇧⌘4 and a selection, the real `PreviewCard` arriving on the
+`Design.Motion` springs, Peg's copy moment in the menu bar and in a 3x loupe
+(`Peg.pose(at:)`, so it follows `menuBarCopy`), then ⌘V into a demo note while
+Peg's check is on. 231 frames at 30 fps (7.7 s), seamless: the last frames match
+the first. It writes `hero.gif` (960 px, at most 5 MB, the run fails above),
+`hero.mp4`, `poster.png` and a contact sheet per appearance into
+`build/readme-hero/`, and copies the two GIFs into `docs/`; the MP4s and posters
+are for the web and stay out of the repository. The Copied badge's bounce runs on
+its own timer before the first frame is drawn, so the hero shows the badge without
+its bounce.
