@@ -49,15 +49,12 @@ final class AppModel {
     /// The last Preview or destination change wrote nothing because the one-time backup of
     /// the macOS settings failed (C-2). Cleared by the next write that succeeds.
     private(set) var settingsBackupFailed = false
-    /// The latest card with its decoded thumbnail: `lastCopied` while it exists, else the
-    /// newest screenshot in the ledger (Addendum A5). Changes once the thumbnail is decoded
-    /// (or failed to), so the card swaps in one step.
-    private(set) var latest: LatestCapture?
-    /// The previous screenshots under the card, newest first, at most
-    /// `RecentScreenshots.count`, existing files only. Empty hides the strip.
+    /// The popover's list of recent screenshots (Task 12i): the current one on top, then the
+    /// ones before it, newest first, at most `RecentScreenshots.count`, existing files only.
+    /// Changes once the thumbnails are decoded (or failed to), so rows never flash empty.
     private(set) var recent: [CaptureFile] = []
-    /// Decoded thumbnails of the card and the strip, so a file that moves from one to the
-    /// other, or a popover that opens, never waits for a decode.
+    /// Decoded thumbnails of the listed screenshots, so a popover that opens, or a row that
+    /// moves up, never waits for a decode.
     private(set) var thumbnails: [CaptureFile: CGImage] = [:]
     /// The screenshot just moved to the Trash while its Undo is offered (Addendum A6). One at
     /// a time: a newer trash replaces it.
@@ -181,8 +178,6 @@ final class AppModel {
     @ObservationIgnored private(set) var statusReads = 0
     /// Thumbnail decodes in flight, so overlapping refreshes share them.
     @ObservationIgnored private var decoding: [CaptureFile: Task<CGImage?, Never>] = [:]
-    /// The strip's files the user adopted for cleanup, which never move up into the card.
-    @ObservationIgnored private var recentAdopted: Set<CaptureFile> = []
     /// Files on show whose thumbnail could not be decoded; not tried again. Keyed by the file's
     /// version: `CaptureFile` equality covers the resource ID, size and modification date, so
     /// a file that was still being written is decoded again once it changes.
@@ -195,7 +190,7 @@ final class AppModel {
     @ObservationIgnored private var flashTimer: (any FlashTimer)?
     @ObservationIgnored private var statusTask: Task<Void, Never>?
     /// The popover is on screen. Its window stays alive while closed, so only then does the
-    /// status loop re-read the card and the strip (P2).
+    /// status loop re-read the recent screenshots (P2).
     @ObservationIgnored private(set) var popoverVisible = false
     @ObservationIgnored private var statusInFlight = false
     @ObservationIgnored private var statusQueued = false
@@ -291,8 +286,8 @@ final class AppModel {
                 guard let model = self else { return }
                 model.refreshStatus()
                 model.forgetClipboardIfReplaced()
-                // A screenshot deleted or renamed in Finder leaves the card and the strip;
-                // with the popover closed, that waits until it opens.
+                // A screenshot deleted or renamed in Finder leaves the list; with the
+                // popover closed, that waits until it opens.
                 if model.popoverVisible { model.refreshRecent() }
                 try? await Task.sleep(for: statusInterval, tolerance: statusInterval * Self.statusTolerance)
             }
@@ -356,11 +351,13 @@ final class AppModel {
     // MARK: - Copy
 
     /// The popover opened or closed. Opening re-reads what it shows: a screenshot deleted in
-    /// Finder meanwhile leaves the card and the strip.
+    /// Finder meanwhile leaves the list, and Copy again moves off a screenshot that is no
+    /// longer on the clipboard.
     func popoverVisibilityChanged(_ visible: Bool) {
         guard visible != popoverVisible else { return }
         popoverVisible = visible
         if visible {
+            forgetClipboardIfReplaced()
             refreshRecent()
             refreshStatus()
         }
@@ -388,7 +385,7 @@ final class AppModel {
     ///
     /// Paused (Copy to clipboard off) stops what ClipShot does on its own: a new screenshot
     /// (`observed`) and an edited image Markup hands back (`edited`). An explicit Copy on the
-    /// card, the strip, the preview or an attention row (`again`) still works.
+    /// list of recent screenshots, the preview or an attention row (`again`) still works.
     enum CopyOrigin: Equatable {
         case observed(CaptureFile)
         case again(CaptureFile)
@@ -447,11 +444,11 @@ final class AppModel {
         previews.addExtraDisplay(file)
     }
 
-    // MARK: - Card and recent screenshots
+    // MARK: - Recent screenshots
 
-    /// Re-reads which screenshots the card and the strip show, and decodes the thumbnails
-    /// they lack, off the main actor. Then both change in one step. Called after a copy, a
-    /// move to the Trash, an Undo, a cleanup, a folder change and when the popover opens.
+    /// Re-reads which screenshots the list shows, and decodes the thumbnails it lacks, off
+    /// the main actor. Then the list changes in one step. Called after a copy, a move to the
+    /// Trash, an Undo, a cleanup, a folder change and when the popover opens.
     func refreshRecent() {
         recentGeneration += 1
         let generation = recentGeneration
@@ -460,16 +457,16 @@ final class AppModel {
         let ledger = ledger
         let coordinator = coordinator
         Task { [weak self] in
-            // A screenshot just copied is in the ledger before the strip is chosen.
+            // A screenshot just copied is in the ledger before the list is chosen.
             await coordinator.ledgerSettled()
             let entries = folder == nil ? [] : await ledger.entries()
-            let shots = await Task.detached(priority: .utility) {
+            let files = await Task.detached(priority: .utility) {
                 RecentScreenshots.select(lastCopied: lastCopied, ledger: entries, folder: folder)
             }.value
             guard let self, generation == self.recentGeneration else { return }
-            let images = await self.thumbnails(for: [shots.card].compactMap { $0 } + shots.recent)
+            let images = await self.thumbnails(for: files)
             guard generation == self.recentGeneration else { return }
-            self.show(shots, images: images)
+            self.show(files, images: images)
             self.recentShown = generation
         }
     }
@@ -499,7 +496,7 @@ final class AppModel {
                 images[file] = image
             } else if !undecodable.contains(file) {
                 let task = decoding[file] ?? Task.detached(priority: .utility) {
-                    Thumbnailer.decode(file.url, maxPixelSize: LatestCapture.thumbnailPixels)
+                    Thumbnailer.decode(file.url, maxPixelSize: RecentRow.thumbnailPixels)
                 }
                 decoding[file] = task
                 pending.append((file, task))
@@ -519,35 +516,31 @@ final class AppModel {
         return images
     }
 
-    private func show(_ shots: RecentScreenshots, images: [CaptureFile: CGImage]) {
+    private func show(_ files: [CaptureFile], images: [CaptureFile: CGImage]) {
         // Only what is on show, plus the file an Undo may bring back.
-        let keep = Set([shots.card, undoable?.file].compactMap { $0 } + shots.recent)
+        let keep = Set(files + [undoable?.file].compactMap { $0 })
         let cache = thumbnails.merging(images) { old, _ in old }.filter { keep.contains($0.key) }
         undecodable.formIntersection(keep)
         if cache != thumbnails { thumbnails = cache }
-        if recent != shots.recent { recent = shots.recent }
-        recentAdopted = shots.adopted
-        let card = shots.card.map {
-            LatestCapture(file: $0, thumbnail: cache[$0], isLastCopied: shots.cardIsLastCopied)
-        }
-        if latest != card { latest = card }
+        if recent != files { recent = files }
     }
 
-    /// `file` left the folder (moved to the Trash): it leaves the card and the strip at once,
-    /// the strip's newest screenshot ClipShot saw moving up into the card, before the folder
-    /// is read again. An adopted older file stays in the strip, as the next read keeps it.
+    /// `file` left the folder (moved to the Trash): its row leaves at once and the rows under
+    /// it move up, before the folder is read again; that read fills the last row from an
+    /// older screenshot.
     func screenshotLeft(_ file: CaptureFile) {
         let path = file.url.standardizedFileURL.path
-        recent.removeAll { $0.url.standardizedFileURL.path == path }
-        if latest?.file.url.standardizedFileURL.path == path {
-            if let index = recent.firstIndex(where: { !recentAdopted.contains($0) }) {
-                let next = recent.remove(at: index)
-                latest = LatestCapture(file: next, thumbnail: thumbnails[next], isLastCopied: false)
-            } else {
-                latest = nil
-            }
+        if recent.contains(where: { $0.url.standardizedFileURL.path == path }) {
+            recent.removeAll { $0.url.standardizedFileURL.path == path }
         }
         refreshRecent()
+    }
+
+    /// `file` is the screenshot ClipShot last put on the clipboard, and it is still there:
+    /// its row says Copy again, as only its floating preview says Copied (U9).
+    func isOnClipboard(_ file: CaptureFile) -> Bool {
+        guard let copied = previews.clipboardFile else { return false }
+        return copied.resourceID == file.resourceID && copied.url.lastPathComponent == file.url.lastPathComponent
     }
 
     /// Waits until the ledger has every screenshot the coordinator has seen so far.
@@ -559,6 +552,8 @@ final class AppModel {
         copyFailure = clock()
         failedCapture = file
         recomputeAttentions()
+        // It is listed all the same, on top, with Copy.
+        refreshRecent()
     }
 
     private func clearCopyFailure() {
@@ -601,8 +596,8 @@ final class AppModel {
         return await copyAgain(file: file)
     }
 
-    /// Copies `file` again: the latest card passes the screenshot it shows, the strip one of
-    /// the earlier ones. The menu bar plays its copy animation, as for a new screenshot. An
+    /// Copies `file` again: the screenshot of the row (or preview) whose Copy was clicked. The
+    /// menu bar plays its copy animation, as for a new screenshot. An
     /// explicit Copy, so it works while copying is paused. Clears the could-not-copy
     /// attention only when `file` is the one that failed.
     @discardableResult
@@ -1090,7 +1085,7 @@ extension AppModel {
         let generation: Int
     }
 
-    /// Move to Trash as the card, the strip and a floating preview (`preview`) ask for it. A
+    /// Move to Trash as a row of the list and a floating preview (`preview`) ask for it. A
     /// refusal is said where the user acted, in words, with the alert sound as well: on the
     /// preview, or in the popover's Undo row place.
     func moveToTrash(_ file: CaptureFile, fromPreview preview: UUID? = nil) async {

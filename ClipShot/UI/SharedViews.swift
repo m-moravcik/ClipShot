@@ -1,9 +1,10 @@
 import SwiftUI
 
-/// A screenshot's thumbnail at the card size, or a photo symbol when it could not be decoded.
-/// Shared by the latest card and the welcome tour's Try it.
+/// A screenshot's thumbnail, or a photo symbol when it could not be decoded. Shared by the
+/// popover's recent screenshots and the welcome tour's Try it.
 struct CaptureThumbnail: View {
     let image: CGImage?
+    var size: CGSize = Design.Layout.thumbnailSize
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Design.Radius.chip, style: .continuous)
@@ -14,13 +15,13 @@ struct CaptureThumbnail: View {
                     .aspectRatio(contentMode: .fill)
             } else {
                 Image(systemName: "photo")
-                    .font(.system(size: 18))
+                    .font(.system(size: size.height * 0.4))
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Design.Palette.chipFill)
             }
         }
-        .frame(width: Design.Layout.thumbnailSize.width, height: Design.Layout.thumbnailSize.height)
+        .frame(width: size.width, height: size.height)
         .clipShape(shape)
         .overlay(shape.strokeBorder(Design.Palette.separator))
     }
@@ -338,28 +339,17 @@ struct PillLabel: View {
 }
 
 /// VibeRes's pill: content-sized, a soft grey at rest, accent on hover, deeper accent while
-/// pressed, and the keyboard focus ring in the pill's shape. `onImage` adds a material
-/// under the pill for one that sits over a screenshot; `compact` is the strip's smaller one.
+/// pressed, and the keyboard focus ring in the pill's shape.
 struct PillButtonStyle: ButtonStyle {
     static let font: Font = .system(size: 11, weight: .medium)
     static let radius: CGFloat = 5
-    /// The strip's compact pill: narrow enough that three leave a margin inside the 64 pt
-    /// thumbnail, while each still takes clicks over at least 20 pt (`compactHitOutset`),
-    /// and neighbours' click areas meet without overlapping (outset twice = bar spacing).
-    static let compactHorizontalPadding: CGFloat = 2
-    static let compactHitOutset: CGFloat = 2
-
-    var compact = false
-    var onImage = false
 
     func makeBody(configuration: Configuration) -> some View {
-        Pill(configuration: configuration, compact: compact, onImage: onImage)
+        Pill(configuration: configuration)
     }
 
     private struct Pill: View {
         let configuration: ButtonStyleConfiguration
-        let compact: Bool
-        let onImage: Bool
 
         @State private var hovering = false
         @Environment(\.isEnabled) private var isEnabled
@@ -377,19 +367,10 @@ struct PillButtonStyle: ButtonStyle {
 
         var body: some View {
             configuration.label
-                .padding(.horizontal, compact ? PillButtonStyle.compactHorizontalPadding : 8)
+                .padding(.horizontal, 8)
                 .padding(.vertical, 3)
-                .background {
-                    ZStack {
-                        if onImage { shape.fill(.regularMaterial) }
-                        shape.fill(fill)
-                    }
-                }
-                .overlay {
-                    if onImage { shape.strokeBorder(Color.primary.opacity(0.2), lineWidth: 0.5) }
-                }
-                .shadow(color: .black.opacity(onImage ? 0.3 : 0), radius: 1.5, y: 0.5)
-                .contentShape(shape.inset(by: compact ? -PillButtonStyle.compactHitOutset : 0))
+                .background(shape.fill(fill))
+                .contentShape(shape)
                 .contentShape(.focusEffect, shape)
                 .opacity(isEnabled ? 1 : 0.5)
                 .onHover { hovering = $0 }

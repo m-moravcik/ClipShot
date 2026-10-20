@@ -211,7 +211,7 @@ struct PreviewCard: View {
                     .padding(6)
             }
             if hovering {
-                // The picture is the Markup button, as on the card and the strip.
+                // The picture is the Markup button, as in the popover's list.
                 Image(systemName: "pencil.tip.crop.circle.fill")
                     .font(.system(size: 22))
                     .symbolRenderingMode(.palette)

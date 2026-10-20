@@ -1,8 +1,8 @@
 import AppKit
 import SwiftUI
 
-/// The popover, in the spec's order: header, attention rows, the update row, latest
-/// screenshot, the copy toggle, the retention summary, then the native-menu footer.
+/// The popover, in the spec's order: header, attention rows, the update row, the recent
+/// screenshots, the copy toggle, the retention summary, then the native-menu footer.
 ///
 /// Motion is opacity-led and quiet, as in the siblings: rows fade (never slide, the window
 /// would clip them), hover fills switch without animation, and nothing animates in when the
@@ -13,6 +13,7 @@ struct MenuContent: View {
     @Environment(\.updater) private var updater
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.offscreenCapture) private var offscreenCapture
+    @Environment(\.popoverHeightCap) private var heightCap
     @State private var attentionsExpanded = false
 
     var body: some View {
@@ -28,7 +29,7 @@ struct MenuContent: View {
         }
         .animation(Design.Motion.quick, value: model.preferences.onboardingShown)
         .frame(width: Design.Layout.popoverWidth)
-        .frame(maxHeight: Design.Layout.popoverMaxHeight)
+        .frame(maxHeight: heightCap)
         // Intrinsic height, not the tallest state the popover has shown.
         .fixedSize(horizontal: false, vertical: true)
         .background(.ultraThinMaterial)
@@ -66,7 +67,7 @@ struct MenuContent: View {
         .onChange(of: model.attentions.count) { _, count in
             if count <= 1 { attentionsExpanded = false }
         }
-        // A screenshot deleted in Finder since the last look leaves the card and the strip.
+        // A screenshot deleted in Finder since the last look leaves the list.
         .onAppear { model.refreshRecent() }
     }
 
@@ -103,7 +104,7 @@ struct MenuContent: View {
                 PreviewOfferRow()
                     .transition(.opacity)
             }
-            LatestCaptureSection()
+            RecentSection()
             if model.showMarkupTip {
                 MarkupTip()
                     .transition(.opacity)
@@ -432,7 +433,9 @@ private struct RetentionSummaryRow: View {
                     }
                 }
                 .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: Design.Spacing.s)
+                // The text takes the row's width; a Spacer here shared it with the text, which
+                // then wrapped at about half the row.
+                .frame(maxWidth: .infinity, alignment: .leading)
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.tertiary)
@@ -653,11 +656,14 @@ extension EnvironmentValues {
     /// the real now. The screenshot harness fixes it, so a picture does not change with the
     /// time of day it is rendered.
     @Entry var displayNow: Date? = nil
-    /// The strip's thumbnail at this index is drawn in its hover state, with its actions;
-    /// for the screenshot harness, which has no pointer.
+    /// The popover's height cap. Only the screenshot harness lifts it, to measure how tall
+    /// the content is in each language.
+    @Entry var popoverHeightCap: CGFloat = Design.Layout.popoverMaxHeight
+    /// The thumbnail of the recent screenshot at this index is drawn in its hover state, with
+    /// its pencil; for the screenshot harness, which has no pointer.
     @Entry var hoveredRecent: Int? = nil
-    /// The latest card's action pill at this index is drawn hovered; for the harness.
-    @Entry var hoveredCardPill: Int? = nil
+    /// This pill of a recent screenshot's row is drawn hovered; for the harness.
+    @Entry var hoveredRecentPill: HoveredPill? = nil
     /// A `PillButtonStyle` pill is drawn hovered whatever the pointer does; for the harness.
     @Entry var pillHovered = false
 }

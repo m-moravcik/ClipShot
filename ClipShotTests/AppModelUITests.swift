@@ -81,21 +81,23 @@ struct AppModelUITests {
         #expect(await h.ledger.entries().isEmpty)
     }
 
-    @Test func latestCardCopiesTheShownScreenshotNotTheFailedOne() async throws {
+    @Test func aRowCopiesItsScreenshotNotTheFailedOne() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }
         #expect(await h.start())
         let first = try h.shoot("Screenshot 1.png", size: 20)
-        #expect(await eventually { await h.model.latest?.file.url.lastPathComponent == "Screenshot 1.png" })
+        #expect(await eventually { await h.model.recent.first?.url.lastPathComponent == "Screenshot 1.png" })
         h.pasteboard.failing = true
         let second = try h.shoot("Screenshot 2.png", size: 21)
         #expect(await eventually { await h.model.attentions.map(\.id) == [Attention.couldNotCopy.id] })
-        let shown = try #require(h.model.latest)
-        #expect(shown.file.url.lastPathComponent == "Screenshot 1.png", "the card keeps the last good copy")
+        #expect(await eventually { await h.model.recent.count == 2 })
+        let shown = try #require(h.model.recent.first { $0.url.lastPathComponent == "Screenshot 1.png" })
+        #expect(h.model.isOnClipboard(shown), "the last good copy keeps Copy again")
+        #expect(!h.model.isOnClipboard(h.model.recent[0]), "the failed one on top says Copy")
 
-        // The card's Copy again: the screenshot it shows, and the failure stays reported.
+        // That row's Copy again: its own screenshot, and the failure stays reported.
         h.pasteboard.failing = false
-        #expect(await h.model.copyAgain(file: shown.file))
+        #expect(await h.model.copyAgain(file: shown))
         #expect(h.pasteboard.writes.last == (try Data(contentsOf: first)))
         #expect(h.model.attentions.map(\.id) == [Attention.couldNotCopy.id])
 
@@ -186,20 +188,20 @@ struct AppModelUITests {
         #expect(h.model.folderError == nil)
     }
 
-    @Test func latestFollowsLastCopiedWithItsThumbnail() async throws {
+    @Test func theTopRowFollowsTheLastCopyWithItsThumbnail() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }
-        #expect(h.model.latest == nil)
+        #expect(h.model.recent.isEmpty)
         #expect(await h.start())
         try h.shoot("Screenshot 1.png", size: 40)
-        #expect(await eventually { await h.model.latest?.file.url.lastPathComponent == "Screenshot 1.png" })
-        let first = try #require(h.model.latest)
-        #expect(first.thumbnail != nil)
-        #expect(first.file == h.model.lastCopied)
+        #expect(await eventually { await h.model.recent.first?.url.lastPathComponent == "Screenshot 1.png" })
+        let first = try #require(h.model.recent.first)
+        #expect(h.model.thumbnails[first] != nil)
+        #expect(first == h.model.lastCopied)
 
         try h.shoot("Screenshot 2.png", size: 41)
-        #expect(await eventually { await h.model.latest?.file.url.lastPathComponent == "Screenshot 2.png" })
-        #expect(h.model.latest?.thumbnail != nil)
+        #expect(await eventually { await h.model.recent.first?.url.lastPathComponent == "Screenshot 2.png" })
+        #expect(h.model.recent.first.flatMap { h.model.thumbnails[$0] } != nil)
     }
 
     @Test func headerStateIsNeverTheCopiedFlash() async throws {

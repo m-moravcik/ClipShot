@@ -75,9 +75,9 @@ struct UndoAndFailureTests {
         defer { h.tearDown() }
         #expect(await h.start())
         let url = try h.shoot("Screenshot 1.png")
-        #expect(await eventually { await h.model.latest?.file.url == url })
+        #expect(await eventually { await h.model.recent.first?.url == url })
         await h.model.ledgerSettled()
-        let file = try #require(h.model.latest?.file)
+        let file = try #require(h.model.recent.first)
 
         await h.model.moveToTrash(file)
         #expect(RT.exists(url))

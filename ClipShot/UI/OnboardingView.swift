@@ -355,7 +355,7 @@ private struct FolderStep: View {
             switch state {
             case .copied(let file):
                 CopiedResult(
-                    file: file, thumbnail: model.latest?.file == file ? model.latest?.thumbnail : nil,
+                    file: file, thumbnail: model.thumbnails[file],
                     bounce: bounce)
                     .transition(.opacity)
             case .attention(let attention):
@@ -399,7 +399,7 @@ extension WelcomeTour.TryState {
     }
 }
 
-/// The try's result: the thumbnail and "Copied", as the latest card shows it.
+/// The try's result: the screenshot's thumbnail and "Copied".
 private struct CopiedResult: View {
     let file: CaptureFile
     let thumbnail: CGImage?

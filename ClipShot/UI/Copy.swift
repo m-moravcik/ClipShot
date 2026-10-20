@@ -119,12 +119,7 @@ enum Copy {
     enum Latest {
         static let none = LocalizedStringResource("No screenshot copied yet")
         static let justNow = LocalizedStringResource(
-            "Just now", comment: "Age of the latest screenshot when it is under a minute old")
-        /// "Latest screenshot, 2 minutes ago, 1.2 MB".
-        static func accessibility(age: String, size: String) -> LocalizedStringResource {
-            LocalizedStringResource(
-                "Latest screenshot, \(age), \(size)", comment: "VoiceOver label of the thumbnail: age, then file size")
-        }
+            "Just now", comment: "Age of a recent screenshot when it is under a minute old")
         /// The one-time Markup tip names what can be clicked in this Preview mode (A4).
         static func markupTip(_ mode: PreviewMode) -> LocalizedStringResource {
             switch mode {
@@ -147,11 +142,14 @@ enum Copy {
     // MARK: - Recent screenshots and Undo
 
     enum Recent {
-        static let strip = LocalizedStringResource(
-            "Recent screenshots", comment: "VoiceOver label of the strip of earlier screenshots under the latest card")
-        static func item(age: String) -> LocalizedStringResource {
+        static let list = LocalizedStringResource(
+            "Recent screenshots", comment: "VoiceOver label of the popover's list of recent screenshots, newest first")
+        /// "Just now, 1.2 MB, 1 of 4": after the file name, what VoiceOver reads of a row.
+        /// The numbers come formatted, as the tour's step counter has them.
+        static func rowValue(age: String, size: String, position: Int, count: Int) -> LocalizedStringResource {
             LocalizedStringResource(
-                "Screenshot, \(age)", comment: "VoiceOver label of one earlier screenshot in the popover: its relative age")
+                "\(age), \(size), \(position.formatted()) of \(count.formatted())",
+                comment: "VoiceOver value of a row in the list of recent screenshots: its age, file size, then its place in the list, as in 1 of 4")
         }
         static let moved = LocalizedStringResource(
             "Moved to the Trash", comment: "Popover row for 5 seconds after Move to Trash, before its Undo button")

@@ -115,34 +115,18 @@ final class DemoScene {
     /// Writes the demo screenshot and waits until the popover's card shows it.
     func copyDemoScreenshot() throws {
         _ = try shoot(DemoContent.screenshotName, image: DemoContent.screenshotPNG)
-        Self.wait { self.model.latest != nil }
+        Self.wait { self.model.recent.first?.url.lastPathComponent == DemoContent.screenshotName }
     }
 
-    /// Earlier screenshots ClipShot saw being taken, for the popover's strip: in the ledger,
-    /// minutes to two days old, each picture in its own colours. One more than the strip
-    /// shows, so it fills up again after a move to the Trash.
+    /// Earlier screenshots ClipShot saw being taken, for the popover's list: in the ledger,
+    /// minutes to two days old, each picture in its own colours. More than the list shows
+    /// under the current one, so it fills up again after a move to the Trash.
     func recentScreenshots() async throws {
         let ages: [TimeInterval] = [6 * 60, 48 * 60, 3 * 3_600, 26 * 3_600, 50 * 3_600]
         var files: [CaptureFile] = []
         for (index, age) in ages.enumerated() {
             let name = DemoContent.recentScreenshotName(index)
             files.append(try shoot(name, image: DemoContent.screenshotPNG(variant: index + 1), age: age))
-        }
-        for file in files { await ledger.record(file) }
-    }
-
-    /// Earlier screenshots at the extremes, for the strip's buttons over any picture: newest
-    /// first, a plain white one, the pale demo window, the demo window in dark mode, and a
-    /// black one.
-    func contrastScreenshots() async throws {
-        let images = [
-            DemoContent.plainPNG(white: 1), DemoContent.screenshotPNG(variant: 1),
-            DemoContent.screenshotPNG(variant: 2, dark: true), DemoContent.plainPNG(white: 0),
-        ]
-        var files: [CaptureFile] = []
-        for (index, image) in images.enumerated() {
-            let age = TimeInterval(index + 1) * 10 * 60
-            files.append(try shoot(DemoContent.recentScreenshotName(index), image: image, age: age))
         }
         for file in files { await ledger.record(file) }
     }
@@ -352,18 +336,10 @@ enum DemoContent {
     /// every language and shows nothing personal.
     static let screenshotPNG: Data = screenshotPNG(variant: 0)
 
-    /// The demo window in other colours, so the strip's pictures tell apart; `dark`, as a
+    /// The demo window in other colours, so the list's pictures tell apart; `dark`, as a
     /// window in dark mode.
     static func screenshotPNG(variant: Int, dark: Bool = false) -> Data {
         let renderer = ImageRenderer(content: DemoWindow(variant: variant, dark: dark))
-        renderer.scale = 1
-        guard let image = renderer.cgImage else { return Data() }
-        return NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) ?? Data()
-    }
-
-    /// A screenshot of one flat grey, `white` 1 for white and 0 for black.
-    static func plainPNG(white: CGFloat) -> Data {
-        let renderer = ImageRenderer(content: Color(white: white).frame(width: 1280, height: 820))
         renderer.scale = 1
         guard let image = renderer.cgImage else { return Data() }
         return NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) ?? Data()

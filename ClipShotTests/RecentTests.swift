@@ -1,9 +1,11 @@
+import AppKit
 import Foundation
+import SwiftUI
 import Testing
 @testable import ClipShot
 
-/// The popover's latest card, the strip of earlier screenshots, and Move to Trash with Undo
-/// (spec Addendum A5, A6).
+/// The popover's list of recent screenshots (Task 12i): the current one on top, then the 3
+/// before it, newest first; Move to Trash with Undo (Addendum A6).
 @MainActor
 struct RecentTests {
     /// Screenshots ClipShot saw being taken, `minutes` old each, in the ledger; `adopted`:
@@ -29,7 +31,17 @@ struct RecentTests {
 
     private func names(_ files: [CaptureFile]) -> [String] { files.map(\.url.lastPathComponent) }
 
-    @Test func recentListsPreviousFourExistingNewestFirst() async throws {
+    private func topRowHasThumbnail(_ h: ModelHarness) -> Bool {
+        h.model.recent.first.flatMap { h.model.thumbnails[$0] } != nil
+    }
+
+    private func row(_ h: ModelHarness, _ name: String) throws -> CaptureFile {
+        try #require(h.model.recent.first { $0.url.lastPathComponent == name })
+    }
+
+    // MARK: - Selection
+
+    @Test func listShowsTheCurrentAndThreePreviousExistingNewestFirst() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }
         let files = try await tracked(h, [
@@ -38,58 +50,136 @@ struct RecentTests {
         // Deleted, and renamed: neither is shown.
         try FileManager.default.moveItem(at: files[5].url, to: Fixtures.stagingDir.appendingPathComponent("Gone-\(UUID()).png"))
         try FileManager.default.moveItem(at: files[0].url, to: h.folder.appendingPathComponent("Renamed.png"))
-        // In the ledger but in another folder: not this folder's strip.
+        // In the ledger but in another folder: not this folder's list.
         let elsewhere = try Fixtures.makeDir()
         await h.ledger.adopt([try #require(CaptureFile.inspect(try Fixtures.write(named: "Other.png", in: elsewhere)))])
         #expect(await h.start())
 
-        // Nothing copied since launch: the newest existing one is the card.
-        #expect(await eventually { await h.model.latest?.file.url.lastPathComponent == "E.png" })
-        #expect(names(h.model.recent) == ["D.png", "C.png", "B.png"])
+        #expect(await eventually { await self.names(h.model.recent) == ["E.png", "D.png", "C.png", "B.png"] })
         #expect(h.model.recent.allSatisfy { h.model.thumbnails[$0] != nil }, "thumbnails decoded before they show")
 
-        // A new screenshot takes the card; the previous one leads the strip, which keeps four.
+        // A new screenshot goes on top; the oldest row leaves, the list keeps four.
         try h.shoot("New.png")
         try await tracked(h, [("F.png", 5)])
-        #expect(await eventually { await h.model.latest?.file.url.lastPathComponent == "New.png" })
-        #expect(await eventually { await self.names(h.model.recent) == ["F.png", "E.png", "D.png", "C.png"] })
+        #expect(await eventually { await self.names(h.model.recent) == ["New.png", "F.png", "E.png", "D.png"] })
+        #expect(RecentScreenshots.count == 4)
     }
 
-    @Test func recentHidesWhenEmpty() async throws {
+    @Test func fewerScreenshotsFewerRowsAndNoneIsTheEmptyState() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }
         #expect(await h.start())
-        try h.shoot("Only.png")
-        #expect(await eventually { await h.model.latest?.file.url.lastPathComponent == "Only.png" })
         h.model.refreshRecent()
         #expect(await h.recentSettled())
-        #expect(h.model.recent.isEmpty, "the strip is hidden: the only screenshot is the card")
-        #expect(RecentScreenshots.select(lastCopied: nil, ledger: [], folder: h.folder) == .init(card: nil, recent: []))
+        #expect(h.model.recent.isEmpty, "no screenshot yet: the quiet line")
+        try h.shoot("Only.png")
+        #expect(await eventually { await self.names(h.model.recent) == ["Only.png"] })
+        #expect(RecentScreenshots.select(lastCopied: nil, ledger: [], folder: h.folder).isEmpty)
+        #expect(RecentScreenshots.select(lastCopied: h.model.lastCopied, ledger: [], folder: nil).isEmpty)
     }
 
-    /// The strip's Copy: that screenshot's PNG on the clipboard, through the card's Copy again,
-    /// with the menu bar's copy animation. An explicit Copy, so it works while copying is
-    /// paused (Task 12b ruling), and paused copying writes nothing on its own meanwhile.
-    @Test func copyFromStripCopiesThatScreenshotAndAnimates() async throws {
+    /// Older screenshots the user adopted for cleanup are listed like the others, by when
+    /// they were taken.
+    @Test func adoptedScreenshotsAreListedByAge() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        try await tracked(h, [("Seen.png", 40)])
+        try await tracked(h, [("Adopted.png", 20)], adopted: true)
+        try await tracked(h, [("Newest.png", 10)])
+        #expect(await h.start())
+        #expect(await eventually { await self.names(h.model.recent) == ["Newest.png", "Adopted.png", "Seen.png"] })
+    }
+
+    /// After a relaunch nothing has been copied yet, but the list is not empty: the ledger's
+    /// screenshots, each with Copy.
+    @Test func relaunchListsTheScreenshotsFromTheLedger() async throws {
+        let first = try ModelHarness()
+        #expect(await first.start())
+        try first.shoot("Screenshot 1.png", size: 17)
+        try first.shoot("Screenshot 2.png", size: 18)
+        #expect(await eventually { await first.model.recent.first?.url.lastPathComponent == "Screenshot 2.png" })
+        #expect(await eventually { await first.ledger.entries().count == 2 })
+        first.tearDown()
+
+        let relaunched = try ModelHarness(relaunching: first)
+        defer { relaunched.tearDown() }
+        #expect(relaunched.model.lastCopied == nil)
+        #expect(await relaunched.start())
+        #expect(await eventually { await self.names(relaunched.model.recent) == ["Screenshot 2.png", "Screenshot 1.png"] })
+        #expect(relaunched.model.recent.allSatisfy { !relaunched.model.isOnClipboard($0) }, "every row offers Copy")
+        #expect(relaunched.model.thumbnails[relaunched.model.recent[0]] != nil)
+        #expect(relaunched.pasteboard.writes.isEmpty, "a relaunch copies nothing")
+    }
+
+    /// After a folder change the list never shows a file from the old folder.
+    @Test func listFollowsTheWatchedFolder() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        #expect(await h.start())
+        try h.shoot("Screenshot 1.png")
+        #expect(await eventually { await self.names(h.model.recent) == ["Screenshot 1.png"] })
+        let other = h.home.appendingPathComponent("Other", isDirectory: true)
+        try FileManager.default.createDirectory(at: other, withIntermediateDirectories: true)
+        try await h.model.setFolder(other)
+        #expect(await eventually { await h.model.watchedFolder?.path == other.path })
+        #expect(await eventually { await h.model.recent.isEmpty })
+        #expect(h.model.lastCopied?.url.lastPathComponent == "Screenshot 1.png", "still the last copy")
+    }
+
+    // MARK: - Copy and Copy again
+
+    /// Only the row whose screenshot ClipShot last put on the clipboard, while it is still
+    /// there, says Copy again: the floating preview's Copied badge follows the same file.
+    @Test func onlyTheScreenshotOnTheClipboardSaysCopyAgain() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        try await tracked(h, [("A.png", 40), ("B.png", 30)])
+        #expect(await h.start())
+        #expect(await eventually { await self.names(h.model.recent) == ["B.png", "A.png"] })
+        #expect(h.model.recent.allSatisfy { !h.model.isOnClipboard($0) }, "nothing copied yet: Copy on every row")
+
+        // A new screenshot is copied: its row on top says Copy again.
+        try h.shoot("New.png")
+        #expect(await eventually { await self.names(h.model.recent) == ["New.png", "B.png", "A.png"] })
+        #expect(h.model.isOnClipboard(try row(h, "New.png")))
+        let b = try row(h, "B.png"), a = try row(h, "A.png")
+        #expect(!h.model.isOnClipboard(b) && !h.model.isOnClipboard(a))
+
+        // Copy on an older row: that row says Copy again now, the top row Copy; the order
+        // stays by age.
+        #expect(await h.model.copyAgain(file: try row(h, "A.png")))
+        #expect(h.model.isOnClipboard(try row(h, "A.png")))
+        #expect(!h.model.isOnClipboard(try row(h, "New.png")))
+        #expect(names(h.model.recent) == ["New.png", "B.png", "A.png"])
+
+        // Another app copies something: no row says Copy again.
+        h.pasteboard.changeCount += 1
+        h.model.forgetClipboardIfReplaced()
+        #expect(h.model.recent.allSatisfy { !h.model.isOnClipboard($0) })
+    }
+
+    /// A row's Copy: that screenshot's PNG on the clipboard, with the menu bar's copy
+    /// animation. An explicit Copy, so it works while copying is paused (Task 12b ruling),
+    /// and paused copying writes nothing on its own meanwhile.
+    @Test func copyFromARowCopiesThatScreenshotAndAnimates() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }
         let files = try await tracked(h, [("A.png", 40), ("B.png", 30), ("C.png", 20)])
         #expect(await h.start())
-        #expect(await eventually { await self.names(h.model.recent) == ["B.png", "A.png"] })
+        #expect(await eventually { await self.names(h.model.recent) == ["C.png", "B.png", "A.png"] })
         #expect(h.model.flashPhase == 0, "nothing copied yet")
         #expect(h.pasteboard.writes.isEmpty)
 
-        let a = try #require(h.model.recent.last)
-        #expect(await h.model.copyAgain(file: a))
+        #expect(await h.model.copyAgain(file: try row(h, "A.png")))
         #expect(h.pasteboard.writes.last == (try Data(contentsOf: files[0].url)))
         #expect(h.model.flashPhase > 0, "the menu bar plays its copy animation")
         #expect(h.model.iconState == .copied)
-        #expect(h.model.latest?.file.url.lastPathComponent == "C.png", "the card keeps its screenshot")
+        #expect(names(h.model.recent) == ["C.png", "B.png", "A.png"], "the list keeps its order")
         let timer = try #require(h.timer)
         timer.fire(CopiedFlash.steps - 1)
         #expect(h.model.flashPhase == 0)
 
-        // Paused: a new screenshot is not copied, but the strip's Copy still is.
+        // Paused: a new screenshot is not copied, but a row's Copy still is.
         h.preferences.copyEnabled = false
         let writes = h.pasteboard.writes.count
         #expect(await eventually { await !h.model.copyEnabledInPipeline })
@@ -98,42 +188,41 @@ struct RecentTests {
         #expect(await h.copySettled(after: events))
         #expect(h.pasteboard.writes.count == writes, "paused: nothing is copied on its own")
         #expect(h.model.flashPhase == 0, "paused: no copy animation on its own")
-        let b = try #require(h.model.recent.first { $0.url.lastPathComponent == "B.png" })
-        #expect(await h.model.copyAgain(file: b))
+        #expect(await h.model.copyAgain(file: try row(h, "B.png")))
         #expect(h.pasteboard.writes.last == (try Data(contentsOf: files[1].url)))
         #expect(h.model.flashPhase > 0)
     }
 
-    @Test func trashFromStripUpdatesCardAndStrip() async throws {
+    // MARK: - Move to Trash and Undo
+
+    /// Any row: it leaves at once and the rows under it move up; the next read fills the last
+    /// row from an older screenshot; Undo puts it back in its place.
+    @Test func trashCollapsesTheRowAndUndoRestoresTheOrder() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }
-        try await tracked(h, [("A.png", 40), ("B.png", 30), ("C.png", 20)])
+        try await tracked(h, [("A.png", 50), ("B.png", 40), ("C.png", 30), ("D.png", 20), ("E.png", 10)])
         #expect(await h.start())
-        #expect(await eventually { await h.model.recent.count == 2 })
-        let card = try #require(h.model.latest?.file)
-        #expect(card.url.lastPathComponent == "C.png")
+        #expect(await eventually { await self.names(h.model.recent) == ["E.png", "D.png", "C.png", "B.png"] })
 
-        // From the strip: gone from it at once, the card stays.
-        let b = try #require(h.model.recent.first)
-        try await h.model.trash(b)
-        #expect(names(h.model.recent) == ["A.png"])
-        #expect(h.model.latest?.file == card)
-        #expect(h.model.undoable?.original == b.url)
-
-        // Undo puts it back where it was.
+        // A middle row.
+        let c = try row(h, "C.png")
+        try await h.model.trash(c)
+        #expect(names(h.model.recent) == ["E.png", "D.png", "B.png"], "at once, before the folder is read")
+        #expect(h.model.undoable?.original == c.url)
+        #expect(await eventually { await self.names(h.model.recent) == ["E.png", "D.png", "B.png", "A.png"] })
         #expect(await h.model.undoTrash())
-        #expect(await eventually { await self.names(h.model.recent) == ["B.png", "A.png"] })
+        #expect(await eventually { await self.names(h.model.recent) == ["E.png", "D.png", "C.png", "B.png"] })
 
-        // The card's own file: the strip's newest moves up into the card at once.
-        try await h.model.trash(card)
-        #expect(h.model.latest?.file.url.lastPathComponent == "B.png")
-        #expect(names(h.model.recent) == ["A.png"])
+        // The top row: the one under it moves up to the top.
+        let e = try row(h, "E.png")
+        try await h.model.trash(e)
+        #expect(names(h.model.recent) == ["D.png", "C.png", "B.png"])
+        #expect(await eventually { await self.names(h.model.recent) == ["D.png", "C.png", "B.png", "A.png"] })
         #expect(await h.model.undoTrash())
-        #expect(await eventually { await h.model.latest?.file.url.lastPathComponent == "C.png" })
-        #expect(await eventually { await self.names(h.model.recent) == ["B.png", "A.png"] })
+        #expect(await eventually { await self.names(h.model.recent) == ["E.png", "D.png", "C.png", "B.png"] })
     }
 
-    @Test func trashFromFloatingPreviewUpdatesCardAndStrip() async throws {
+    @Test func trashFromFloatingPreviewUpdatesTheList() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }
         h.prefs["show-thumbnail"] = false
@@ -142,23 +231,20 @@ struct RecentTests {
         #expect(await eventually { await h.model.previewModeKnown })
         try h.shoot("Screenshot 1.png")
         #expect(await eventually { await h.model.previews.visible.count == 1 })
-        #expect(await eventually { await h.model.latest?.file.url.lastPathComponent == "Screenshot 1.png" })
-        #expect(await eventually { await self.names(h.model.recent) == ["Earlier.png"] })
+        #expect(await eventually { await self.names(h.model.recent) == ["Screenshot 1.png", "Earlier.png"] })
         let shown = try #require(h.model.previews.visible.first?.file)
         #expect(await eventually { await h.ledger.contains(path: FolderGuard.canonicalPath(shown.url), resourceID: shown.resourceID) })
 
-        // The preview's Move to Trash: the card never keeps the trashed file.
+        // The preview's Move to Trash: the list never keeps the trashed file.
         try await h.model.trash(shown)
-        #expect(h.model.latest?.file.url.lastPathComponent == "Earlier.png")
-        #expect(h.model.recent.isEmpty)
+        #expect(names(h.model.recent) == ["Earlier.png"])
         #expect(h.model.previews.visible.isEmpty)
         h.model.refreshRecent()
         #expect(await h.recentSettled())
-        #expect(h.model.latest?.file.url.lastPathComponent == "Earlier.png", "a refresh does not bring it back")
+        #expect(names(h.model.recent) == ["Earlier.png"], "a refresh does not bring it back")
 
         #expect(await h.model.undoTrash())
-        #expect(await eventually { await h.model.latest?.file.url.lastPathComponent == "Screenshot 1.png" })
-        #expect(await eventually { await self.names(h.model.recent) == ["Earlier.png"] })
+        #expect(await eventually { await self.names(h.model.recent) == ["Screenshot 1.png", "Earlier.png"] })
     }
 
     @Test func undoShownFiveSeconds() async throws {
@@ -167,7 +253,7 @@ struct RecentTests {
         defer { h.tearDown() }
         let files = try await tracked(h, [("A.png", 40), ("B.png", 30), ("C.png", 20)])
         #expect(await h.start())
-        #expect(await eventually { await h.model.recent.count == 2 })
+        #expect(await eventually { await h.model.recent.count == 3 })
 
         // One Undo at a time: a second trash replaces the first one's.
         try await h.model.trash(files[0])
@@ -183,6 +269,24 @@ struct RecentTests {
         #expect(await h.model.undoTrash() == false)
         #expect(!RT.exists(files[1].url))
         #expect(!RT.exists(files[0].url))
+    }
+
+    /// Move to Trash the moment a new screenshot is listed: its ledger entry, written off the
+    /// main actor, is waited for rather than refused.
+    @Test func trashRightAfterCaptureIsNotRefused() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        #expect(await h.start())
+        for index in 1...5 {
+            let url = try h.shoot("Screenshot \(index).png")
+            let deadline = ContinuousClock.now + .seconds(5)
+            while h.model.lastCopied?.url.lastPathComponent != url.lastPathComponent, ContinuousClock.now < deadline {
+                await Task.yield()
+            }
+            let file = try #require(h.model.lastCopied)
+            try await h.model.trash(file)
+            #expect(!RT.exists(url))
+        }
     }
 
     // MARK: - Edits saved by replacing the file
@@ -245,81 +349,7 @@ struct RecentTests {
         #expect(await !h.ledger.contains(path: FolderGuard.canonicalPath(renamed), resourceID: file2.resourceID))
     }
 
-    // MARK: - The card
-
-    /// Nothing copied this session: the card shows the newest screenshot ClipShot saw being
-    /// taken, with Copy rather than Copy again; never an adopted older file.
-    @Test func cardFallbackIsObservedOnlyAndSaysCopy() async throws {
-        let h = try ModelHarness()
-        defer { h.tearDown() }
-        try await tracked(h, [("Adopted.png", 30)], adopted: true)
-        #expect(await h.start())
-        h.model.refreshRecent()
-        #expect(await h.recentSettled())
-        #expect(h.model.latest == nil, "only an adopted file: No screenshot copied yet")
-        #expect(names(h.model.recent) == ["Adopted.png"], "the strip still lists it")
-
-        try await tracked(h, [("Seen.png", 40)])
-        h.model.refreshRecent()
-        #expect(await eventually { await h.model.latest?.file.url.lastPathComponent == "Seen.png" })
-        #expect(h.model.latest?.isLastCopied == false)
-        #expect(names(h.model.recent) == ["Adopted.png"])
-
-        try h.shoot("Copied.png")
-        #expect(await eventually { await h.model.latest?.file.url.lastPathComponent == "Copied.png" })
-        #expect(h.model.latest?.isLastCopied == true)
-    }
-
-    /// After a relaunch nothing has been copied yet, but the card is not empty: it shows the
-    /// newest screenshot in the ledger, with Copy (the card fallback).
-    @Test func relaunchShowsTheLatestScreenshotFromTheLedger() async throws {
-        let first = try ModelHarness()
-        #expect(await first.start())
-        try first.shoot("Screenshot 1.png", size: 17)
-        try first.shoot("Screenshot 2.png", size: 18)
-        #expect(await eventually { await first.model.latest?.file.url.lastPathComponent == "Screenshot 2.png" })
-        #expect(await eventually { await first.ledger.entries().count == 2 })
-        first.tearDown()
-
-        let relaunched = try ModelHarness(relaunching: first)
-        defer { relaunched.tearDown() }
-        #expect(relaunched.model.lastCopied == nil)
-        #expect(await relaunched.start())
-        #expect(await eventually { await relaunched.model.latest?.file.url.lastPathComponent == "Screenshot 2.png" })
-        #expect(relaunched.model.latest?.isLastCopied == false, "the card offers Copy, not Copy again")
-        #expect(relaunched.model.latest?.thumbnail != nil)
-        #expect(names(relaunched.model.recent) == ["Screenshot 1.png"])
-        #expect(relaunched.pasteboard.writes.isEmpty, "a relaunch copies nothing")
-    }
-
-    /// The card's file goes to the Trash: the strip's newest screenshot ClipShot saw moves up
-    /// at once, never an adopted older file, not even until the next refresh corrects it.
-    @Test func trashedCardIsReplacedByAnObservedScreenshotOnly() async throws {
-        let h = try ModelHarness()
-        defer { h.tearDown() }
-        try await tracked(h, [("Seen.png", 40)])
-        try await tracked(h, [("Adopted.png", 20)], adopted: true)
-        try await tracked(h, [("Card.png", 10)])
-        #expect(await h.start())
-        #expect(await eventually { await h.model.recent.count == 2 })
-        let card = try #require(h.model.latest?.file)
-        #expect(card.url.lastPathComponent == "Card.png")
-        #expect(names(h.model.recent) == ["Adopted.png", "Seen.png"])
-
-        try await h.model.trash(card)
-        #expect(h.model.latest?.file.url.lastPathComponent == "Seen.png", "at once, skipping the adopted file")
-        #expect(names(h.model.recent) == ["Adopted.png"])
-        h.model.refreshRecent()
-        #expect(await h.recentSettled())
-        #expect(h.model.latest?.file.url.lastPathComponent == "Seen.png")
-        #expect(names(h.model.recent) == ["Adopted.png"])
-
-        // Only adopted files left: the card empties at once, the strip keeps them.
-        let seen = try #require(h.model.latest?.file)
-        try await h.model.trash(seen)
-        #expect(h.model.latest == nil)
-        #expect(names(h.model.recent) == ["Adopted.png"])
-    }
+    // MARK: - Thumbnails
 
     /// A thumbnail that could not be decoded while the file was still being written is tried
     /// again once the file changes: the failure belongs to that version of the file (same
@@ -332,10 +362,10 @@ struct RecentTests {
         let partial = try #require(CaptureFile.inspect(url))
         await h.ledger.record(partial)
         #expect(await h.start())
-        #expect(await eventually { await h.model.latest?.file.url.lastPathComponent == "Writing.png" })
+        #expect(await eventually { await self.names(h.model.recent) == ["Writing.png"] })
         h.model.refreshRecent()
         #expect(await h.recentSettled())
-        #expect(h.model.latest?.thumbnail == nil, "a file not written yet has no thumbnail")
+        #expect(h.model.thumbnails[h.model.recent[0]] == nil, "a file not written yet has no thumbnail")
 
         // The rest of the file lands in place: the same file, a new version.
         let handle = try FileHandle(forWritingTo: url)
@@ -345,39 +375,95 @@ struct RecentTests {
         let complete = try #require(CaptureFile.inspect(url))
         #expect(complete.resourceID == partial.resourceID)
         h.model.refreshRecent()
-        #expect(await eventually { await h.model.latest?.thumbnail != nil })
+        #expect(await eventually { await self.topRowHasThumbnail(h) })
+    }
+}
+
+/// What a row shows of a screenshot's name: the time at its end stays whole.
+struct FileNameLabelTests {
+    @Test func theTimeIsTheTail() throws {
+        let en = try #require(FileNameLabel.split("Screenshot 2026-10-19 at 09.41.12.png"))
+        #expect(en == FileNameLabel.Parts(head: "Screenshot 2026-10-19 at", tail: " 09.41.12.png"))
+        let us = try #require(FileNameLabel.split("Screenshot 2026-10-19 at 9.41.12\u{202F}AM.png"))
+        #expect(us.tail == " 9.41.12\u{202F}AM.png")
+        let numbered = try #require(FileNameLabel.split("Bildschirmfoto 2026-10-19 um 09.41.12 (2).png"))
+        #expect(numbered.tail == " 09.41.12 (2).png")
+        let es = try #require(FileNameLabel.split("Captura de pantalla 2026-10-19 a las 9.41.12.png"))
+        #expect(es.head == "Captura de pantalla 2026-10-19 a las")
+        #expect(FileNameLabel.split("Kept.png") == nil, "no time: cut in the middle as usual")
+        #expect(FileNameLabel.split("09.41.12.png") == nil, "nothing before the time to cut")
     }
 
-    /// After a folder change the card never shows a file from the old folder.
-    @Test func cardFollowsTheWatchedFolder() async throws {
-        let h = try ModelHarness()
-        defer { h.tearDown() }
-        #expect(await h.start())
-        try h.shoot("Screenshot 1.png")
-        #expect(await eventually { await h.model.latest?.file.url.lastPathComponent == "Screenshot 1.png" })
-        let other = h.home.appendingPathComponent("Other", isDirectory: true)
-        try FileManager.default.createDirectory(at: other, withIntermediateDirectories: true)
-        try await h.model.setFolder(other)
-        #expect(await eventually { await h.model.watchedFolder?.path == other.path })
-        #expect(await eventually { await h.model.latest == nil })
-        #expect(h.model.lastCopied?.url.lastPathComponent == "Screenshot 1.png", "still the last copy")
+    /// In the row's text column the time is whole, whatever the head: the head gives way.
+    @MainActor
+    @Test func aLongNameKeepsItsTime() async throws {
+        let name = "Captura de pantalla 2026-10-19 a las 9.41.12.png"
+        let parts = try #require(FileNameLabel.split(name))
+        let font = NSFont.systemFont(ofSize: 13, weight: .semibold)
+        let tail = (parts.tail as NSString).size(withAttributes: [.font: font]).width
+        let label = NSHostingView(rootView: FileNameLabel(name: name).font(Design.Typography.cardTitle)
+            .frame(width: RecentRow.textWidth, alignment: .leading))
+        label.frame.size = label.fittingSize
+        #expect(tail < RecentRow.textWidth / 2, "the tail takes \(tail) of \(RecentRow.textWidth) pt")
+        #expect(label.fittingSize.height < 20, "one line")
     }
+}
 
-    /// Move to Trash the moment the card shows a new screenshot: its ledger entry, written
-    /// off the main actor, is waited for rather than refused.
-    @Test func trashRightAfterCaptureIsNotRefused() async throws {
-        let h = try ModelHarness()
-        defer { h.tearDown() }
-        #expect(await h.start())
-        for index in 1...5 {
-            let url = try h.shoot("Screenshot \(index).png")
-            let deadline = ContinuousClock.now + .seconds(5)
-            while h.model.lastCopied?.url.lastPathComponent != url.lastPathComponent, ContinuousClock.now < deadline {
-                await Task.yield()
-            }
-            let file = try #require(h.model.lastCopied)
-            try await h.model.trash(file)
-            #expect(!RT.exists(url))
+/// VoiceOver: each row is one element named by its file, then its age, size and place in
+/// the list, with the row's actions by name; the list is labelled as a group.
+@MainActor
+struct RecentAccessibilityTests {
+    @Test func rowValueSaysAgeSizeAndPosition() {
+        var value = Copy.Recent.rowValue(age: "Just now", size: "1.2 MB", position: 1, count: 4)
+        value.locale = Locale(identifier: "en")
+        #expect(String(localized: value) == "Just now, 1.2 MB, 1 of 4")
+        let expected = ["sk": "1 z\u{00A0}4", "cs": "1 z\u{00A0}4", "de": "1 von 4", "es": "1 de 4", "fr": "1 sur 4"]
+        for (id, position) in expected {
+            var resource = Copy.Recent.rowValue(age: "x", size: "y", position: 1, count: 4)
+            resource.locale = Locale(identifier: id)
+            #expect(String(localized: resource) == "x, y, \(position)", "\(id)")
         }
+    }
+
+    /// The row's named actions, as its right-click menu has them: Copy again only on the
+    /// row whose screenshot is on the clipboard.
+    @Test func actionsAreNamedAsThePills() {
+        func titles(_ onClipboard: Bool) -> [String] {
+            RecentRow.Action.allCases.map {
+                var title = RecentRow.title($0, onClipboard: onClipboard)
+                title.locale = Locale(identifier: "en")
+                return String(localized: title)
+            }
+        }
+        #expect(titles(false) == ["Copy", "Edit with Markup", "Show in Finder", "Move to Trash"])
+        #expect(titles(true) == ["Copy again", "Edit with Markup", "Show in Finder", "Move to Trash"])
+    }
+
+    /// After the file name: the age as the row shows it, the size, and the place in the list.
+    @Test func valueSaysAgeSizeAndPlace() {
+        let now = Date(timeIntervalSinceReferenceDate: 800_000_000)
+        let en = Locale(identifier: "en_US")
+        func value(_ age: TimeInterval, _ position: Int, _ count: Int) -> String {
+            var resource = RecentRow.accessibilityValue(
+                created: now.addingTimeInterval(-age), size: "1.2 MB", position: position, count: count, now: now, locale: en)
+            resource.locale = en
+            return String(localized: resource)
+        }
+        #expect(value(10, 1, 4) == "Just now, 1.2 MB, 1 of 4")
+        #expect(value(41 * 60, 4, 4) == "41 minutes ago, 1.2 MB, 4 of 4")
+        #expect(value(26 * 3_600, 2, 3) == "Yesterday, 1.2 MB, 2 of 3")
+    }
+}
+
+/// The row's keyboard: Space and Return open Markup from the thumbnail only, never while
+/// one of its pills has focus (that pill takes the key).
+@MainActor
+struct RecentRowKeyTests {
+    @Test func onlyTheThumbnailOpensMarkup() {
+        #expect(RecentRow.keyOpensMarkup(focus: .thumbnail))
+        #expect(!RecentRow.keyOpensMarkup(focus: .copy))
+        #expect(!RecentRow.keyOpensMarkup(focus: .reveal))
+        #expect(!RecentRow.keyOpensMarkup(focus: .trash))
+        #expect(!RecentRow.keyOpensMarkup(focus: nil))
     }
 }

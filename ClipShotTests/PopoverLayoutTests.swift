@@ -55,7 +55,7 @@ struct PopoverLayoutTests {
         defer { h.tearDown() }
         #expect(await h.start())
         try h.shoot("Screenshot 1.png")
-        #expect(await eventually { await h.model.latest != nil })
+        #expect(await eventually { await !h.model.recent.isEmpty })
 
         let app = try await layout(h.model, offscreenCapture: false)
         let harness = try await layout(h.model, offscreenCapture: true)

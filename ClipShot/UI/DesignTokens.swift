@@ -124,13 +124,12 @@ enum Design {
         /// Faster than the system bounce, so the peak stays well under half a second.
         static let successBounceSpeed: Double = 1.5
 
-        // The popover's recent screenshots (A5, A6). Reduce Motion: `quick` crossfades.
+        // The popover's Undo and failure rows (A6). Reduce Motion: `quick` crossfades. The
+        // list of recent screenshots moves its rows on `layout`.
 
-        /// A screenshot slides into the strip and its neighbours make room or close a gap.
-        static let stripSpring = Spring(duration: 0.32, bounce: 0.18)
-        static let strip: Animation = .spring(stripSpring)
-        /// A screenshot leaves the strip: it shrinks and drops, the Trash's nod.
-        static let stripLeave: Animation = .easeIn(duration: 0.2)
+        /// The rows around the Undo row make room for it, or close up after it.
+        static let undoSpring = Spring(duration: 0.32, bounce: 0.18)
+        static let undoMakeRoom: Animation = .spring(undoSpring)
         /// The Undo row drops in from just above; it leaves by fading, faster.
         static let undoIn: Animation = .spring(duration: 0.3, bounce: 0.22)
         static let undoDrop: CGFloat = 8

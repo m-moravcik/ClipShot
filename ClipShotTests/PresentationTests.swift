@@ -148,12 +148,12 @@ struct RetentionModeTests {
     }
 }
 
-struct LatestCaptureAgeTests {
+struct ScreenshotAgeJustNowTests {
     @Test func justNowForTheFirstMinute() {
         let created = Date(timeIntervalSince1970: 1_000_000)
-        #expect(LatestCapture.isJustNow(created, now: created))
-        #expect(LatestCapture.isJustNow(created, now: created.addingTimeInterval(59.9)))
-        #expect(!LatestCapture.isJustNow(created, now: created.addingTimeInterval(60)))
+        #expect(ScreenshotAge.isJustNow(created, now: created))
+        #expect(ScreenshotAge.isJustNow(created, now: created.addingTimeInterval(59.9)))
+        #expect(!ScreenshotAge.isJustNow(created, now: created.addingTimeInterval(60)))
         #expect(en(Copy.Latest.justNow) == "Just now")
     }
 }
@@ -213,7 +213,7 @@ struct TrailingActionLayoutTests {
     }
 }
 
-/// The latest card's actions: content-sized pills, leading, that wrap onto a second line
+/// A recent screenshot's actions: content-sized pills, leading, that wrap onto a second line
 /// rather than stretching or truncating.
 struct FlowLayoutTests {
     @Test func linesBreakOnlyWhenTheNextOneDoesNotFit() {
@@ -225,8 +225,8 @@ struct FlowLayoutTests {
         #expect(FlowLayout.lines(widths: [], width: 260, spacing: 4).isEmpty)
     }
 
-    /// The card's three pills, laid out `width` wide; their frames and the row's height.
-    /// `reveal` nil: Show in Finder as a symbol only, as the card has it.
+    /// A row's three pills, laid out `width` wide; their frames and the row's height.
+    /// `reveal` nil: Show in Finder as a symbol only, as a row has it.
     @MainActor
     private func layOut(
         copy: String, reveal: String?, width: CGFloat, direction: LayoutDirection = .leftToRight
@@ -260,7 +260,7 @@ struct FlowLayoutTests {
         return (f, ideal, view.fittingSize.height)
     }
 
-    /// The card as it is, in its 260 pt: one line, leading, each pill at its own width, and
+    /// The pills in 260 pt: one line, leading, each pill at its own width, and
     /// the symbol-only pills as tall as Copy again.
     @MainActor
     @Test func pillsAreContentSizedOnOneLine() async throws {
@@ -284,7 +284,8 @@ struct FlowLayoutTests {
         #expect(height > 2 * f[0].height)
     }
 
-    /// The longest Copy again of the six languages fits one line with the two symbol pills.
+    /// The longest Copy again of the six languages fits one line with the two symbol pills,
+    /// in a row's text column.
     @MainActor
     @Test func everyLanguageFitsOneLine() async throws {
         var titles: [String] = []
@@ -296,9 +297,9 @@ struct FlowLayoutTests {
             }
         }
         let widest = try #require(titles.max { $0.count < $1.count })
-        let (f, _, _) = try await layOut(copy: widest, reveal: nil, width: 260)
+        let (f, _, _) = try await layOut(copy: widest, reveal: nil, width: RecentRow.textWidth)
         #expect(Set(f.map(\.minY)).count == 1, "\(widest): \(f)")
-        #expect(f[2].maxX <= 260)
+        #expect(f[2].maxX <= RecentRow.textWidth)
     }
 
     /// Right to left, the row mirrors: the first pill at the right-hand edge.
@@ -310,24 +311,24 @@ struct FlowLayoutTests {
     }
 }
 
-/// The card's age in words, and "Just now" for the first minute.
-struct LatestAgeTests {
+/// A recent screenshot's age in words, and "Just now" for the first minute.
+struct ScreenshotAgeTests {
     private let now = Date(timeIntervalSinceReferenceDate: 800_000_000)
     private let en = Locale(identifier: "en_US")
 
     @Test func naturalRelativeAge() {
-        #expect(LatestCapture.isJustNow(now.addingTimeInterval(-59), now: now))
-        #expect(!LatestCapture.isJustNow(now.addingTimeInterval(-60), now: now))
-        #expect(LatestCapture.relativeAge(now.addingTimeInterval(-(41 * 60 + 24)), now: now, locale: en) == "41 minutes ago")
-        #expect(LatestCapture.relativeAge(now.addingTimeInterval(-2 * 3_600), now: now, locale: en) == "2 hours ago")
-        #expect(LatestCapture.relativeAge(now.addingTimeInterval(-26 * 3_600), now: now, locale: en) == "Yesterday")
-        #expect(LatestCapture.relativeAge(now.addingTimeInterval(5), now: now, locale: en) == "Now", "never in the future")
+        #expect(ScreenshotAge.isJustNow(now.addingTimeInterval(-59), now: now))
+        #expect(!ScreenshotAge.isJustNow(now.addingTimeInterval(-60), now: now))
+        #expect(ScreenshotAge.relative(now.addingTimeInterval(-(41 * 60 + 24)), now: now, locale: en) == "41 minutes ago")
+        #expect(ScreenshotAge.relative(now.addingTimeInterval(-2 * 3_600), now: now, locale: en) == "2 hours ago")
+        #expect(ScreenshotAge.relative(now.addingTimeInterval(-26 * 3_600), now: now, locale: en) == "Yesterday")
+        #expect(ScreenshotAge.relative(now.addingTimeInterval(5), now: now, locale: en) == "Now", "never in the future")
     }
 
     /// Every language of the app gets the age in its own words, never seconds.
     @Test func everyLanguageSaysItsOwnWords() {
         for id in ["sk", "cs", "de", "es", "fr"] {
-            let text = LatestCapture.relativeAge(now.addingTimeInterval(-41 * 60), now: now, locale: Locale(identifier: id))
+            let text = ScreenshotAge.relative(now.addingTimeInterval(-41 * 60), now: now, locale: Locale(identifier: id))
             #expect(text.contains("41") && !text.contains("ago"), "\(id): \(text)")
         }
     }
@@ -336,19 +337,6 @@ struct LatestAgeTests {
         let switchAt = now.addingTimeInterval(30)
         let entries = Array(AgeSchedule(switchAt: switchAt).entries(from: now, mode: .normal).prefix(3))
         #expect(entries == [now, switchAt, switchAt.addingTimeInterval(60)])
-    }
-}
-
-/// The strip's keyboard: Space and Return open Markup from the thumbnail only, never while
-/// one of its buttons has focus (that button takes the key).
-@MainActor
-struct RecentItemKeyTests {
-    @Test func onlyTheThumbnailOpensMarkup() {
-        #expect(RecentItem.keyOpensMarkup(focus: .thumbnail))
-        #expect(!RecentItem.keyOpensMarkup(focus: .copy))
-        #expect(!RecentItem.keyOpensMarkup(focus: .reveal))
-        #expect(!RecentItem.keyOpensMarkup(focus: .trash))
-        #expect(!RecentItem.keyOpensMarkup(focus: nil))
     }
 }
 
@@ -371,32 +359,6 @@ struct HeaderStatusTests {
         #expect(attention.tint == .orange)
         #expect(en(attention.detailText) == "2 issues to fix")
         #expect(en(HeaderStatus(state: .attention, detail: .issues(1)).detailText) == "1 issue to fix")
-    }
-}
-
-/// The strip's hover pills (Task 12f leftover): three fit inside the 64 pt thumbnail with
-/// at least 4 pt on each side, and each still takes clicks over at least 20 x 20 pt.
-@MainActor
-struct RecentItemLayoutTests {
-    private func compactPill(_ symbol: String) -> CGSize {
-        NSHostingView(rootView: Button {} label: { PillLabel(symbol: symbol) }
-            .buttonStyle(PillButtonStyle(compact: true, onImage: true))).fittingSize
-    }
-
-    @Test func threePillsKeepAMarginInsideTheThumbnail() {
-        let widths = ["doc.on.doc", "checkmark", "folder", "trash"].map { compactPill($0).width }
-        let widest = widths.max() ?? 0
-        let bar = widest * 3 + RecentItem.barSpacing * 2
-        #expect((Design.Layout.thumbnailSize.width - bar) / 2 >= 4, "bar \(bar) pt in \(Design.Layout.thumbnailSize.width)")
-    }
-
-    @Test func eachPillStillTakesTwentyPointClicks() {
-        let size = compactPill("trash")
-        let outset = PillButtonStyle.compactHitOutset * 2
-        #expect(size.width + outset >= 20)
-        #expect(size.height + outset >= 20)
-        // Neighbouring click areas meet but never overlap: a click goes to one pill.
-        #expect(outset <= RecentItem.barSpacing)
     }
 }
 

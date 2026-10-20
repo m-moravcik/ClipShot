@@ -10,12 +10,17 @@
 # scripts/readme-screenshots.sh, so a new menu bar symbol or a UI change is one command away
 # from the README.
 #
+# Measures: "measure:" lines give the popover's content height and its shown height (capped
+# at 600 pt) for popover, popover-one, popover-undo and popover-full; the run fails if a
+# popover is taller than the cap.
+#
 # Checks: in every language, Settings > Capture with the destination guard must keep at
 # least the Form's standard 20 pt under its last section; the run fails (after writing every
 # picture) when it does not. `all` is how the six real languages are checked together.
 #
-# Writes, in -light and -dark: popover, popover-paused, popover-attention, popover-full
-# (every row at once, so long translations reach the height cap), attention-* (one per
+# Writes, in -light and -dark: popover, popover-one, popover-paused, popover-attention,
+# popover-full (every row at once, Undo included: past the height cap, so the middle
+# scrolls), attention-* (one per
 # attention row), settings-{general,capture,retention,about}, settings-general-replayed,
 # settings-retention-{cleaned,trash-not-opened,nothing-moved} (just after Clean up now),
 # onboarding-3-tidy-fresh (step 3 on a fresh install, offering the older screenshots),
@@ -27,11 +32,10 @@
 # preview, preview-hover, preview-stack (three, the newest with "+1"), preview-motion (key
 # frames of its springs), plus popover-macos-mode, settings-capture-macos-mode and
 # popover-preview-offer (the one-time offer after an update with the macOS thumbnail on).
-# The popover pictures show the strip of earlier screenshots under the latest card;
-# popover-recent-hover has the pointer over one of them, with its Copy, Show in Finder and
-# Move to Trash buttons, and popover-recent-hover-white / -dark-shot the same over a white
-# and over a dark screenshot; popover-pill-hover has the pointer on the card's Show in
-# Finder pill;
+# The popover pictures show the list of the four most recent screenshots, the current one
+# on top; popover-one has a single row (the first screenshot), popover-recent-hover the
+# pointer over the second row's picture (its pencil), popover-pill-hover the pointer on the
+# second row's Copy pill;
 # popover-undo is the popover just after Move to Trash, with its Undo row, and popover-note
 # the same place saying why a Move to Trash did not happen; preview-undo is a preview that
 # moved its screenshot to the Trash (Undo on the preview) above one whose move failed,

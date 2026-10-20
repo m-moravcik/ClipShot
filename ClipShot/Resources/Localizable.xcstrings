@@ -83,6 +83,47 @@
         }
       }
     },
+    "%@, %@, %@ of %@" : {
+      "comment" : "VoiceOver value of a row in the list of recent screenshots: its age, file size, then its place in the list, as in 1 of 4",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@, %3$@ of %4$@"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@, %3$@ z %4$@"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@, %3$@ z %4$@"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@, %3$@ von %4$@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@, %3$@ de %4$@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@, %3$@ sur %4$@"
+          }
+        }
+      }
+    },
     "%lld days" : {
       "comment" : "Retention period",
       "localizations" : {
@@ -4667,7 +4708,7 @@
       }
     },
     "Just now" : {
-      "comment" : "Age of the latest screenshot when it is under a minute old",
+      "comment" : "Age of a recent screenshot when it is under a minute old",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5202,47 +5243,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "Latest screenshot, %@, %@" : {
-      "comment" : "VoiceOver label of the thumbnail: age, then file size",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Latest screenshot, %@, %@"
-          }
-        },
-        "sk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Posledná snímka, %1$@, %2$@"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Poslední snímek, %1$@, %2$@"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Letztes Bildschirmfoto, %1$@, %2$@"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Última captura, %1$@, %2$@"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dernière capture, %1$@, %2$@"
           }
         }
       }
@@ -7269,7 +7269,7 @@
       }
     },
     "Recent screenshots" : {
-      "comment" : "VoiceOver label of the strip of earlier screenshots under the latest card",
+      "comment" : "VoiceOver label of the popover's list of recent screenshots, newest first",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -8034,47 +8034,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aperçus des captures"
-          }
-        }
-      }
-    },
-    "Screenshot, %@" : {
-      "comment" : "VoiceOver label of one earlier screenshot in the popover: its relative age",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Screenshot, %@"
-          }
-        },
-        "sk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Snímka, %@"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Snímek, %@"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bildschirmfoto, %@"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Captura, %@"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Capture, %@"
           }
         }
       }

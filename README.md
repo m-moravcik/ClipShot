@@ -12,7 +12,7 @@ away, and it can move old screenshots to the Trash if you want it to.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/hero-dark.png">
-    <img src="docs/screenshots/hero-light.png" width="440" alt="ClipShot open under its menu bar icon: copying is on, the screenshot just taken with Copy again, Show in Finder and Move to Trash, four earlier screenshots below it, the Copy to clipboard switch and the cleanup summary">
+    <img src="docs/screenshots/hero-light.png" width="440" alt="ClipShot open under its menu bar icon: copying is on, the four most recent screenshots in a list, the one just taken on top with Copy again, each row with its picture, name, age and size and Copy, Show in Finder and Move to Trash, then the Copy to clipboard switch and the cleanup summary">
   </picture>
 </p>
 
@@ -43,8 +43,8 @@ kept piling up. ClipShot is that script done properly.
 - **Shows its own preview.** A small preview in the corner of the screen, like the
   macOS thumbnail but without holding the file back. Click it to mark the
   screenshot up, drag it into any app, or swipe it away.
-- **Keeps the last few at hand.** The menu bar popover shows the latest screenshot
-  and the four before it, each one click from Markup, Finder or the Trash.
+- **Keeps the last few at hand.** The menu bar popover lists your four most recent
+  screenshots, newest on top, each one click from Markup, Finder or the Trash.
 - **Cleans up, if you ask it to.** Screenshots older than a period you choose go to
   the Trash. Off until you turn it on, and careful about what it touches (see
   [Retention and safety](#retention-and-safety)).
@@ -125,19 +125,17 @@ Preview instead.
 ### The popover
 
 Click the menu bar icon. At the top, whether copying is on, anything that needs
-fixing, and a downloaded update when one is ready. Below it, the latest screenshot
-with Copy again, Show in Finder and Move to Trash (its picture opens Markup, drags
-out and has the same right-click menu), and a strip of the four screenshots before
-it, each with the same
-Copy, Show in Finder and Move to Trash on hover (click one for Markup, right-click
-for the menu, or drag one out). Then the Copy to clipboard
-switch, the cleanup summary, and at the bottom Open Screenshots Folder, Settings,
-About and Quit.
+fixing, and a downloaded update when one is ready. Below it, your four most recent
+screenshots, newest on top, one row each and all alike: the picture (click it for
+Markup, drag it into any app, or right-click for the menu), the name, how long ago
+and the size, then Copy, Show in Finder and Move to Trash. The screenshot that is on
+the clipboard now says Copy again. Then the Copy to clipboard switch, the cleanup
+summary, and at the bottom Open Screenshots Folder, Settings, About and Quit.
 
 ### Move to Trash, and Undo
 
-Move to Trash on the preview, the latest screenshot or the strip moves the file to
-the Trash, with no dialog. For five seconds the popover shows **Undo** (⌘Z), which
+Move to Trash on the preview or on a row in the popover moves the file to the Trash,
+with no dialog; the rows below move up and an older screenshot fills the last row. For five seconds the popover shows **Undo** (⌘Z), which
 puts it back where it was; moved from the floating preview, the preview itself
 turns into **Moved to the Trash** with Undo, so there is no need to open the
 popover. If a move or an Undo cannot happen, ClipShot says why where you clicked.
@@ -145,7 +143,7 @@ popover. If a move or an Undo cannot happen, ClipShot says why where you clicked
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/popover-undo-dark.png">
-    <img src="docs/screenshots/popover-undo-light.png" width="388" alt="The popover just after Move to Trash: a Moved to the Trash row with Undo above the latest screenshot, and the strip of earlier screenshots filled up again">
+    <img src="docs/screenshots/popover-undo-light.png" width="388" alt="The popover just after Move to Trash: a Moved to the Trash row with Undo above the list of recent screenshots, which has filled up again to four">
   </picture>
 </p>
 

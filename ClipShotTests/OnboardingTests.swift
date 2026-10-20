@@ -109,8 +109,8 @@ struct OnboardingTests {
         let trying = tour
         #expect(await eventually { await trying.tried(h.model)?.url.lastPathComponent == "Screenshot 1.png" })
         // The copied state shows the decoded thumbnail of that same screenshot.
-        #expect(await eventually { await h.model.latest?.file == trying.tried(h.model) })
-        #expect(h.model.latest?.thumbnail != nil)
+        #expect(await eventually { await h.model.recent.first == trying.tried(h.model) })
+        #expect(h.model.recent.first.flatMap { h.model.thumbnails[$0] } != nil)
         #expect(!h.preferences.onboardingShown, "a copy does not end the tour")
     }
 
