@@ -115,13 +115,49 @@ keeps it in the ledger (`ScreenshotLedger.followEdit`).
 ### Motion
 
 Every animation has a job (confirm the copy, show where a screenshot went,
-connect two states), uses springs, and settles within about 0.45 s. The tokens
-live in `Design.Motion`. With Reduce Motion every transition is an opacity
-crossfade. The menu bar copy animation is the one longer moment (1.5 s,
-`Design.Motion.menuBarCopy`): a `MenuBarExtra` label reaches the status item as
-a static image and symbol effects never run there (spike F-menubar-anim), so it
-is drawn frame by frame by a 30 fps timer that runs only while it plays. With
-Reduce Motion it is a plain 1.4 s hold of the copied pose on a single timer.
+connect two states, alert, introduce Peg, celebrate the first copy once). In-app
+transitions use springs and settle in 200-450 ms. Menu bar moments are the
+longer ones: a glyph at the edge of the screen has to be slow enough to catch
+at a glance, so the copy animation runs 2.4 s, as VibeRes's approved menu bar
+animation does. Every duration and curve is a token in `Design.Motion`; nothing
+is hard-coded in a view. With Reduce Motion every transition is an opacity
+crossfade or the end state, and decoration (the breathing viewfinder, the
+celebration, the header's nod) does not play.
+
+A `MenuBarExtra` label reaches the status item as a static image and symbol
+effects never run there (spike F-menubar-anim), so Peg's moments are drawn
+frame by frame by a 30 fps timer that runs only while one plays (`PegFlash`):
+
+| Moment | When | Length | Reduce Motion |
+|---|---|---|---|
+| Copy | every copy | 2.4 s | the copied pose held 1.4 s on one timer |
+| Attention | when something first needs fixing | 0.9 s | the "!" pose at once |
+| Pause | Copy to clipboard switched off | 0.6 s | the dashed card at once |
+| Resume | Copy to clipboard switched on | 0.9 s | the picture at once |
+
+Each ends exactly on its resting pose. A copy plays over an attention (it did
+happen) and ends on the card the icon rests on, dashed while paused or "!"
+while something needs attention; a change of state never cuts a copy short. The
+floating preview's Copied badge and the tour's check bounce as Peg's clamp
+bites (`Design.Motion.pegged`, derived from `Peg.Beat`), so a retime keeps the
+three in step.
+
+In the app:
+
+- Floating preview: arrival, landing, badge bounce (again after Copy again),
+  stack, drop and fling as before; hover lifts the card 2 pt and spreads its
+  shadow; past the point where letting go dismisses it, a swipe tips the card
+  2 degrees and fades it a little, with a Force Touch trackpad tick; a file drag
+  carries the picture larger, raised and shadowed while the card ghosts; "+N"
+  pops in.
+- Popover: a row Undo puts back grows into the strip's place; the header's
+  symbol nods once per new problem.
+- Tour: each step's symbol appears with draw-on (a fade for symbols without draw
+  data, which `folder`, `camera.viewfinder` and `trash` are on macOS 26); the
+  folder turns into the viewfinder in place; while Try it waits, the viewfinder
+  breathes and Peg waits, half as large again, beside "Watch the menu bar", then
+  plays the menu bar's own frames; the first copy ever bursts small cards from
+  the check, once per install; the current dot slides to the next step.
 
 ## The ledger and retention
 
@@ -182,15 +218,18 @@ Each state has its own silhouette:
 
 On every copy the peg opens, the last shot drops, the new one slides in along
 the line, gets pegged with a squash, swings and bobs, develops from the bottom
-and shows the check, then turns back into the picture: 45 frames in 1.5 s
-(`Peg.pose(at:)`, driven by `CopiedFlash`). With Reduce Motion the copied card
-is held for 1.4 s, no movement. The idle glyph is as tall as VibeRes's, no
+and shows the check, then turns back into the card it rests on: 72 frames in
+2.4 s (`Peg.pose(at:from:to:)`, driven by `PegFlash`). Its other moments swing
+the card into the "!" pose, break the outline into dashes, and join it up again
+(see Motion). With Reduce Motion the copied card is held for 1.4 s, no
+movement, and the other states change in one frame. The idle glyph is as tall as VibeRes's, no
 wider than Eject Guard's drive and drawn in the same stroke weight; tests pin
 all three.
 
-`scripts/screenshots.sh` renders every state and every frame of the animation
-(`menubar-states.png`), and the optical size next to VibeRes and Eject Guard
-(`menubar-optical-size.png`).
+`scripts/screenshots.sh` renders every state and every frame of the copy
+animation (`menubar-states.png`), every frame of every moment
+(`menubar-moments.png`, and one PNG per frame in `peg-frames/` for GIFs), and
+the optical size next to VibeRes and Eject Guard (`menubar-optical-size.png`).
 
 ## Languages
 
@@ -355,11 +394,11 @@ ClipShot/Core/      no SwiftUI: capture marker, copy pipeline, ledger, retention
                     folder guard, screencapture prefs and backup, log
 ClipShot/UI/        the app model, popover, floating preview, Settings, tour,
                     Markup, updater
-ClipShot/Preview/   Debug only: the screenshot harness and its demo data
+ClipShot/Preview/   Debug only: the screenshot harness, the motion demo, demo data
 ClipShot/Resources/ String Catalogs
 ClipShot/AppIcon.icon   Icon Composer document
 ClipShotTests/      Swift Testing suites; fixtures from the spike and for l10n
-scripts/            release, appcast, screenshots, guards, l10n, spike probes
+scripts/            release, appcast, screenshots, motion demo, guards, l10n, spike probes
 docs/               spike, translations, README pictures, design and plan
 release-notes/      one file per version
 Casks/              reference copy of the Homebrew cask
@@ -390,7 +429,9 @@ Swift Testing. Pure logic is tested; views are not, except their layout rules. T
 | `PreviewModeTests`, `EditSessionTests`, `TrashTests` | The mode follows the system thumbnail; the Markup exemption; only ledger files in the watched folder go to the Trash, and Undo puts them back. |
 | `UpdaterGateTests`, `SparkleConfigurationTests` | Ad-hoc and Homebrew copies never self-update; the feed and key are what releases expect. |
 | `LocalisationTests` | The l10n gate fails on the broken catalogs in `ClipShotTests/Fixtures/l10n`. |
-| `StatusIconStateTests`, `CopiedFlashTests`, `PopoverLayoutTests` | The menu bar label is never scaled and fits its frame; every state has its own silhouette; Peg matches the siblings' height, width and stroke; the copy animation starts and ends at rest, one timer tick per frame and none after; Reduce Motion holds the copied pose; the popover's bottom soft scroll edge. |
+| `StatusIconStateTests`, `PegFlashTests`, `PopoverLayoutTests` | The menu bar label is never scaled and fits its frame; every state has its own silhouette; Peg matches the siblings' height, width and stroke; the copy animation starts and ends at rest, one timer tick per frame and none after; Reduce Motion holds the copied pose; the bounces are derived from Peg's clamp; the popover's bottom soft scroll edge. |
+| `PegMomentTests`, `PegMomentModelTests` | Every moment starts where the icon rested and ends exactly on its resting pose, every frame is a template image that fits the canvas; the model plays them on real state changes only, once, never cuts a copy short, leaves no timer behind, and plays none with Reduce Motion. |
+| `PreviewMotionTests`, `OnboardingTests` | The swipe commits exactly where a release dismisses; the drag image is lifted off its card; Copy again reports back so the badge bounces; the first copy is celebrated once per install, the burst stays small, short and ends. |
 
 Tests never touch real preferences (`make guards` refuses `UserDefaults` in
 tests) and use temporary folders. A check that something did *not* happen waits
@@ -476,5 +517,15 @@ takes the popover pictures from a window on screen through ScreenCaptureKit
 instead, over a demo desktop. That needs Screen Recording for the Debug build,
 granted by hand; the harness never asks for it and stops with a message when it
 is missing.
+
+Motion is judged in motion: `scripts/motion-demo.sh` (light, or `dark`) plays
+the real views on demo data live, in a floating window at the top left of the
+main screen, for 30 s: the tour's Try it with Peg and the first-copy
+celebration, the floating preview, the popover's Undo, its strip closing, its
+header's nod, and Peg's attention, pause and resume. Record the screen
+meanwhile and crop to the window. Like the harness, it never touches this Mac's
+screenshot settings, folder, clipboard or preferences. Hover, swipe and drag
+need a pointer and a Force Touch trackpad, so they are checked by hand; their
+end states are key frames in `preview-motion`.
 
 The README video of the real flow (shortcut, preview, paste) is recorded by hand.

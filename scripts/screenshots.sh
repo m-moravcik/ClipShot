@@ -28,10 +28,11 @@
 # settings-retention-older (the offer for screenshots from before ClipShot ran),
 # settings-capture-attention (the destination guard), onboarding-* (every tour step, and
 # Try it blocked by an attention), hero (popover under the menu bar, README) and banner
-# (1920x1080). Plus icon.png, menubar-states.png and menubar-optical-size.png (the states
-# beside VibeRes and Eject Guard, sized as the menu bar draws them). The floating preview:
+# (1920x1080). Plus icon.png, menubar-states.png, menubar-moments.png (every frame of Peg's
+# moments) with peg-frames/ (one PNG per frame, for GIFs) and menubar-optical-size.png (the
+# states beside VibeRes and Eject Guard, sized as the menu bar draws them). The floating preview:
 # preview, preview-hover, preview-stack (three, the newest with "+1"), preview-motion (key
-# frames of its springs), plus popover-macos-mode, settings-capture-macos-mode and
+# frames of its springs, the swipe tipping past the dismiss point, hover and a drag in hand), plus popover-macos-mode, settings-capture-macos-mode and
 # popover-preview-offer (the one-time offer after an update with the macOS thumbnail on).
 # The popover pictures show the list of the four most recent screenshots, the current one
 # on top; popover-one has a single row (the first screenshot), popover-recent-hover the

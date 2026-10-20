@@ -174,6 +174,12 @@ struct OnboardingView: View {
 
             bottomBar
         }
+        #if DEBUG
+        // The live motion demo presses the prominent button (MotionDemo).
+        .onReceive(NotificationCenter.default.publisher(for: MotionDemo.advanceTour)) { _ in
+            withAnimation(Design.Motion.quick) { tour.advance(model) }
+        }
+        #endif
     }
 
     private var topBar: some View {
@@ -470,13 +476,13 @@ enum TrySuccessMotion {
     }
 }
 
-/// Peg, the menu bar icon, at twice its size: it plays every frame the menu bar plays (the
+/// Peg, the menu bar icon, half as large again: it plays every frame the menu bar plays (the
 /// same poses, from the model, in step by construction), so Try it shows what the icon up
 /// there just did. Reduce Motion: the menu bar's held copied pose, then rest.
 private struct TourPeg: View {
     @Environment(AppModel.self) private var model
 
-    static let scale: CGFloat = 2
+    static let scale: CGFloat = 1.5
 
     var body: some View {
         Image(nsImage: Peg.image(model.iconPose, scale: Self.scale))

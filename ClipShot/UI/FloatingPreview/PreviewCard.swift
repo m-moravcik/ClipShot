@@ -107,11 +107,11 @@ struct PreviewCard: View {
     /// The screenshot is being dragged into another app: the card ghosts while it is in hand.
     @State private var inHand = false
 
-    /// `hovering` and `imageScale` exist for the render harness, which draws the hover state
-    /// and animation key frames.
+    /// `hovering`, `imageScale` and `dragX` exist for the render harness, which draws the
+    /// hover state and animation key frames.
     init(
         item: PreviewItem, actions: PreviewActions, showsCopied: Bool = true, hovering: Bool = false,
-        imageScale: CGFloat? = nil
+        imageScale: CGFloat? = nil, dragX: CGFloat = 0
     ) {
         self.item = item
         self.actions = actions
@@ -119,6 +119,7 @@ struct PreviewCard: View {
         self.imageScale = imageScale
         _hovering = State(initialValue: hovering)
         _offerCopy = State(initialValue: hovering)
+        _dragX = State(initialValue: dragX)
     }
 
     /// The image starts this much smaller and lands into the card.
@@ -162,24 +163,20 @@ struct PreviewCard: View {
             overlays
         }
         .frame(width: size.width, height: size.height)
-        // Past the point where letting go dismisses it, the card tips and fades a little, and
-        // comes back if the pointer does; a Force Touch trackpad ticks as it crosses.
-        // Hover lifts it towards the pointer. Both scoped to their own animation, so the
-        // swipe itself keeps following the pointer frame by frame.
-        .animation(Design.Motion.swipeCommit) { content in
-            content
-                .rotationEffect(.degrees(pastDismissPoint && !reduceMotion ? Design.Motion.swipeCommitAngle : 0),
-                                anchor: .bottomLeading)
-                .opacity(pastDismissPoint ? Design.Motion.swipeCommitOpacity : 1)
-        }
-        .animation(Design.Motion.hover) { content in
-            content.offset(y: hovering && !reduceMotion ? -Design.Motion.hoverLift : 0)
-        }
+        // Hover lifts it towards the pointer. Past the point where letting go dismisses it,
+        // the card tips and fades a little, and comes back if the pointer does; a Force Touch
+        // trackpad ticks as it crosses. Each animates on its own value, inside the swipe's
+        // offset, so the swipe itself keeps following the pointer frame by frame.
+        .offset(y: hovering && !reduceMotion ? -Design.Motion.hoverLift : 0)
+        .animation(Design.Motion.hover, value: hovering)
+        .rotationEffect(.degrees(pastDismissPoint && !reduceMotion ? Design.Motion.swipeCommitAngle : 0),
+                        anchor: .bottomLeading)
+        .opacity(pastDismissPoint ? Design.Motion.swipeCommitOpacity : 1)
+        .animation(Design.Motion.swipeCommit, value: pastDismissPoint)
         .offset(x: dragX)
         .opacity(reduceMotion && dragX > 0 ? Double(max(0.3, 1 - dragX / size.width)) : 1)
-        .animation(Design.Motion.quick) { content in
-            content.opacity(inHand ? Design.Motion.dragGhostOpacity : 1)
-        }
+        .opacity(inHand ? Design.Motion.dragGhostOpacity : 1)
+        .animation(Design.Motion.quick, value: inHand)
         .onChange(of: pastDismissPoint) { _, past in
             if past { NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now) }
         }
@@ -225,9 +222,8 @@ struct PreviewCard: View {
         .background(shape.fill(Color(nsColor: .windowBackgroundColor)))
         // Hover: the card lifts (see `card`) and its shadow spreads. Reduce Motion keeps the
         // shadow, which is not movement.
-        .animation(Design.Motion.hover) { content in
-            content.shadow(color: .black.opacity(0.28), radius: hovering ? 14 : 10, y: hovering ? 6 : 4)
-        }
+        .shadow(color: .black.opacity(0.28), radius: hovering ? 14 : 10, y: hovering ? 6 : 4)
+        .animation(Design.Motion.hover, value: hovering)
     }
 
     private var overlays: some View {

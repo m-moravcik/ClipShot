@@ -24,7 +24,12 @@ final class DemoScene {
     private let staging: URL
 
     /// `hasTrash: false` gives the folder a volume without a Trash, for that attention.
-    init(in root: URL, onboardingShown: Bool = true, hasTrash: Bool = true) throws {
+    /// `liveMotion`: Peg's moments run on real timers, for the live motion demo (the render
+    /// harness draws the phases itself); `reduceMotion` stands in for the system setting.
+    init(
+        in root: URL, onboardingShown: Bool = true, hasTrash: Bool = true, liveMotion: Bool = false,
+        reduceMotion: Bool = false
+    ) throws {
         let fm = FileManager.default
         let base = root.appendingPathComponent(UUID().uuidString, isDirectory: true)
         home = base.appendingPathComponent("Home", isDirectory: true)
@@ -67,8 +72,12 @@ final class DemoScene {
             statusInterval: .milliseconds(200),
             hourly: never,
             wake: never,
-            makeFlashTimer: { _, _, _ in DemoFlashTimer() },
-            reduceMotion: { false },
+            makeFlashTimer: { interval, tolerance, tick in
+                liveMotion
+                    ? SystemFlashTimer(interval: interval, tolerance: tolerance, tick: tick) as any FlashTimer
+                    : DemoFlashTimer()
+            },
+            reduceMotion: { reduceMotion },
             announce: { _ in },
             workspace: DemoWorkspace(),
             screencaptureUIRunning: { false },

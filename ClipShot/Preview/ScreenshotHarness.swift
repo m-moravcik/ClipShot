@@ -71,6 +71,8 @@ enum ScreenshotHarness {
             let icon = icon(pixels: 512)
             try shots.write(icon, "icon")
             try shots.write(render(MenuBarStatesSheet(), scale: MenuBarStatesSheet.scale), "menubar-states")
+            try shots.write(render(MenuBarMomentsSheet(), scale: MenuBarMomentsSheet.scale), "menubar-moments")
+            try MenuBarMomentsSheet.writeFrames(into: output.appendingPathComponent("peg-frames", isDirectory: true))
             try shots.write(render(MenuBarOpticalSheet(), scale: MenuBarOpticalSheet.scale), "menubar-optical-size")
 
             try renderMain(shots, scratch: scratch, icon: icon)
@@ -752,7 +754,7 @@ enum ScreenshotHarness {
     }
 
     /// Runs async demo setup to completion while the main run loop keeps turning.
-    private static func awaitTask(_ work: @escaping @MainActor @Sendable () async throws -> Void) throws {
+    static func awaitTask(_ work: @escaping @MainActor @Sendable () async throws -> Void) throws {
         let box = OutcomeBox()
         Task { @MainActor in
             do {
@@ -1042,10 +1044,60 @@ private struct PreviewMotionSheet: View {
             row("Swipe fling at 1200 pt/s", fling, edge: true)
             row("Move to Trash (drop)", trash, edge: false)
             row("Stack: older preview moves up (scaled 0.35)", stackUp, edge: false)
+            commitRow
+            handRow
         }
         .padding(20)
         .background(DesktopFill(scheme: scheme))
         .environment(\.colorScheme, scheme)
+    }
+
+    /// A swipe held at these shares of the width: past the dismiss point the card tips and
+    /// fades (end states of `Design.Motion.swipeCommit`).
+    private var commitRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(verbatim: "Swipe held, before release: past \(Int(PreviewCardMetrics.dismissFraction * 100)) % it tips and fades (a trackpad tick)")
+                .font(.system(size: 12, weight: .semibold))
+            HStack(spacing: 8) {
+                ForEach([0.0, 0.2, 0.38, 0.42, 0.6], id: \.self) { share in
+                    VStack(spacing: 4) {
+                        PreviewCard(item: item, actions: .inert, dragX: size.width * share)
+                            .frame(width: cell.width, height: cell.height)
+                            .clipped()
+                            .overlay(alignment: .trailing) { Rectangle().fill(Color.primary.opacity(0.35)).frame(width: 1) }
+                            .background(Color.primary.opacity(0.04))
+                        Text(verbatim: "\(Int(share * 100)) %")
+                            .font(.system(size: 10).monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+
+    /// At rest, hovered (lifted, its shadow spread), and dragged out: the picture in hand,
+    /// larger, raised and shadowed, while the card stays behind as a ghost.
+    private var handRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(verbatim: "At rest, hover (lift), and a drag in hand (the drag image over the ghosted card)")
+                .font(.system(size: 12, weight: .semibold))
+            HStack(spacing: 8) {
+                PreviewCard(item: item, actions: .inert)
+                    .frame(width: cell.width, height: cell.height)
+                PreviewCard(item: item, actions: .inert, hovering: true)
+                    .frame(width: cell.width, height: cell.height)
+                ZStack {
+                    PreviewCard(item: item, actions: .inert)
+                        .opacity(Design.Motion.dragGhostOpacity)
+                    if let image = item.image {
+                        let lifted = DragLift.lifted(image, frame: NSRect(origin: .zero, size: size))
+                        Image(nsImage: lifted.image)
+                            .offset(x: 18, y: -DragLift.raise - 14)
+                    }
+                }
+                .frame(width: cell.width + 40, height: cell.height)
+            }
+        }
     }
 
     private func row(_ title: String, _ frames: [Frame], edge: Bool) -> some View {

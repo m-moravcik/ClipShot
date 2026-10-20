@@ -17,6 +17,10 @@ struct ClipShotApp: App {
         if let output = ScreenshotHarness.requestedOutput {
             ScreenshotHarness.run(into: output)
         }
+        // The same for motion: the real views play a scripted sequence live (scripts/motion-demo.sh).
+        if let scheme = MotionDemo.requested {
+            MotionDemo.run(scheme)
+        }
         #endif
         let model = Self.makeModel(environment: ProcessInfo.processInfo.environment)
         // Resumes watching only when onboarding was already shown; otherwise step 2 starts it.
