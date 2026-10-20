@@ -1,0 +1,40 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Get ${count} recent screenshots" : {
+      "comment" : "Self-test fixture: count-neutral in both languages",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get recent screenshots (${count})"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Získať nedávne snímky: ${count}"
+          }
+        }
+      }
+    },
+    "Tag with ${label}" : {
+      "comment" : "Self-test fixture: a text parameter may sit anywhere",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tag with ${label}"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Označiť ${label}"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

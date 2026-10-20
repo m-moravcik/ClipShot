@@ -201,7 +201,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Obtenir ma dernière capture dans ${applicationName}"
+            "value" : "Obtenir ma dernière capture de ${applicationName}"
           }
         }
       }

@@ -62,6 +62,18 @@ enum Copy {
             comment: "Clean Up Old Screenshots Now refused: the screenshot folder changed and its preview was not confirmed")
         static let paused = LocalizedStringResource(
             "Copying paused", comment: "Shortcuts: Pause Copying ran; Copy to clipboard is off")
+        static let retentionChanged = LocalizedStringResource(
+            "Retention changed during the cleanup, so nothing was moved. Try again.",
+            comment: "Clean Up Old Screenshots Now: the retention settings changed while it ran")
+        static func screenshots(_ count: Int) -> LocalizedStringResource {
+            LocalizedStringResource(
+                "\(count) screenshots", comment: "Shortcuts: what Get Recent Screenshots got, said by Siri")
+        }
+        static func screenshotsCutShort(_ count: Int) -> LocalizedStringResource {
+            LocalizedStringResource(
+                "\(count) screenshots. The others are too large to get at once.",
+                comment: "Shortcuts: Get Recent Screenshots stopped at its size limit (512 MB) before it had as many as asked")
+        }
     }
 
     // MARK: - Preview mode macOS: copying waits

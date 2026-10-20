@@ -868,6 +868,155 @@
         }
       }
     },
+    "%lld screenshots" : {
+      "comment" : "Shortcuts: what Get Recent Screenshots got, said by Siri",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld screenshot"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld screenshots"
+                }
+              }
+            }
+          }
+        },
+        "sk" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld snímka"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld snímky"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld snímky"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld snímok"
+                }
+              }
+            }
+          }
+        },
+        "cs" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld snímek"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld snímky"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld snímku"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld snímků"
+                }
+              }
+            }
+          }
+        },
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Bildschirmfoto"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Bildschirmfotos"
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld captura"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld capturas"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld capturas"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld capture"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld captures"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld captures"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld screenshots (%@) will go to the Trash at the next cleanup" : {
       "comment" : "Retention is on: count, then total size, of what the next cleanup moves",
       "localizations" : {
@@ -1699,6 +1848,155 @@
                 "stringUnit" : {
                   "state" : "translated",
                   "value" : "%lld captures copiées"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld screenshots. The others are too large to get at once." : {
+      "comment" : "Shortcuts: Get Recent Screenshots stopped at its size limit (512 MB) before it had as many as asked",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld screenshot. The others are too large to get at once."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld screenshots. The others are too large to get at once."
+                }
+              }
+            }
+          }
+        },
+        "sk" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld snímka. Ostatné sú príliš veľké na to, aby sa dali získať naraz."
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld snímky. Ostatné sú príliš veľké na to, aby sa dali získať naraz."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld snímky. Ostatné sú príliš veľké na to, aby sa dali získať naraz."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld snímok. Ostatné sú príliš veľké na to, aby sa dali získať naraz."
+                }
+              }
+            }
+          }
+        },
+        "cs" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld snímek. Ostatní jsou příliš velké, aby šly načíst najednou."
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld snímky. Ostatní jsou příliš velké, aby šly načíst najednou."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld snímku. Ostatní jsou příliš velké, aby šly načíst najednou."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld snímků. Ostatní jsou příliš velké, aby šly načíst najednou."
+                }
+              }
+            }
+          }
+        },
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Bildschirmfoto. Die übrigen sind zu groß, um sie auf einmal abzurufen."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Bildschirmfotos. Die übrigen sind zu groß, um sie auf einmal abzurufen."
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld captura. Las demás son demasiado grandes para obtenerlas a la vez."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld capturas. Las demás son demasiado grandes para obtenerlas a la vez."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld capturas. Las demás son demasiado grandes para obtenerlas a la vez."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld capture. Les autres sont trop volumineuses pour être obtenues en une fois."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld captures. Les autres sont trop volumineuses pour être obtenues en une fois."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld captures. Les autres sont trop volumineuses pour être obtenues en une fois."
                 }
               }
             }
@@ -5118,47 +5416,6 @@
         }
       }
     },
-    "Get ${count} recent screenshots" : {
-      "comment" : "Shortcuts action summary; ${count} is the Number of Screenshots parameter, keep it as is",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Get ${count} recent screenshots"
-          }
-        },
-        "sk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Získať nedávne snímky (${count})"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Načíst nedávné snímky (${count})"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Letzte Bildschirmfotos abrufen (${count})"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Obtener capturas recientes (${count})"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Obtenir les captures récentes (${count})"
-          }
-        }
-      }
-    },
     "Get Latest Screenshot" : {
       "comment" : "Shortcuts action title and short title",
       "localizations" : {
@@ -5237,6 +5494,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Obtenir les captures récentes"
+          }
+        }
+      }
+    },
+    "Get recent screenshots (${count})" : {
+      "comment" : "Shortcuts action summary; ${count} is the Number of Screenshots parameter, keep it as is",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Get recent screenshots (${count})"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Získať nedávne snímky (${count})"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Načíst nedávné snímky (${count})"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Letzte Bildschirmfotos abrufen (${count})"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Obtener capturas recientes (${count})"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Obtenir les captures récentes (${count})"
           }
         }
       }
@@ -8090,47 +8388,6 @@
         }
       }
     },
-    "Pauses copying screenshots to the clipboard while this Focus is on. A pause or resume you set yourself meanwhile is kept." : {
-      "comment" : "Description of ClipShot's Focus filter in System Settings > Focus",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pauses copying screenshots to the clipboard while this Focus is on. A pause or resume you set yourself meanwhile is kept."
-          }
-        },
-        "sk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pozastaví kopírovanie snímok do schránky, kým je zapnutý tento režim Môjho času. Pozastavenie alebo obnovenie, ktoré medzitým nastavíš sám, zostane."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pozastaví kopírování snímků do schránky, dokud je zapnutý tento režim soustředění. Pozastavení nebo obnovení, které mezitím nastavíš sám, zůstane."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pausiert das Kopieren von Bildschirmfotos in die Zwischenablage, solange dieser Fokus aktiviert ist. Was du in der Zeit selbst pausierst oder fortsetzt, bleibt so."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pausa la copia de capturas al portapapeles mientras este modo de concentración esté activado. Si mientras tanto pausas o reanudas tú, se respeta."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Met en pause la copie des captures dans le presse-papiers tant que ce mode de concentration est activé. Une pause ou une reprise que vous faites entre-temps est conservée."
-          }
-        }
-      }
-    },
     "Preview" : {
       "comment" : "Settings > Capture: what shows after a screenshot (ClipShot, macOS or None)",
       "localizations" : {
@@ -8736,6 +8993,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nettoyage"
+          }
+        }
+      }
+    },
+    "Retention changed during the cleanup, so nothing was moved. Try again." : {
+      "comment" : "Clean Up Old Screenshots Now: the retention settings changed while it ran",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retention changed during the cleanup, so nothing was moved. Try again."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upratovanie sa počas behu zmenilo, takže sa nič nepresunulo. Skús to znova."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Úklid se během běhu změnil, takže se nic nepřesunulo. Zkus to znovu."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Aufräumen wurde währenddessen geändert, daher wurde nichts verschoben. Versuche es noch einmal."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La limpieza cambió mientras se hacía, así que no se movió nada. Vuelve a intentarlo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le nettoyage a été modifié pendant l’opération, rien n’a donc été déplacé. Réessayez."
           }
         }
       }
@@ -10196,6 +10494,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Activer"
+          }
+        }
+      }
+    },
+    "Turn on Pause copying to stop copying screenshots to the clipboard while this Focus is on. A pause or resume you set yourself meanwhile is kept." : {
+      "comment" : "Description of ClipShot's Focus filter in System Settings > Focus; tells to turn the option on, which is off by default",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on Pause copying to stop copying screenshots to the clipboard while this Focus is on. A pause or resume you set yourself meanwhile is kept."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zapni Pozastaviť kopírovanie a snímky sa nebudú kopírovať do schránky, kým je zapnutý tento režim Môjho času. Pozastavenie alebo obnovenie, ktoré medzitým nastavíš sám, zostane."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zapni Pozastavit kopírování a snímky se nebudou kopírovat do schránky, dokud je zapnutý tento režim soustředění. Pozastavení nebo obnovení, které mezitím nastavíš sám, zůstane."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schalte „Kopieren pausieren“ ein, damit keine Bildschirmfotos in die Zwischenablage kopiert werden, solange dieser Fokus aktiviert ist. Was du in der Zeit selbst pausierst oder fortsetzt, bleibt so."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activa Pausar la copia para que no se copien capturas al portapapeles mientras este modo de concentración esté activado. Si mientras tanto pausas o reanudas tú, se respeta."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activez Mettre la copie en pause pour ne plus copier de captures dans le presse-papiers tant que ce mode de concentration est activé. Une pause ou une reprise que vous faites entre-temps est conservée."
           }
         }
       }

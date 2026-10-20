@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import Testing
 @testable import ClipShot
 
@@ -30,7 +31,7 @@ struct ShortcutsTests {
         defer { h.tearDown() }
         let urls = try await taken(h, [("a.png", 300), ("b.png", 200), ("c.png", 100)])
         #expect(await h.start())
-        let files = try await h.model.shortcutScreenshots(count: 1)
+        let files = try await h.model.shortcutScreenshots(count: 1).files
         #expect(names(files) == ["c.png"])
         #expect(files[0].data == (try Data(contentsOf: urls[2])))
         #expect(files[0].fileExtension == "png")
@@ -49,12 +50,12 @@ struct ShortcutsTests {
         // In the folder, never seen being taken: not ClipShot's.
         try RT.shot("untracked.png", in: h.folder, age: 1, now: RT.now())
         #expect(await h.start())
-        #expect(names(try await h.model.shortcutScreenshots(count: 3)) == ["s11.png", "s10.png", "s9.png"])
-        let four = try await h.model.shortcutScreenshots(count: RecentScreenshots.count)
+        #expect(names(try await h.model.shortcutScreenshots(count: 3).files) == ["s11.png", "s10.png", "s9.png"])
+        let four = try await h.model.shortcutScreenshots(count: RecentScreenshots.count).files
         #expect(names(four) == RecentScreenshots.select(
             lastCopied: nil, ledger: await h.ledger.entries(), folder: h.folder).map(\.url.lastPathComponent))
-        #expect(try await h.model.shortcutScreenshots(count: 50).count == AppModel.shortcutMaxCount)
-        #expect(try await h.model.shortcutScreenshots(count: 0).count == 1)
+        #expect(try await h.model.shortcutScreenshots(count: 50).files.count == AppModel.shortcutMaxCount)
+        #expect(try await h.model.shortcutScreenshots(count: 0).files.count == 1)
     }
 
     @Test func noScreenshotIsAClearErrorNotAnEmptyFile() async throws {
@@ -204,12 +205,97 @@ struct ShortcutsTests {
         #expect(again.count == 0)
     }
 
+    // MARK: Get: refused files, the folder wait, the size cap
+
+    /// The newest screenshot cannot be read (FileTrust refuses it): Get Latest hands over the
+    /// next newest instead of saying there is none.
+    @Test func getLatestFallsBackWhenTheNewestIsRefused() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        let urls = try await taken(h, [("older.png", 200), ("newest.png", 100)])
+        #expect(await h.start())
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: urls[1].path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: urls[1].path) }
+        #expect(names(try await h.model.shortcutScreenshots(count: 1).files) == ["older.png"])
+        #expect(names(try await h.model.shortcutScreenshots(count: 10).files) == ["older.png"])
+    }
+
+    /// A ledger entry outside the watched folder (a subfolder, the home folder), or one whose
+    /// file became a symlink, is never handed out or copied.
+    @Test func filesOutsideTheFolderOrSymlinkedAreNeverHandedOut() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        let now = RT.now()
+        let sub = h.folder.appendingPathComponent("Sub", isDirectory: true)
+        try FileManager.default.createDirectory(at: sub, withIntermediateDirectories: true)
+        for (name, dir, age) in [("in sub.png", sub, 10.0), ("in home.png", h.home, 20.0)] {
+            await h.ledger.record(RT.file(try RT.shot(name, in: dir, age: age, now: now)))
+        }
+        let linked = try RT.shot("linked.png", in: h.folder, age: 30, now: now)
+        await h.ledger.record(RT.file(linked))
+        let elsewhere = h.home.appendingPathComponent("target.png")
+        try FileManager.default.moveItem(at: linked, to: elsewhere)
+        try FileManager.default.createSymbolicLink(at: linked, withDestinationURL: elsewhere)
+        try await taken(h, [("real.png", 300)], now: now)
+        #expect(await h.start())
+        #expect(names(try await h.model.shortcutScreenshots(count: 10).files) == ["real.png"])
+        try await h.model.shortcutCopyLatest()
+        let real = try #require(CaptureFile.inspect(h.folder.appendingPathComponent("real.png")))
+        #expect(h.model.isOnClipboard(real))
+    }
+
+    /// Shortcuts may launch ClipShot just to ask: Get waits for the coordinator to name the
+    /// folder instead of answering "No screenshots".
+    @Test func getWaitsForTheFolderOnALaunch() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        try await taken(h, [("shot.png", 100)])
+        h.model.startWatching()
+        #expect(h.model.watchedFolder == nil, "asked before the folder is named")
+        #expect(names(try await h.model.shortcutScreenshots(count: 1).files) == ["shot.png"])
+    }
+
+    /// Get Recent stops before the bytes it holds pass the cap and says so.
+    @Test func getRecentStopsAtTheSizeCap() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        let urls = try await taken(h, [("a.png", 300), ("b.png", 200), ("c.png", 100)])
+        #expect(await h.start())
+        let size = try Data(contentsOf: urls[0]).count
+        let capped = try await h.model.shortcutScreenshots(count: 3, maxBytes: size * 2)
+        #expect(names(capped.files) == ["c.png", "b.png"] && capped.cutShort)
+        let whole = try await h.model.shortcutScreenshots(count: 3)
+        #expect(whole.files.count == 3 && !whole.cutShort)
+        #expect(AppModel.shortcutMaxBytes == 512 * 1_024 * 1_024)
+        var note = Copy.Shortcuts.screenshotsCutShort(2)
+        note.locale = Locale(identifier: "sk")
+        #expect(String(localized: note) == "2\u{00A0}snímky. Ostatné sú príliš veľké na to, aby sa dali získať naraz.")
+    }
+
     // MARK: Focus filter
+
+    /// A harness on a manual clock, started, with the Focus's grace under the test's control.
+    private func focusHarness(onboardingShown: Bool = true) async throws -> (ModelHarness, ManualTimerClock) {
+        let clock = ManualTimerClock()
+        let h = try ModelHarness(onboardingShown: onboardingShown, timerClock: clock)
+        return (h, clock)
+    }
+
+    /// The Focus ends and its grace runs out.
+    private func focusEnds(_ h: ModelHarness, _ clock: ManualTimerClock) async throws {
+        let settled = h.model.focusGracesSettled
+        let scheduled = h.preferences.focusPause.pausedCopying
+        try h.model.shortcutFocusChanged(pausing: false)
+        guard scheduled else { return }
+        #expect(await eventually { clock.waiting == 1 })
+        clock.advance(by: AppModel.focusOffGrace)
+        #expect(await eventually { await h.model.focusGracesSettled == settled + 1 })
+    }
 
     /// The precedence matrix: a Focus pause is undone by the Focus only, a pause by hand is
     /// never undone by a Focus, and a Resume by hand during the Focus holds until it changes.
     @Test func focusPausesAndResumesOnlyWhatItPaused() async throws {
-        let h = try ModelHarness()
+        let (h, clock) = try await focusHarness()
         defer { h.tearDown() }
         #expect(await h.start())
         let model = h.model, prefs = h.preferences
@@ -217,14 +303,14 @@ struct ShortcutsTests {
         // Copying on; the Focus pauses it and its end resumes it.
         try model.shortcutFocusChanged(pausing: true)
         #expect(!prefs.copyEnabled && model.pausedByFocus)
-        try model.shortcutFocusChanged(pausing: false)
+        try await focusEnds(h, clock)
         #expect(prefs.copyEnabled && !model.pausedByFocus)
 
         // Paused by hand first: the Focus leaves it, and its end resumes nothing.
         model.setCopying(false)
         try model.shortcutFocusChanged(pausing: true)
         #expect(!prefs.copyEnabled && !model.pausedByFocus)
-        try model.shortcutFocusChanged(pausing: false)
+        try await focusEnds(h, clock)
         #expect(!prefs.copyEnabled)
         model.setCopying(true)
 
@@ -235,7 +321,7 @@ struct ShortcutsTests {
         #expect(prefs.copyEnabled && !model.pausedByFocus)
         try model.shortcutFocusChanged(pausing: true)
         #expect(prefs.copyEnabled, "a Resume by hand wins until the Focus changes")
-        try model.shortcutFocusChanged(pausing: false)
+        try await focusEnds(h, clock)
         #expect(prefs.copyEnabled)
         try model.shortcutFocusChanged(pausing: true)
         #expect(!prefs.copyEnabled && model.pausedByFocus)
@@ -243,7 +329,7 @@ struct ShortcutsTests {
         // Resumed, then paused again by hand during the Focus: its end does not resume.
         model.setCopying(true)
         model.setCopying(false)
-        try model.shortcutFocusChanged(pausing: false)
+        try await focusEnds(h, clock)
         #expect(!prefs.copyEnabled)
         model.setCopying(true)
 
@@ -251,18 +337,42 @@ struct ShortcutsTests {
         try model.shortcutFocusChanged(pausing: true)
         try model.shortcutSetCopying(false)
         #expect(!model.pausedByFocus)
-        try model.shortcutFocusChanged(pausing: false)
+        try await focusEnds(h, clock)
         #expect(!prefs.copyEnabled)
     }
 
-    @Test func aFocusPausePlaysThePegMomentsOfTheSwitch() async throws {
-        let h = try ModelHarness()
+    /// From one pausing Focus straight to another: the first one's end, then the next one.
+    /// Copying stays paused throughout, with no Peg moment and no resume afterwards.
+    @Test func aSwitchBetweenPausingFocusModesStaysPaused() async throws {
+        let (h, clock) = try await focusHarness()
         defer { h.tearDown() }
         #expect(await h.start())
         try h.model.shortcutFocusChanged(pausing: true)
         #expect(await eventually { await h.model.flashMoment == .pause ? h.model.flashPhase > 0 : false })
         h.timer?.fire(PegMoment.pause.steps)
+        let timers = h.timers.count
         try h.model.shortcutFocusChanged(pausing: false)
+        #expect(!h.preferences.copyEnabled, "the end waits for its grace")
+        #expect(!h.model.pausedByFocus, "no Focus is on meanwhile")
+        try h.model.shortcutFocusChanged(pausing: true)
+        #expect(await eventually { clock.waiting == 1 })
+        clock.advance(by: AppModel.focusOffGrace)
+        #expect(await eventually { await h.model.focusGracesSettled == 1 })
+        #expect(!h.preferences.copyEnabled && h.model.pausedByFocus)
+        #expect(h.timers.count == timers && h.model.flashPhase == 0, "no Peg moment")
+        // The second Focus ends: copying resumes.
+        try await focusEnds(h, clock)
+        #expect(h.preferences.copyEnabled)
+    }
+
+    @Test func aFocusPausePlaysThePegMomentsOfTheSwitch() async throws {
+        let (h, clock) = try await focusHarness()
+        defer { h.tearDown() }
+        #expect(await h.start())
+        try h.model.shortcutFocusChanged(pausing: true)
+        #expect(await eventually { await h.model.flashMoment == .pause ? h.model.flashPhase > 0 : false })
+        h.timer?.fire(PegMoment.pause.steps)
+        try await focusEnds(h, clock)
         #expect(await eventually { await h.model.flashMoment == .resume ? h.model.flashPhase > 0 : false })
     }
 
@@ -285,7 +395,7 @@ struct ShortcutsTests {
         #expect(header() == HeaderStatus(state: .paused, detail: .paused))
     }
 
-    /// A Focus that ends while ClipShot is not running still resumes what it paused.
+    /// The pause and who made it are kept across launches.
     @Test func theFocusPauseSurvivesARelaunch() {
         let store = InMemoryPreferenceStore()
         let before = Preferences(store: store)
@@ -297,16 +407,111 @@ struct ShortcutsTests {
         #expect(Preferences(store: InMemoryPreferenceStore()).focusPause == FocusPause())
     }
 
+    // MARK: The Focus at launch
+
+    private func logged(_ h: ModelHarness, _ text: String) async -> Bool {
+        await eventually { (try? String(contentsOf: h.logFile, encoding: .utf8))?.contains(text) == true }
+    }
+
+    /// A harness started as at a launch after a Focus paused copying.
+    private func launchedPausedByFocus() async throws -> ModelHarness {
+        let h = try ModelHarness()
+        h.preferences.copyEnabled = false
+        h.preferences.focusPause = FocusPause(focusOn: true, pausedCopying: true)
+        #expect(await h.start())
+        return h
+    }
+
+    @Test func aFocusThatEndedWhileQuitResumesAtLaunch() async throws {
+        let h = try await launchedPausedByFocus()
+        defer { h.tearDown() }
+        await h.model.reconcileFocusAtLaunch { false }
+        #expect(h.preferences.copyEnabled && h.preferences.focusPause == FocusPause())
+        #expect(await logged(h, "focus at launch: no pausing Focus"))
+    }
+
+    @Test func aFocusThatBeganWhileQuitPausesAtLaunch() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        #expect(await h.start())
+        await h.model.reconcileFocusAtLaunch { true }
+        #expect(!h.preferences.copyEnabled && h.model.pausedByFocus)
+        #expect(await logged(h, "focus at launch: a pausing Focus is on"))
+    }
+
+    /// The read fails: copying is not left paused on a guess, the popover no longer says a
+    /// Focus is on, and the log says why.
+    @Test func anUnknownFocusAtLaunchResumesWhatTheFocusPaused() async throws {
+        struct Unavailable: Error {}
+        let h = try await launchedPausedByFocus()
+        defer { h.tearDown() }
+        await h.model.reconcileFocusAtLaunch { throw Unavailable() }
+        #expect(h.preferences.copyEnabled && !h.model.pausedByFocus)
+        #expect(h.preferences.focusPause == FocusPause())
+        #expect(await logged(h, "focus at launch unknown (Unavailable); resumed the pause it made"))
+    }
+
+    @Test func anUnknownFocusAtLaunchKeepsAPauseByHand() async throws {
+        struct Unavailable: Error {}
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        h.preferences.copyEnabled = false
+        #expect(await h.start())
+        await h.model.reconcileFocusAtLaunch { throw Unavailable() }
+        #expect(!h.preferences.copyEnabled)
+        #expect(await logged(h, "focus at launch unknown (Unavailable); nothing to resume"))
+    }
+
+    /// A read that never answers counts as unknown once the timeout passes; meanwhile the
+    /// popover does not claim a Focus is on.
+    @Test func aFocusReadThatHangsTimesOut() async throws {
+        let h = try await launchedPausedByFocus()
+        defer { h.tearDown() }
+        let seen = Mutex<Bool?>(nil)
+        let model = h.model
+        await model.reconcileFocusAtLaunch(timeout: .milliseconds(100)) {
+            let claimed = await MainActor.run { model.pausedByFocus }
+            seen.withLock { $0 = claimed }
+            try await Task.sleep(for: .seconds(60))
+            return true
+        }
+        #expect(seen.withLock { $0 } == false, "no Focus claimed while unknown")
+        #expect(h.preferences.copyEnabled && h.model.focusStateKnown)
+        #expect(await logged(h, "focus at launch unknown (FocusReadTimedOut)"))
+    }
+
     // MARK: Before the tour
 
-    /// Until the welcome tour is completed, every action that changes something, and the
-    /// Focus filter, refuse with "Finish setting up ClipShot first" and change nothing.
+    /// Until the welcome tour is completed, every action and the Focus filter refuse with
+    /// "Finish setting up ClipShot first" and change nothing.
     @Test func nothingRunsBeforeTheTourIsCompleted() async throws {
         let h = try ModelHarness(onboardingShown: false)
         defer { h.tearDown() }
         try await taken(h, [("old.png", 40 * RT.day)])
         h.preferences.retention = RT.policy(h.folder)
         #expect(!h.preferences.tourCompleted)
+        try await refusesEverything(h)
+        #expect(!h.model.isWatching, "the folder was not touched")
+        #expect(ShortcutError.notSetUp.localizedStringResource.key == Copy.Shortcuts.notSetUp.key)
+    }
+
+    /// The tour's Start copying is watching already, the tour is not done: still refused. A
+    /// Focus reported meanwhile applies when the tour is done.
+    @Test func duringTheTourActionsRefuseAndAFocusWaitsForItsEnd() async throws {
+        let h = try ModelHarness(onboardingShown: false)
+        defer { h.tearDown() }
+        // Retention stays off: started watching runs retention on its own terms.
+        try await taken(h, [("old.png", 40 * RT.day)])
+        h.model.startWatching()
+        #expect(await eventually { await h.model.watchedFolder != nil })
+        try await refusesEverything(h)
+        h.model.finishOnboarding()
+        #expect(h.preferences.tourCompleted)
+        #expect(!h.preferences.copyEnabled && h.model.pausedByFocus, "the Focus reported during the tour")
+        #expect(h.model.focusDuringTour == nil)
+    }
+
+    private func refusesEverything(_ h: ModelHarness) async throws {
         await #expect(throws: ShortcutError.notSetUp) { try await h.model.shortcutScreenshots(count: 1) }
         await #expect(throws: ShortcutError.notSetUp) { try await h.model.shortcutCopyLatest() }
         #expect(throws: ShortcutError.notSetUp) { try h.model.shortcutSetCopying(false) }
@@ -316,8 +521,6 @@ struct ShortcutsTests {
         #expect(h.preferences.focusPause == FocusPause())
         #expect(h.pasteboard.writes.isEmpty)
         #expect(h.trasher.trashed.isEmpty)
-        #expect(!h.model.isWatching, "the folder was not touched")
-        #expect(ShortcutError.notSetUp.localizedStringResource.key == Copy.Shortcuts.notSetUp.key)
     }
 
     // MARK: Metadata

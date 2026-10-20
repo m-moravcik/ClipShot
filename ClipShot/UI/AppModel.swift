@@ -190,7 +190,7 @@ final class AppModel {
     @ObservationIgnored let edits: EditSession
     @ObservationIgnored private let trasher: any Trashing
     @ObservationIgnored private let undoLifetime: Duration
-    @ObservationIgnored private let timerClock: any TimerClock
+    @ObservationIgnored let timerClock: any TimerClock
     @ObservationIgnored private let locateTrash: AppDependencies.LocateTrash
     @ObservationIgnored private let makePreviewHost: @MainActor (AppModel) -> AnyObject?
     @ObservationIgnored let openMarkup: @MainActor (URL, @escaping @MainActor (MarkupResult) -> Void) -> Void
@@ -238,6 +238,16 @@ final class AppModel {
     @ObservationIgnored private var observedPolicy: RetentionPolicy?
     /// The Copy to clipboard switch as last seen, so only a real flip plays pause or resume.
     @ObservationIgnored private var observedCopyEnabled = true
+    /// Names the resume a Focus that ended has scheduled, so a pausing Focus reported within
+    /// `focusOffGrace` (a switch straight to another one) cancels it (Shortcuts).
+    @ObservationIgnored var focusOffGeneration = 0
+    /// Grace periods after a Focus ended that have run out, resumed or not; tests wait on it.
+    @ObservationIgnored var focusGracesSettled = 0
+    /// The Focus filter's last report while the tour was not completed yet; applied when it is.
+    @ObservationIgnored var focusDuringTour: Bool?
+    /// False while the launch reads whether a pausing Focus is on: until then the popover does
+    /// not say a Focus paused copying.
+    var focusStateKnown = true
     /// The panel that shows `previews`, made when watching first starts.
     @ObservationIgnored private var previewHost: AnyObject?
     /// The pasteboard's change count right after ClipShot's last write: when it differs, the
@@ -366,6 +376,8 @@ final class AppModel {
             }
         }
         preferences.onboardingShown = true
+        // A Focus reported while the tour ran applies now that it is done.
+        applyFocusReportedDuringTour()
     }
 
     /// Settings > General: shows the welcome tour again the next time the popover opens.

@@ -13,10 +13,16 @@
 #      "translated".
 #   4. Every literal the compiler extracted (.stringsdata) must exist in the catalog of its
 #      table: Localizable.xcstrings, or AppShortcuts.xcstrings for the App Shortcuts phrases.
+#   5. A Shortcuts action summary with a number parameter (`${count}`, read from the built
+#      app's App Intents metadata) must, in every language, have plural variations or put
+#      the number where no word agrees with it: "(${count})" or ": ${count}" at the end.
+#      "Get ${count} recent screenshots" reads "Get 1 recent screenshots" at 1.
 #
 # Usage:
 #   scripts/check-localisation.sh [derived-data-path]   self-test, build, then the full gate
-#   scripts/check-localisation.sh --catalog FILE...     checks 1-3 on FILE(s) only, no build
+#   scripts/check-localisation.sh [--metadata ACTIONSDATA] --catalog FILE...
+#                                                       checks 1-3 (and 5 with metadata) on
+#                                                       FILE(s) only, no build
 #   scripts/check-localisation.sh --self-test           proves the gate fails on broken fixtures
 
 set -euo pipefail
@@ -29,15 +35,18 @@ FIXTURES="ClipShotTests/Fixtures/l10n"
 
 die() { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 
-# check_catalogs [--stringsdata DIR] CATALOG...
+# check_catalogs [--stringsdata DIR] [--metadata ACTIONSDATA] CATALOG...
 check_catalogs() {
   python3 - "$@" <<'PY'
 import glob, json, os, re, sys
 
 args = sys.argv[1:]
 derived = None
+metadata = None
 if args[:1] == ['--stringsdata']:
     derived, args = args[1], args[2:]
+if args[:1] == ['--metadata']:
+    metadata, args = args[1], args[2:]
 catalogs = args
 langs = os.environ['L10N_LANGS'].split()
 cldr = {
@@ -114,6 +123,46 @@ for catalog in catalogs:
                 if not need <= have:
                     errors.append(f"{label}: {key!r}: {lang}{where} plural categories {sorted(need - have)} missing")
 
+if metadata is not None:
+    # LNValueType primitive type identifiers of the numbers an action parameter can be:
+    # 2 is Int (1 is Bool, 0 String). Add Double's when an action takes one.
+    numeric_types = {2}
+    strings = {}
+    for c in catalogs:
+        if os.path.basename(c) != 'AppShortcuts.xcstrings':
+            strings.update(json.load(open(c))['strings'])
+    def summaries(node):
+        if isinstance(node, dict):
+            if 'formatString' in node:
+                yield node['formatString'], set(node.get('parameterIdentifiers', []))
+            for value in node.values():
+                yield from summaries(value)
+        elif isinstance(node, list):
+            for value in node:
+                yield from summaries(value)
+    def neutral(value, name):
+        slot = '${' + name + '}'
+        return f'({slot})' in value or re.search(r':[ \u00a0]*' + re.escape(slot) + r'\s*$', value) is not None
+    actions = json.load(open(metadata)).get('actions', {})
+    for action in actions.values():
+        numbers = {p['name'] for p in action.get('parameters', [])
+                   if p.get('valueType', {}).get('primitive', {}).get('wrapper', {}).get('typeIdentifier') in numeric_types}
+        for fmt, used in summaries(action.get('actionConfiguration')):
+            for name in sorted(used & numbers):
+                entry = strings.get(fmt)
+                if entry is None:
+                    errors.append(f"summary {fmt!r}: not in the catalog")
+                    continue
+                for lang in langs:
+                    loc = entry.get('localizations', {}).get(lang)
+                    if loc is None or 'plural' in loc.get('variations', {}):
+                        continue
+                    for value in values(loc):
+                        if not neutral(value, name):
+                            errors.append(
+                                f"summary {fmt!r}: {lang} {value!r} puts the number ${{{name}}} where words agree with it; "
+                                f"use plural variations or a count-neutral form such as '(${{{name}}})'")
+
 if derived is not None:
     # Each table the code emits (Localizable, and AppShortcuts for the App Shortcuts
     # phrases) must exist as a catalog of the same name and hold every key emitted for it.
@@ -173,10 +222,26 @@ $out"
   out="$(L10N_LANGS="en sk" check_catalogs "$FIXTURES/valid.xcstrings" 2>&1)" \
     || die "self-test: the valid fixture failed:
 $out"
+  # Check 5: a number in an action summary.
+  if out="$(L10N_LANGS="en sk" check_catalogs --metadata "$FIXTURES/summary/actions.json" "$FIXTURES/summary/bad.xcstrings" 2>&1)"; then
+    die "self-test: $FIXTURES/summary/bad.xcstrings passed, but it is broken"
+  fi
+  grep -q "puts the number" <<<"$out" || die "self-test: summary/bad.xcstrings failed for another reason:
+$out"
+  out="$(L10N_LANGS="en sk" check_catalogs --metadata "$FIXTURES/summary/actions.json" "$FIXTURES/summary/valid.xcstrings" 2>&1)" \
+    || die "self-test: summary/valid.xcstrings failed:
+$out"
   echo "localisation self-test: OK"
 }
 
 case "${1:-}" in
+  --metadata)
+    [ "$#" -ge 4 ] && [ "$3" = "--catalog" ] || die "usage: --metadata ACTIONSDATA --catalog FILE..."
+    metadata="$2"
+    shift 3
+    check_catalogs --metadata "$metadata" "$@"
+    exit
+    ;;
   --catalog)
     shift
     [ "$#" -gt 0 ] || die "--catalog needs at least one file"
@@ -211,4 +276,6 @@ others=()
 for f in ClipShot/Resources/*.xcstrings; do
   [ "$f" = "$CATALOG" ] || others+=("$f")
 done
-check_catalogs --stringsdata "$DERIVED" "$CATALOG" ${others[@]+"${others[@]}"}
+ACTIONS="$DERIVED/Build/Products/Debug/ClipShot.app/Contents/Resources/Metadata.appintents/extract.actionsdata"
+[ -f "$ACTIONS" ] || die "no App Intents metadata at $ACTIONS"
+check_catalogs --stringsdata "$DERIVED" --metadata "$ACTIONS" "$CATALOG" ${others[@]+"${others[@]}"}

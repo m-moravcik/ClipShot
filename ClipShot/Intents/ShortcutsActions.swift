@@ -43,8 +43,8 @@ struct GetLatestScreenshotIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<IntentFile> {
-        let files = try await IntentHost.current().shortcutScreenshots(count: 1)
-        return .result(value: files[0].intentFile)
+        let screenshots = try await IntentHost.current().shortcutScreenshots(count: 1)
+        return .result(value: screenshots.files[0].intentFile)
     }
 }
 
@@ -61,13 +61,16 @@ struct GetRecentScreenshotsIntent: AppIntent {
     var count: Int
 
     static var parameterSummary: some ParameterSummary {
-        Summary("Get \(\.$count) recent screenshots")
+        // Count-neutral: "Get 1 recent screenshots" would be wrong at the default.
+        Summary("Get recent screenshots (\(\.$count))")
     }
 
     @MainActor
-    func perform() async throws -> some IntentResult & ReturnsValue<[IntentFile]> {
-        let files = try await IntentHost.current().shortcutScreenshots(count: count)
-        return .result(value: files.map(\.intentFile))
+    func perform() async throws -> some IntentResult & ReturnsValue<[IntentFile]> & ProvidesDialog {
+        let screenshots = try await IntentHost.current().shortcutScreenshots(count: count)
+        let got = screenshots.files.count
+        let dialog = screenshots.cutShort ? Copy.Shortcuts.screenshotsCutShort(got) : Copy.Shortcuts.screenshots(got)
+        return .result(value: screenshots.files.map(\.intentFile), dialog: IntentDialog(dialog))
     }
 }
 
@@ -143,11 +146,12 @@ struct CleanUpOldScreenshotsIntent: AppIntent {
 }
 
 /// The Focus filter: "Pause copying" while the chosen Focus is on. Off by default, because the
-/// system hands a filter its default values when the Focus ends.
+/// system hands a filter its default values when the Focus ends; the description says to turn
+/// it on.
 struct CopyingFocusFilter: SetFocusFilterIntent {
     static let title: LocalizedStringResource = "Copying During Focus"
     static let description: IntentDescription? = IntentDescription(
-        "Pauses copying screenshots to the clipboard while this Focus is on. A pause or resume you set yourself meanwhile is kept.")
+        "Turn on Pause copying to stop copying screenshots to the clipboard while this Focus is on. A pause or resume you set yourself meanwhile is kept.")
 
     @Parameter(title: "Pause copying", default: false)
     var pauseCopying: Bool

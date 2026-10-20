@@ -39,21 +39,13 @@ struct ClipShotApp: App {
             MainActor.assumeIsolated {
                 // Shortcuts actions and the Focus filter act on this model (Addendum C).
                 IntentHost.model = model
-                Task { await Self.reconcileFocus(model) }
+                Task { await model.reconcileFocusAtLaunch { try await CopyingFocusFilter.current.pauseCopying } }
             }
         }
         _model = State(initialValue: model)
         let updater = Self.makeUpdater(environment: ProcessInfo.processInfo.environment)
         self.updater = updater
         updateStatus = MainActor.assumeIsolated { updater?.updateStatus ?? UpdateStatus() }
-    }
-
-    /// A Focus that ended (or began) while ClipShot was not running: its filter's current
-    /// value settles the pause as the filter would have. The same value again changes nothing.
-    @MainActor
-    static func reconcileFocus(_ model: AppModel) async {
-        guard let filter = try? await CopyingFocusFilter.current else { return }
-        try? model.shortcutFocusChanged(pausing: filter.pauseCopying)
     }
 
     static func makeUpdater(environment: [String: String]) -> (any UpdaterProviding)? {

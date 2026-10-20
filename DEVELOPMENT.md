@@ -248,7 +248,7 @@ App Intents in `ClipShot/Intents/ShortcutsActions.swift`, the logic in
 | Action | What it does |
 |---|---|
 | Get Latest Screenshot | The newest screenshot, as a file (name and type kept). |
-| Get Recent Screenshots | The newest 1 to 10 (Number of Screenshots, default 1), newest first. |
+| Get Recent Screenshots | The newest 1 to 10 (Number of Screenshots, default 1), newest first, at most 512 MB in all. |
 | Copy Latest Screenshot | Copies the newest one to the clipboard, also while paused. |
 | Pause Copying, Resume Copying | The popover's Copy to clipboard switch. |
 | Clean Up Old Screenshots Now | Retention's run now; Preview Only counts without moving. Returns the count. |
@@ -256,31 +256,51 @@ App Intents in `ClipShot/Intents/ShortcutsActions.swift`, the logic in
 
 - **Same paths as the app.** The screenshots are the popover list's choice
   (`RecentScreenshots.select`: ledger screenshots in the watched folder that still exist),
-  read through `FileTrust` and handed over as data, never as a path. Copy is the row's
+  read through `FileTrust` and handed over as data, never as a path. A file FileTrust
+  refuses is skipped for the next newest. Get Recent stops before the bytes it holds pass
+  512 MB (each file is at most 256 MB) and says so in its dialog. Copy is the row's
   Copy (`copyExplicitly`, then `writeClipboard(.again)`): the same PNG, owner, total and
   Peg copy moment. Pause and Resume set the switch through `setCopying`, so Peg plays
   pause and resume. Clean Up is `cleanUpNow()`, so the ledger, the revalidation before
   each move, `FolderGuard`, the confirmed-folder rule, the 500 cap and the Trash-only rule
   all hold; Preview Only is the same scan without the run. It never turns retention on and
-  plays no Peg moment. Errors are said in the user's language (`ShortcutError`).
+  plays no Peg moment. It reports what the run moved; a run dropped because the retention
+  settings changed while it scanned is tried once more, then said. Errors are said in the
+  user's language (`ShortcutError`).
 - **No window.** Every action has `supportedModes = .background` (what `openAppWhenRun =
   false` was before macOS 26). The system launches ClipShot in the background when it is
   not running; `IntentHost.model` is set in `ClipShotApp.init`, and Get waits up to 2 s for
   the coordinator to name the folder on such a launch.
+- **A background launch is a full launch.** When a shortcut or a Focus change launches
+  ClipShot (say the user had quit it), it starts as at login: it watches the folder, copies
+  new screenshots (unless paused), runs retention's start-up cleanup when retention is on,
+  and stays in the menu bar afterwards. That is how App Intents run in an app's process.
 - **Not before the tour.** Until the welcome tour is completed (`tourCompleted`) every
   action, the read-only ones too since they would touch the folder, and the Focus filter
-  say "Finish setting up ClipShot first" and change nothing.
+  say "Finish setting up ClipShot first" and change nothing, also while the tour already
+  watches. The Focus filter's last report is kept and applied when the tour is done.
 - **Focus.** `Preferences.focusPause` keeps a Focus pause apart from the switch:
   `focusOn` (a Focus whose filter pauses copying is on) and `pausedCopying` (that Focus
   switched copying off). A Focus turning on pauses copying unless it is off already; its
   end resumes only what it paused. Any use of the switch by hand (popover, Settings, the
   tour, Pause or Resume Copying) clears `pausedCopying`, so a Resume during the Focus wins
   until the Focus changes, and a pause by hand is never undone by the Focus. The same
-  report twice changes nothing. The filter's parameter defaults to off because the system
-  hands a filter its default values when the Focus ends (WWDC22 "Meet Focus filters").
-  macOS does not tell an app which Focus is on, so the popover says "while a Focus is on".
-  At launch ClipShot reads the filter's `current` value once, so a Focus that ended while
-  it was not running resumes what it paused.
+  report twice changes nothing. A Focus's end resumes after a 1 s grace
+  (`focusOffGrace`): a switch straight from one pausing Focus to another reports the end
+  of the first, then the next, and copying stays paused through it with no Peg moment. No
+  Focus identity is delivered, so a switch that reports only the next Focus is not seen
+  as a change. The filter's parameter defaults to off because the system hands a filter its
+  default values when the Focus ends (WWDC22 "Meet Focus filters"); its description says to
+  turn it on. macOS does not tell an app which Focus is on, so the popover says "while a
+  Focus is on", and only while a Focus that paused copying is known to be on.
+- **The Focus at launch.** `reconcileFocusAtLaunch` reads the filter's `current` value
+  once (5 s timeout), applies it at once and logs it, so a Focus that ended or began while
+  ClipShot was not running counts. When the read fails or times out, copying is not left
+  paused on a guess: a pause the Focus made is lifted, a pause by hand stays, the stored
+  Focus state is cleared, and the log names the error type. While the read runs, the
+  popover does not say a Focus paused copying. Check "Focus ends while ClipShot is quit,
+  then relaunch" on a signed build before a release: `current` with no Focus on cannot be
+  observed in tests.
 - **Phrases.** `ClipShotShortcuts` (an `AppShortcutsProvider`) has two phrases per
   action except Get Recent (its count cannot be spoken), translated in
   `Resources/AppShortcuts.xcstrings`; every translation keeps `${applicationName}`, and the
@@ -291,7 +311,15 @@ App Intents in `ClipShot/Intents/ShortcutsActions.swift`, the logic in
 `ShortcutsTests` checks the metadata the build extracted into the app
 (`Metadata.appintents`): every action, no window, the phrases and their six translations.
 The build log has no `appintentsmetadataprocessor` warnings; check it after changing an
-intent (`ExtractAppIntentsMetadata` step).
+intent (`ExtractAppIntentsMetadata` step). `make l10n` reads the same metadata: a summary
+with a number parameter must be count-neutral ("Get recent screenshots (${count})") or
+have plural variations in every language.
+
+Every Debug build is an app with these actions. xcodebuild registers what it builds with
+LaunchServices, so `scripts/screenshots.sh`, `motion-demo.sh` and `status-item-probe.sh`
+unregister their Debug build on exit (`lsregister -u`); otherwise the Shortcuts app can
+list a second ClipShot. A test run's Debug build in another derived data folder stays
+registered until it is unregistered or deleted.
 
 ## Native settings
 
@@ -584,7 +612,7 @@ Swift Testing. Pure logic is tested; views are not, except their layout rules. T
 | `StatusIconStateTests`, `PegFlashTests`, `PopoverLayoutTests` | The menu bar label is never scaled and fits its frame; every state has its own silhouette; Peg matches the siblings' height, width and stroke; the copy animation starts and ends at rest, one timer tick per frame and none after; Reduce Motion holds the copied pose; the bounces are derived from Peg's clamp; the popover's bottom soft scroll edge. |
 | `PegMomentTests`, `PegMomentModelTests` | Every moment starts where the icon rested and ends exactly on its resting pose, every frame is a template image that fits the canvas; the model plays them on real state changes only, once, never cuts a copy short, leaves no timer behind, and plays none with Reduce Motion. |
 | `PegActionMomentModelTests`, `PegHandoffTests` | Move to Trash from a row or a preview plays the release, Undo the grip, a fresh open of the popover the squeeze (`PopoverPresence`, and the reader's wiring on a real window); retention, Clean up now, "Also clean up", a refused move, a failed Undo and closing the popover play nothing; precedence (the latest of copy, release and grip wins); a moment that replaces another starts from the pose on show (drawn pixel for pixel), changes no frame of the hand-off more than the two moments do on their own, lets a falling card finish falling, and ends at rest; the squeeze moves whole pixels at 1x and 2x; Reduce Motion holds the key poses on one tick and never squeezes. |
-| `ShortcutsTests` | The actions pick what the popover lists and hand out existing files only; Copy Latest Screenshot leaves exactly what the popover's Copy leaves, also while paused; Pause and Resume play the switch's moments; Clean Up keeps retention's refusals, and Preview Only counts what the run then moves; the Focus precedence matrix and its relaunch; nothing runs before the tour; the extracted metadata and the phrases in six languages. |
+| `ShortcutsTests` | The actions pick what the popover lists and hand out existing files only (never one outside the folder or a symlink; a refused newest falls back to the next; Get waits for the folder on a launch; the 512 MB cap); Copy Latest Screenshot leaves exactly what the popover's Copy leaves, also while paused; Pause and Resume play the switch's moments; Clean Up keeps retention's refusals, and Preview Only counts what the run then moves; the Focus precedence matrix, a switch between pausing Focus modes, its relaunch and the launch read (known, failed, timed out); nothing runs before or during the tour, and a Focus reported during it applies at its end; the extracted metadata and the phrases in six languages. |
 | `PreviewMotionTests`, `OnboardingTests` | The swipe commits exactly where a release dismisses; the drag image is lifted off its card; Copy again reports back so the badge bounces; the first copy is celebrated once per install, the burst stays small, short and ends. |
 
 Tests never touch real preferences (`make guards` refuses `UserDefaults` in

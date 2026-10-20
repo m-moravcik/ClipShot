@@ -19,6 +19,15 @@ cd "$(dirname "$0")/.."
 
 DERIVED="${DERIVED:-build/screenshots-dd}"
 APP="$DERIVED/Build/Products/Debug/ClipShot.app"
+# xcodebuild registers the Debug build with LaunchServices (and screenshots.sh registers it
+# again for its icon). Unregistered on exit, so this Mac's Shortcuts app never lists the
+# Debug build's actions as a second ClipShot. Only this build folder's app, never
+# /Applications.
+LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+unregister_debug() {
+    case "$APP" in /*) "$LSREGISTER" -u "$APP" ;; *) "$LSREGISTER" -u "$PWD/$APP" ;; esac >/dev/null 2>&1 || true
+}
+trap unregister_debug EXIT
 OUT="$PWD/build/status-item-probe"
 SCRATCH="$PWD/build/status-item-probe-scratch"
 
