@@ -30,14 +30,18 @@ extension AppModel {
                 return Self.controlResponse(error)
             }
         case .pause, .resume:
-            let before = preferences.copyEnabled
+            let before = (preferences.copyEnabled, preferences.focusPause.pausedCopying)
             do throws(ShortcutError) {
                 try shortcutSetCopying(request.command == .resume)
             } catch {
                 return Self.controlResponse(error)
             }
-            let now = preferences.copyEnabled
-            return ControlResponse(copying: ControlCopying(copying: now, changed: now != before))
+            let now = (preferences.copyEnabled, preferences.focusPause.pausedCopying)
+            // A pause by hand while a Focus paused copying changes who holds the pause: it now
+            // outlives the Focus.
+            let tookOverFocus = !now.0 && before.1 && !now.1
+            return ControlResponse(copying: ControlCopying(
+                copying: now.0, changed: now != before, tookOverFocusPause: tookOverFocus ? true : nil))
         case .clean:
             do throws(ShortcutError) {
                 let report = try await shortcutCleanUp(previewOnly: request.dryRun ?? false)
@@ -57,19 +61,24 @@ extension AppModel {
         let ready = shortcutsReady
         let watched = ready ? await watchedFolderSettled() : nil
         let latest = ready ? (try? await controlLatest(count: 1))?.first?.path : nil
+        // While the launch still asks whether a Focus is on, a pause is neither called the
+        // user's nor the Focus's: plain "paused".
         let pausedBy: ControlStatus.PausedBy? =
             if !shortcutsReady { .setup }
             else if preferences.copyEnabled { nil }
+            else if !focusStateKnown { nil }
             else if pausedByFocus { .focus }
             else { .manual }
+        let attention = shortcutsReady ? attentions.map(\.kind) : nil
+        let blocked = (attention ?? []).contains { Attention.blockingKinds.contains($0) } || watchedFolder == nil
         let retention = preferences.retention
         return ControlStatus(
-            running: true, appVersion: appVersion, copying: shortcutsReady && preferences.copyEnabled,
+            running: true, appVersion: appVersion, copying: shortcutsReady && preferences.copyEnabled && !blocked,
             pausedBy: pausedBy, folder: shortcutsReady ? (screenshotFolder ?? watched)?.path : nil,
             retention: ControlStatus.Retention(
                 enabled: retention.enabled, days: retention.days,
                 refusal: retention.enabled ? retentionRefusal?.controlName : nil),
-            latest: latest)
+            latest: latest, attention: attention)
     }
 
     /// `clipshot latest`: Get Recent Screenshots' choice (the popover's selection, a file
@@ -84,8 +93,11 @@ extension AppModel {
         return files.map(ControlScreenshots.info)
     }
 
-    /// `clipshot copy PATH`: the row's Copy (`copyExplicitly`) for a file directly in the
-    /// watched folder that `FileTrust` would read. Anything else is refused and says why.
+    /// `clipshot copy PATH`: the row's Copy (`copyExplicitly`) for a screenshot ClipShot tracks
+    /// (in the ledger, or the last copy) directly in the watched folder, that `FileTrust`
+    /// would read. Anything else, any other image in the folder included, is refused and
+    /// says why: ClipShot holds the folder access, and another process of the user must not
+    /// read a Desktop file through it.
     func controlCopy(path: String) async -> ControlResponse {
         guard shortcutsReady else { return Self.controlResponse(.notSetUp) }
         guard path.hasPrefix("/") else { return .failure(.badRequest, "The path must be absolute.") }
@@ -96,6 +108,11 @@ extension AppModel {
         case .failure(let failure):
             return ControlResponse(error: failure)
         case .success(let file):
+            guard await isTracked(file) else {
+                return .failure(
+                    .refusedFile,
+                    "\(url.lastPathComponent) is not a screenshot ClipShot saw being taken, so clipshot does not copy it.")
+            }
             guard await copyExplicitly(file) else { return Self.controlResponse(.copyFailed) }
             return ControlResponse(copied: file.url.path)
         }

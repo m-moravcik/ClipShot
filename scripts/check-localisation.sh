@@ -262,6 +262,10 @@ command -v xcodegen >/dev/null || die "xcodegen not found"
 
 self_test
 
+# The Debug build is an app xcodebuild registers with Launch Services; unregister it on
+# exit, so Shortcuts never lists a second ClipShot.
+trap '"$REPO_ROOT/scripts/unregister-debug.sh" "$DERIVED/Build/Products/Debug/ClipShot.app"' EXIT
+
 xcodegen generate >/dev/null
 xcodebuild build \
   -project ClipShot.xcodeproj \

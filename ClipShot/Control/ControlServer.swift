@@ -116,6 +116,7 @@ final class ControlServer: Sendable {
         case .unreadable(let error):
             throw .system(error)
         }
+        Self.sweepLeftovers(in: folder, onto: path)
 
         let fd = ControlSocket.makeSocket()
         guard fd >= 0 else { throw .system(errno) }
@@ -171,6 +172,31 @@ final class ControlServer: Sendable {
         guard lstat(folder, &st) == 0 else { throw .system(errno) }
         guard (st.st_mode & S_IFMT) == S_IFDIR, st.st_uid == geteuid() else { throw .unsafeFolder }
         if st.st_mode & 0o077 != 0, chmod(folder, 0o700) != 0 { throw .system(errno) }
+    }
+
+    /// Temporary sockets an earlier start left behind (it died, or a step failed, between
+    /// bind and rename): `.clipshot-<pid>-<n>.sock` sockets of this user, of another process,
+    /// that nobody answers on. Each is renamed over the socket path, which drops the one
+    /// before; the new socket's own rename drops the last. Never a delete, never anything else.
+    static func sweepLeftovers(in folder: String, onto path: String) {
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: folder) else { return }
+        for name in names {
+            guard let pid = leftoverPID(name), pid != getpid() else { continue }
+            let entry = (folder as NSString).appendingPathComponent(name)
+            guard ControlSocket.inspect(entry) == .socket(owner: geteuid()), !answers(entry) else { continue }
+            _ = rename(entry, path)
+        }
+    }
+
+    /// The pid in a temporary socket's name, `.clipshot-<pid>-<digits>.sock`; nil for any
+    /// other name.
+    static func leftoverPID(_ name: String) -> pid_t? {
+        guard name.hasPrefix(".clipshot-"), name.hasSuffix(".sock") else { return nil }
+        let parts = name.dropFirst(".clipshot-".count).dropLast(".sock".count).split(separator: "-", omittingEmptySubsequences: false)
+        guard parts.count == 2, parts.allSatisfy({ !$0.isEmpty && $0.allSatisfy(\.isASCII) && $0.allSatisfy(\.isNumber) }),
+              let pid = pid_t(parts[0])
+        else { return nil }
+        return pid
     }
 
     /// Whether a server answers on the socket at `path` now.

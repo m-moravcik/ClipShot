@@ -159,6 +159,12 @@ struct CLIOfflineSources: Sendable {
     /// Whether ClipShot runs, when its socket does not answer: then the socket, not the app,
     /// is what is missing.
     var appRunning: @Sendable () -> Bool
+    /// ClipShot was launched within the last `recentLaunch`: its socket may not be bound
+    /// yet, so the tool waits for it a little (`CommandLineTool.startupGrace`).
+    var appLaunchedRecently: @Sendable () -> Bool = { false }
+
+    /// How recent a launch still counts as starting up.
+    static let recentLaunch: TimeInterval = 10
 
     /// The app's own files and settings. Nothing is written: the ledger is read, the
     /// screenshot settings are read, and the app's defaults domain is read.
@@ -192,6 +198,13 @@ struct CLIOfflineSources: Sendable {
             },
             appRunning: {
                 findsRunningApp && !NSRunningApplication.runningApplications(withBundleIdentifier: appDefaultsDomain).isEmpty
+            },
+            appLaunchedRecently: {
+                guard findsRunningApp else { return false }
+                return NSRunningApplication.runningApplications(withBundleIdentifier: appDefaultsDomain).contains {
+                    guard let launched = $0.launchDate else { return false }
+                    return Date().timeIntervalSince(launched) < recentLaunch
+                }
             })
     }
 }
@@ -206,6 +219,11 @@ struct CommandLineTool {
     /// app's own deadline (`ControlServer.Limits`), so its "timed out" answer arrives.
     var cleanTimeout: Duration = .seconds(180)
     var timeout: Duration = .seconds(30)
+    /// How long the tool waits for the socket of a ClipShot launched just now: longer than
+    /// the app's start, its retry after "in use" (`ControlHost.retryDelay`) and the bind.
+    var startupGrace: Duration = .seconds(3)
+    /// How often it tries meanwhile.
+    var startupRetryInterval: Duration = .milliseconds(100)
 
     /// The tool never writes the app's log; a read that logs goes nowhere.
     nonisolated static let quietLog = Log(fileURL: URL(fileURLWithPath: "/dev/null"))
@@ -306,9 +324,20 @@ struct CommandLineTool {
 
     /// The socket is read and written off the main actor: in tests the app's model answers
     /// on it.
+    ///
+    /// Nobody answering while ClipShot runs and was launched just now is a socket not bound
+    /// yet: the tool tries again every `startupRetryInterval` until `startupGrace` has passed.
+    /// Not running at all, or running for longer, is answered at once.
     private func send(_ request: ControlRequest, timeout: Duration) async -> Result<ControlResponse, ControlClient.Failure> {
         let socket = socket
-        return await Task.detached { ControlClient.send(request, to: socket, timeout: timeout) }.value
+        let deadline = ContinuousClock.now + startupGrace
+        while true {
+            let result = await Task.detached { ControlClient.send(request, to: socket, timeout: timeout) }.value
+            guard case .failure(.notRunning) = result, ContinuousClock.now < deadline,
+                  offline.appRunning(), offline.appLaunchedRecently()
+            else { return result }
+            try? await Task.sleep(for: startupRetryInterval)
+        }
     }
 
     // MARK: Without the app
@@ -404,8 +433,12 @@ enum CLIRender {
     static func status(_ s: ControlStatus) -> String {
         var lines: [String] = []
         lines.append("app: " + (s.running ? "ClipShot \(s.appVersion ?? "")" : "not running (start it: open -a ClipShot)"))
+        let blocking = (s.attention ?? []).filter { Attention.blockingKinds.contains($0) }
         let copying = switch s.pausedBy {
-        case nil: s.copying ? "on" : "off"
+        case nil where s.copying: "on"
+        case nil where !blocking.isEmpty:
+            "needs attention (" + blocking.map(Attention.describe(kind:)).joined(separator: "; ") + ")"
+        case nil: "paused"
         case .manual?: "paused"
         case .focus?: "paused while a Focus is on"
         case .setup?: "off until ClipShot is set up: open it from the menu bar"
@@ -417,6 +450,9 @@ enum CLIRender {
         if s.retention.enabled, let refusal = s.retention.refusal { cleanup += ", " + refusalText(refusal) }
         lines.append("cleanup: \(cleanup)")
         lines.append("latest: \(s.latest ?? "none")")
+        if let attention = s.attention, !attention.isEmpty {
+            lines.append("attention: " + attention.map(Attention.describe(kind:)).joined(separator: "; "))
+        }
         return lines.joined(separator: "\n") + "\n"
     }
 
@@ -431,7 +467,8 @@ enum CLIRender {
     }
 
     static func copying(_ c: ControlCopying) -> String {
-        switch (c.copying, c.changed) {
+        if c.tookOverFocusPause == true { return "copying paused (stays paused after the Focus ends)\n" }
+        return switch (c.copying, c.changed) {
         case (true, true): "copying resumed\n"
         case (true, false): "copying was already on\n"
         case (false, true): "copying paused\n"
@@ -495,8 +532,9 @@ enum CLIHelp {
                 usage: clipshot copy [PATH | --latest] [--json]
 
                 Copies a screenshot to the clipboard through ClipShot, as its Copy button does, also
-                while copying is paused. PATH must be a file in the screenshot folder; without one, the
-                latest screenshot is copied. Needs ClipShot running.
+                while copying is paused. PATH must be a screenshot ClipShot saw being taken, directly in
+                the screenshot folder; any other file is refused. Without PATH, the latest screenshot is
+                copied. Needs ClipShot running.
 
                 examples:
                   clipshot copy

@@ -206,20 +206,22 @@ struct ControlServerTests {
         let dir = try CT.shortDir()
         var limits = ControlServer.Limits()
         limits.maxConnections = 2
-        let stub = StubHandler(delay: .milliseconds(800))
+        let gate = Gate()
+        let stub = StubHandler(gate: gate)
         let server = try stub.server(at: CT.socket(in: dir), limits: limits)
         try server.start()
         defer { server.stop() }
         let socket = CT.socket(in: dir)
-        let slow = (0..<2).map { _ in
-            Task.detached { ControlClient.send(ControlRequest(command: .status), to: socket, timeout: .seconds(5)) }
+        let held = (0..<2).map { _ in
+            Task.detached { ControlClient.send(ControlRequest(command: .status), to: socket, timeout: .seconds(10)) }
         }
-        #expect(await eventually { server.active == 2 })
+        #expect(await eventually { server.active == 2 && stub.seen.count == 2 })
         let busy = try await Task.detached {
             try ControlClient.send(ControlRequest(command: .status), to: socket, timeout: .seconds(5)).get()
         }.value
         #expect(busy.error?.code == .busy)
-        for task in slow { #expect((try? await task.value.get())?.status == StubHandler.status) }
+        gate.open()
+        for task in held { #expect((try? await task.value.get())?.status == StubHandler.status) }
         #expect(stub.seen.count == 2, "the busy request never reached the handler")
         #expect(await eventually { server.active == 0 })
     }
@@ -231,32 +233,66 @@ struct ControlServerTests {
         limits.handlerTimeout = .milliseconds(200)
         limits.cleanTimeout = .seconds(60)
         #expect(limits.timeout(for: .clean) == .seconds(60) && limits.timeout(for: .status) == .milliseconds(200))
-        let stub = StubHandler(delay: .seconds(3))
+        let gate = Gate()
+        defer { gate.open() }
+        let stub = StubHandler(gate: gate)
         let server = try stub.server(at: CT.socket(in: dir), limits: limits)
         try server.start()
         defer { server.stop() }
         let socket = CT.socket(in: dir)
-        let started = ContinuousClock.now
         let response = try await Task.detached {
-            try ControlClient.send(ControlRequest(command: .status), to: socket, timeout: .seconds(5)).get()
+            try ControlClient.send(ControlRequest(command: .status), to: socket, timeout: .seconds(10)).get()
         }.value
-        #expect(response.error?.code == .timedOut)
-        #expect(ContinuousClock.now - started < .seconds(2))
+        #expect(response.error?.code == .timedOut, "answered while the handler is still held")
         #expect(await eventually { server.active == 0 }, "the place is free while the work goes on")
     }
 
     @Test func theClientGivesUpAtItsTimeout() async throws {
         let dir = try CT.shortDir()
-        let server = try StubHandler(delay: .seconds(3)).server(at: CT.socket(in: dir))
+        let gate = Gate()
+        defer { gate.open() }
+        let server = try StubHandler(gate: gate).server(at: CT.socket(in: dir))
         try server.start()
         defer { server.stop() }
         let socket = CT.socket(in: dir)
-        let started = ContinuousClock.now
         let result = await Task.detached {
             ControlClient.send(ControlRequest(command: .status), to: socket, timeout: .milliseconds(300))
         }.value
-        #expect(result == .failure(.timedOut))
-        #expect(ContinuousClock.now - started < .seconds(2))
+        #expect(result == .failure(.timedOut), "the handler is held: only the client's timeout can end it")
+    }
+
+    // MARK: Leftover temporary sockets
+
+    @Test func leftoverNamesAreRecognisedExactly() {
+        #expect(ControlServer.leftoverPID(".clipshot-123-4567.sock") == 123)
+        for name in ["clipshot.sock", ".clipshot-123.sock", ".clipshot-12a-4.sock", ".clipshot-1-2-3.sock",
+                     ".clipshot--4.sock", ".clipshot-1-.sock", ".clipshot-1-2.sock.bak", "x.clipshot-1-2.sock"] {
+            #expect(ControlServer.leftoverPID(name) == nil, "\(name)")
+        }
+    }
+
+    /// Stale temporary sockets of another process are swept by rename; a file with such a
+    /// name, a live one and one of this process stay.
+    @Test func staleTemporarySocketsAreSweptByRename() throws {
+        let dir = try CT.shortDir()
+        let stale = [".clipshot-999999-1.sock", ".clipshot-999999-2.sock"].map { dir.appendingPathComponent($0).path }
+        for path in stale { try CT.staleSocket(at: path) }
+        let file = dir.appendingPathComponent(".clipshot-999999-3.sock")
+        try Data("keep".utf8).write(to: file)
+        let live = dir.appendingPathComponent(".clipshot-999998-4.sock").path
+        let liveFD = try CT.listening(at: live)
+        defer { close(liveFD) }
+        let own = dir.appendingPathComponent(".clipshot-\(getpid())-5.sock").path
+        try CT.staleSocket(at: own)
+
+        let server = try StubHandler().server(at: CT.socket(in: dir))
+        try server.start()
+        defer { server.stop() }
+        for path in stale { #expect(ControlSocket.inspect(path) == .missing, "\(path)") }
+        #expect(try Data(contentsOf: file) == Data("keep".utf8))
+        #expect(ControlSocket.inspect(live) == .socket(owner: geteuid()) && ControlServer.answers(live))
+        #expect(ControlSocket.inspect(own) == .socket(owner: geteuid()), "this process's own name is left alone")
+        #expect((try? ControlClient.send(ControlRequest(command: .status), to: CT.socket(in: dir), timeout: .seconds(5)).get()) != nil)
     }
 
     // MARK: The client

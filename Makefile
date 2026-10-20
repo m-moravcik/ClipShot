@@ -25,8 +25,13 @@ cli:
 		-destination 'platform=macOS' $(DERIVED_FLAG) \
 		CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO build
 
+# On Apple silicon /usr/local/bin may be missing or root's: say what to do rather than
+# fail half way (`sudo make` would build as root).
 install-cli: cli
-	@mkdir -p "$(PREFIX)/bin"
+	@mkdir -p "$(PREFIX)/bin" 2>/dev/null && [ -w "$(PREFIX)/bin" ] || { \
+		echo "$(PREFIX)/bin is missing or not writable. Use make install-cli PREFIX=~/.local," >&2; \
+		echo "or first: sudo mkdir -p $(PREFIX)/bin && sudo chown \"$$USER\" $(PREFIX)/bin" >&2; \
+		exit 1; }
 	@cp -f "$(RELEASE)/clipshot" "$(PREFIX)/bin/clipshot"
 	@chmod +x "$(PREFIX)/bin/clipshot"
 	@echo "Installed: $(PREFIX)/bin/clipshot"
@@ -50,11 +55,17 @@ signed-app:
 signed-app-dry:
 	SKIP_NOTARIZE=1 ./scripts/release-signed.sh
 
+# The test host is a Debug ClipShot.app, which xcodebuild registers with Launch Services:
+# unregistered afterwards, pass or fail, so Shortcuts never lists a second ClipShot.
 test:
 	xcodegen generate
-	xcodebuild -project ClipShot.xcodeproj -scheme ClipShot test \
+	@products="$$(xcodebuild -project ClipShot.xcodeproj -scheme ClipShot -showBuildSettings 2>/dev/null | awk -F= '/ BUILD_DIR =/{print $$2}' | tr -d ' ')"; \
+	xcodebuild -project ClipShot.xcodeproj -scheme ClipShot test $(DERIVED_FLAG) \
 		-destination 'platform=macOS' \
-		CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO
+		CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO; rc=$$?; \
+	if [ -n "$(DERIVED_DATA)" ]; then products="$(DERIVED_DATA)/Build/Products"; fi; \
+	./scripts/unregister-debug.sh "$$products/Debug/ClipShot.app"; \
+	exit $$rc
 
 l10n:
 	./scripts/check-localisation.sh

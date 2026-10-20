@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/tests-486%20passing-brightgreen" alt="Tests: 486 passing">
+  <img src="https://img.shields.io/badge/tests-499%20passing-brightgreen" alt="Tests: 499 passing">
   <img src="https://img.shields.io/badge/macOS-26%2B-blue" alt="macOS 26 or newer">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT"></a>
 </p>
@@ -249,8 +249,9 @@ names or paths.
 ## Shortcuts
 
 ClipShot's actions are in the Shortcuts app under ClipShot, ready for your own
-shortcuts and automations. Siri and Spotlight know five of them by phrase, in all
-six languages.
+shortcuts and automations. Five of them have phrases for Siri and Spotlight,
+translated into all six languages; Siri does not speak Slovak or Czech, so in those two
+the phrases work in Spotlight and the Shortcuts app.
 
 | Action | Parameters | What it does |
 |---|---|---|
@@ -314,7 +315,10 @@ always the app's version.
 
   On an Intel Mac, Homebrew links into `/usr/local/bin` too, so use either this link
   or the cask, not both.
-- **From source**: `make install-cli` (to `/usr/local/bin`; `PREFIX=` to change).
+- **From source**: `make install-cli PREFIX=~/.local` installs to `~/.local/bin`
+  (put it on your PATH). Plain `make install-cli` installs to `/usr/local/bin`, which on
+  Apple silicon is missing or root's until you run
+  `sudo mkdir -p /usr/local/bin && sudo chown "$USER" /usr/local/bin`.
 
 ```text
 clipshot [status] [--json]                 copying on or paused (and why), folder, cleanup, latest
@@ -328,7 +332,7 @@ clipshot help [COMMAND] | --version
 ```sh
 open "$(clipshot latest)"                  # the screenshot you just took, in Preview
 clipshot latest -n 3                       # the three newest paths, one per line
-clipshot copy ~/Desktop/Screenshot.png     # a file in the screenshot folder, to the clipboard
+clipshot copy ~/Desktop/Screenshot.png     # a screenshot ClipShot saw being taken, to the clipboard
 clipshot pause && ./record-demo.sh && clipshot resume
 clipshot clean --dry-run                   # what cleanup would move, moving nothing
 ```
@@ -344,8 +348,10 @@ your terminal app may read that folder.
 Everything that changes something (`copy`, `pause`, `resume`, `clean`) goes through
 the running app, over a socket only your user can open, and does exactly what the
 popover and the Shortcuts actions do: the same image on the clipboard, Peg's copy
-moment, cleanup's checks. Like the Shortcuts actions, every command but `status`
-waits for the welcome tour.
+moment, cleanup's checks. `copy PATH` copies only a screenshot ClipShot saw being taken
+(one the popover could list), directly in the screenshot folder; any other file there,
+an image or a PDF included, is refused. Like the Shortcuts actions, every command but
+`status` waits for the welcome tour.
 
 Exit codes: `0` ok, `1` error, `2` usage, `3` ClipShot is not running (start it with
 `open -a ClipShot`). With `--json`, output is JSON, and an error is

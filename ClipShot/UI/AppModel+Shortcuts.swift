@@ -256,7 +256,13 @@ extension AppModel {
     @discardableResult
     func shortcutCopyLatest() async throws(ShortcutError) -> CaptureFile {
         guard shortcutsReady else { throw .notSetUp }
-        guard let file = await recentScreenshots(count: 1).first else { throw .noScreenshots }
+        // The same file Get Latest Screenshot and `clipshot latest` name: the newest one
+        // `FileTrust` would read.
+        let candidates = await recentScreenshots(count: Self.shortcutMaxCount)
+        let latest = await Task.detached(priority: .userInitiated) {
+            ControlScreenshots.trusted(candidates, count: 1).first
+        }.value
+        guard let file = latest else { throw .noScreenshots }
         guard await copyExplicitly(file) else { throw .copyFailed }
         return file
     }

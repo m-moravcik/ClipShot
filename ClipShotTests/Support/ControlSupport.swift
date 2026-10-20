@@ -2,15 +2,29 @@ import Foundation
 import Synchronization
 @testable import ClipShot
 
-/// Helpers for the control socket tests. Every socket lives in its own folder under /tmp:
-/// a socket path must fit in 104 bytes, which the per-user temporary directory leaves too
-/// little room for. Nothing here touches ClipShot's real folder or a running ClipShot.
+/// Helpers for the control socket tests. Every socket lives in its own short folder in
+/// the per-user temporary directory, under one `csk` parent, which macOS cleans like the
+/// other fixtures: a socket path must fit in 104 bytes, so the names stay short. Nothing
+/// here touches ClipShot's real folder or a running ClipShot.
 enum CT {
     static func shortDir() throws -> URL {
-        var template = Array("/tmp/csk.XXXXXX".utf8CString)
+        let parent = FileManager.default.temporaryDirectory.appendingPathComponent("csk", isDirectory: true)
+        try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+        var template = Array((parent.path + "/XXXXXX").utf8CString)
         let made = template.withUnsafeMutableBufferPointer { mkdtemp($0.baseAddress) }
         guard let made else { throw POSIXError(.EIO) }
         return URL(fileURLWithPath: String(cString: made), isDirectory: true)
+    }
+
+    /// A socket that listens at `path` for as long as the returned descriptor is open.
+    static func listening(at path: String) throws -> Int32 {
+        let fd = ControlSocket.makeSocket()
+        guard fd >= 0 else { throw POSIXError(.EIO) }
+        guard ControlSocket.withAddress(path, { bind(fd, $0, $1) }) == 0, listen(fd, 4) == 0 else {
+            close(fd)
+            throw POSIXError(.EADDRINUSE)
+        }
+        return fd
     }
 
     static func socket(in dir: URL) -> URL { dir.appendingPathComponent(ControlProtocol.socketName) }
@@ -50,14 +64,40 @@ enum CT {
     }
 }
 
+/// Holds whoever waits on it until `open()`: a handler the test lets go, instead of one
+/// that takes a fixed time.
+final class Gate: Sendable {
+    private let state = Mutex<(open: Bool, waiting: [CheckedContinuation<Void, Never>])>((false, []))
+
+    func wait() async {
+        await withCheckedContinuation { continuation in
+            let resume = state.withLock { state -> Bool in
+                if state.open { return true }
+                state.waiting.append(continuation)
+                return false
+            }
+            if resume { continuation.resume() }
+        }
+    }
+
+    func open() {
+        let waiting = state.withLock { state -> [CheckedContinuation<Void, Never>] in
+            state.open = true
+            defer { state.waiting = [] }
+            return state.waiting
+        }
+        for continuation in waiting { continuation.resume() }
+    }
+}
+
 /// A handler that records what it was asked and answers with a fixed status.
 final class StubHandler: Sendable {
     private let requests = Mutex<[ControlRequest]>([])
-    /// How long each answer takes.
-    private let delay: Duration
+    /// Each answer waits for it, when there is one.
+    private let gate: Gate?
 
-    init(delay: Duration = .zero) {
-        self.delay = delay
+    init(gate: Gate? = nil) {
+        self.gate = gate
     }
     var seen: [ControlRequest] { requests.withLock { $0 } }
 
@@ -67,7 +107,7 @@ final class StubHandler: Sendable {
 
     func handle(_ request: ControlRequest) async -> ControlResponse {
         requests.withLock { $0.append(request) }
-        if delay > .zero { try? await Task.sleep(for: delay) }
+        if let gate { await gate.wait() }
         return ControlResponse(status: Self.status)
     }
 
@@ -93,23 +133,26 @@ extension ModelHarness {
 
     /// What `clipshot` reads itself while the app is not running: this harness's ledger and
     /// folder, and `preferences`.
-    func offlineSources(_ preferences: Preferences? = nil, appRunning: Bool = false) -> CLIOfflineSources {
+    func offlineSources(
+        _ preferences: Preferences? = nil, appRunning: Bool = false, launchedRecently: Bool = false
+    ) -> CLIOfflineSources {
         let folder = folder
         let home = home
         let stored = preferences ?? self.preferences
         return CLIOfflineSources(
             ledgerURL: ledgerURL, folder: { folder }, preferences: { stored },
             retentionRefusal: { $0.refusal(folder: folder, home: home, hasTrash: RT.hasTrash) },
-            appRunning: { appRunning })
+            appRunning: { appRunning }, appLaunchedRecently: { launchedRecently })
     }
 
     /// `clipshot` talking to the socket in `dir`. `appRunning`: what the tool finds when the
     /// socket does not answer.
     func tool(
-        _ dir: URL, workingDirectory: URL? = nil, offline: Preferences? = nil, appRunning: Bool = false
+        _ dir: URL, workingDirectory: URL? = nil, offline: Preferences? = nil, appRunning: Bool = false,
+        launchedRecently: Bool = false
     ) -> CommandLineTool {
         CommandLineTool(
             version: "0.9.0", socket: CT.socket(in: dir), workingDirectory: workingDirectory ?? home,
-            offline: offlineSources(offline, appRunning: appRunning))
+            offline: offlineSources(offline, appRunning: appRunning, launchedRecently: launchedRecently))
     }
 }

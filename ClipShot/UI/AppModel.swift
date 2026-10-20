@@ -636,6 +636,19 @@ final class AppModel {
         await coordinator.ledgerSettled()
     }
 
+    /// `file` is one the popover's list could hold: in the ledger (seen being taken, or
+    /// adopted for cleanup) or the last copy, as the same file (resource identifier). Any
+    /// other file, an image in the folder included, is not ClipShot's to copy.
+    func isTracked(_ file: CaptureFile) async -> Bool {
+        await coordinator.ledgerSettled()
+        let path = FolderGuard.canonicalPath(file.url)
+        if let lastCopied, lastCopied.resourceID == file.resourceID,
+           FolderGuard.canonicalPath(lastCopied.url) == path {
+            return true
+        }
+        return await ledger.contains(path: path, resourceID: file.resourceID)
+    }
+
     private func copyFailed(_ file: CaptureFile) {
         copyFailure = clock()
         failedCapture = file

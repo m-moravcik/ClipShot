@@ -16,12 +16,13 @@ struct CLIBinaryTests {
 
     private static var binary: URL { Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/clipshot") }
 
-    private func run(_ arguments: [String], support: URL) throws -> Run {
+    private func run(_ arguments: [String], support: URL, domain: String? = nil) throws -> Run {
         let process = Process()
         process.executableURL = Self.binary
         process.arguments = arguments
         var environment = ProcessInfo.processInfo.environment
         environment[ControlProtocol.supportDirectoryEnvironmentKey] = support.path
+        if let domain { environment[ControlProtocol.defaultsDomainEnvironmentKey] = domain }
         process.environment = environment
         let out = Pipe(), err = Pipe()
         process.standardOutput = out
@@ -76,6 +77,17 @@ struct CLIBinaryTests {
         let status = try ControlProtocol.decoder().decode(ControlStatus.self, from: Data(result.stdout.utf8))
         #expect(status == StubHandler.status)
         #expect(stub.seen == [ControlRequest(command: .status)])
+    }
+
+    /// A socket left by a crash: nobody answers, so status reads for itself (a defaults
+    /// domain nobody uses: never set up, so no folder is read) and exits 0.
+    @Test func statusAgainstAStaleSocketReadsForItself() throws {
+        let support = try CT.shortDir()
+        try CT.staleSocket(at: CT.socket(in: support).path)
+        let result = try run(["status", "--json"], support: support, domain: "sk.moravcik.ClipShot.tests.\(UUID().uuidString)")
+        #expect(result.status == 0, "\(result.stderr)")
+        let status = try ControlProtocol.decoder().decode(ControlStatus.self, from: Data(result.stdout.utf8))
+        #expect(!status.running && status.pausedBy == .notRunning && status.folder == nil && status.attention == nil)
     }
 
     @Test func aSymlinkAtTheSocketPathIsNotUsed() throws {

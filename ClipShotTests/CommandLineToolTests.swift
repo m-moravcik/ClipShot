@@ -111,7 +111,8 @@ struct CommandLineToolTests {
             running: true, appVersion: "0.9.0", copying: false, pausedBy: .focus, folder: "/f",
             retention: ControlStatus.Retention(enabled: true, days: 7, refusal: "notConfirmed"), latest: nil)
         let status = try object(CLIRender.json(paused))
-        #expect(Set(status.keys) == ["running", "appVersion", "copying", "pausedBy", "folder", "retention", "latest"])
+        #expect(Set(status.keys) == ["running", "appVersion", "copying", "pausedBy", "folder", "retention", "latest", "attention"])
+        #expect(status["attention"] is NSNull)
         #expect(status["pausedBy"] as? String == "focus")
         #expect(status["latest"] is NSNull)
         let retention = try #require(status["retention"] as? [String: Any])
@@ -179,7 +180,8 @@ struct CommandLineToolTests {
         var status = try ControlProtocol.decoder().decode(ControlStatus.self, from: Data(out.stdout.utf8))
         #expect(status == ControlStatus(
             running: true, appVersion: "0.9.0", copying: true, pausedBy: nil, folder: h.folder.path,
-            retention: ControlStatus.Retention(enabled: false, days: 30, refusal: nil), latest: canon(url)))
+            retention: ControlStatus.Retention(enabled: false, days: 30, refusal: nil), latest: canon(url),
+            attention: []))
 
         h.preferences.copyEnabled = false
         status = try ControlProtocol.decoder().decode(ControlStatus.self, from: Data(await tool.run(["--json"]).stdout.utf8))
@@ -205,6 +207,25 @@ struct CommandLineToolTests {
         #expect(await tool.run(["pause"]) == CLIOutput(stdout: "copying was already paused\n"), "idempotent, exit 0")
         #expect(await tool.run(["resume", "--json"]).stdout == #"{"changed":true,"copying":true}"# + "\n")
         #expect(h.preferences.copyEnabled)
+    }
+
+    /// A Focus paused copying; `clipshot pause` makes the pause the user's, so it outlives the
+    /// Focus: a change, and said.
+    @Test func pauseDuringAFocusPauseTakesItOver() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        #expect(await h.start())
+        h.model.focusChanged(pausing: true)
+        #expect(h.model.pausedByFocus)
+        let (server, dir) = try h.controlServer()
+        defer { server.stop() }
+        let tool = h.tool(dir)
+        #expect(await tool.run(["pause"]).stdout == "copying paused (stays paused after the Focus ends)\n")
+        #expect(!h.preferences.copyEnabled && h.preferences.focusPause == FocusPause(focusOn: true, pausedCopying: false))
+        let json = await tool.run(["pause", "--json"])
+        #expect(json.stdout == #"{"changed":false,"copying":false}"# + "\n", "now nothing changes")
+        h.model.focusChanged(pausing: false, immediately: true)
+        #expect(!h.preferences.copyEnabled, "the Focus's end does not resume a pause by hand")
     }
 
     /// A Focus paused copying; `clipshot resume` is a resume by hand and wins until the Focus
@@ -307,9 +328,21 @@ struct CommandLineToolTests {
         #expect(missing.exit == .error && missing.stderr.contains("No such file: "))
         let text = h.folder.appendingPathComponent("notes.txt")
         try Data("x".utf8).write(to: text)
+        // Images directly in the folder that ClipShot never saw being taken: a download with
+        // no marker, a PDF, and even a marked screenshot that is not in the ledger.
+        let download = try RT.shot("download.png", in: h.folder, age: 10, now: RT.now(), marker: .none, quarantine: true)
+        let pdf = try Fixtures.write(named: "contract.pdf", contents: RT.png, in: h.folder, marker: .none)
+        // Old enough not to be copied (and so tracked) when it appears while watching.
+        let untracked = try RT.shot("untracked.png", in: h.folder, age: 120, now: RT.now())
+        for url in [download, pdf, untracked] {
+            let out = await tool.run(["copy", url.path])
+            #expect(out.exit == .error)
+            #expect(out.stderr == "error: \(url.lastPathComponent) is not a screenshot ClipShot saw being taken, so clipshot does not copy it.\n")
+        }
         let cases: [(URL, String)] = [
             (outside, "notInFolder"), (nested, "notInFolder"), (link, "refusedFile"), (text, "refusedFile"),
-            (h.folder.appendingPathComponent("missing.png"), "refusedFile"),
+            (h.folder.appendingPathComponent("missing.png"), "refusedFile"), (download, "refusedFile"),
+            (pdf, "refusedFile"), (untracked, "refusedFile"),
         ]
         for (url, code) in cases {
             let out = await tool.run(["copy", url.path, "--json"])
@@ -322,6 +355,75 @@ struct CommandLineToolTests {
     }
 
     /// `latest` skips a file `FileTrust` refuses for the next newest, as Get Latest does.
+    /// The probe of the final review: the socket request itself, for an unmarked image
+    /// directly in the folder, is refused and leaves the clipboard alone.
+    @Test func handleControlRefusesAnUntrackedImageInTheFolder() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        #expect(await h.start())
+        let download = try RT.shot("download.png", in: h.folder, age: 10, now: RT.now(), marker: .none)
+        let response = await h.model.handleControl(ControlRequest(command: .copy, path: download.path), appVersion: "0.9.0")
+        #expect(response.error?.code == .refusedFile)
+        #expect(response.copied == nil)
+        #expect(h.pasteboard.writes.isEmpty && h.preferences.totals.copied == 0)
+    }
+
+    /// The last copy counts as tracked even when its ledger entry is gone, as the popover
+    /// still lists it.
+    @Test func copyPathTakesTheLastCopyToo() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        #expect(await h.start())
+        let (server, dir) = try h.controlServer()
+        defer { server.stop() }
+        let fresh = try h.shoot("fresh.png")
+        #expect(await eventually { await h.model.lastCopied != nil })
+        await h.model.ledgerSettled()
+        let file = try #require(CaptureFile.inspect(fresh))
+        await h.ledger.remove(path: FolderGuard.canonicalPath(fresh), resourceID: file.resourceID)
+        let out = await h.tool(dir).run(["copy", fresh.path])
+        #expect(out == CLIOutput(stdout: "copied: \(fresh.path)\n"))
+    }
+
+    /// The other copy paths are ledger-bound already: Copy Latest Screenshot and the
+    /// popover's list never offer an image ClipShot did not see being taken, however new.
+    @Test func shortcutsAndThePopoverOfferOnlyTrackedScreenshots() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        let now = RT.now()
+        await h.ledger.record(RT.file(try RT.shot("shot.png", in: h.folder, age: 100, now: now)))
+        try RT.shot("download.png", in: h.folder, age: 5, now: now, marker: .none, quarantine: true)
+        try RT.shot("untracked.png", in: h.folder, age: 5, now: now)
+        #expect(await h.start())
+        #expect(try await h.model.shortcutCopyLatest().url.lastPathComponent == "shot.png")
+        #expect(try await h.model.shortcutScreenshots(count: 10).files.map(\.name) == ["shot.png"])
+        h.model.refreshRecent()
+        #expect(await eventually { await h.model.recentSettled })
+        #expect(h.model.recent.map(\.url.lastPathComponent) == ["shot.png"])
+    }
+
+    /// "Latest" is one file on every path: a newest screenshot `FileTrust` refuses (too
+    /// large) is skipped by `latest` and by `copy` alike.
+    @Test func latestAndCopyAgreeOnARefusedNewest() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        let now = RT.now()
+        let older = try RT.shot("older.png", in: h.folder, age: 200, now: now)
+        let huge = try RT.shot("huge.png", in: h.folder, age: 100, now: now)
+        for url in [older, huge] { await h.ledger.record(RT.file(url)) }
+        // Sparse: past FileTrust's 256 MB without using the disk; the same file, still marked.
+        let handle = try FileHandle(forWritingTo: huge)
+        try handle.truncate(atOffset: 300 * 1_024 * 1_024)
+        try handle.close()
+        #expect(await h.start())
+        let (server, dir) = try h.controlServer()
+        defer { server.stop() }
+        let tool = h.tool(dir)
+        #expect(await tool.run(["latest"]).stdout == canon(older) + "\n")
+        #expect(await tool.run(["copy"]) == CLIOutput(stdout: "copied: \(canon(older))\n"))
+        #expect(h.pasteboard.writes.count == 1)
+    }
+
     @Test func latestSkipsWhatFileTrustRefuses() throws {
         let dir = try Fixtures.makeDir()
         let files = try ["new.png", "old.png"].map { RT.file(try RT.shot($0, in: dir, age: 10, now: RT.now())) }
@@ -386,6 +488,83 @@ struct CommandLineToolTests {
         #expect(h.preferences.copyEnabled)
         #expect(h.pasteboard.writes.isEmpty && h.trasher.trashed.isEmpty)
         #expect(h.events.starts == 0, "the folder was not touched")
+    }
+
+    /// Copying stops when macOS saves no file: status says so instead of "on".
+    @Test func statusSaysWhenAnAttentionStopsCopying() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        #expect(await h.start())
+        let (server, dir) = try h.controlServer()
+        defer { server.stop() }
+        let tool = h.tool(dir)
+        h.prefs.set("clipboard", forKey: "target")
+        h.model.refreshStatus()
+        #expect(await eventually { await h.model.attentions.contains(.destinationNotFile) })
+        let status = try ControlProtocol.decoder().decode(ControlStatus.self, from: Data(await tool.run(["--json"]).stdout.utf8))
+        #expect(!status.copying && status.pausedBy == nil)
+        #expect(status.attention == ["destinationNotFile"])
+        let text = await tool.run([]).stdout
+        #expect(text.contains("copying: needs attention (macOS saves screenshots to the clipboard or an app, not to a file)"))
+        #expect(text.contains("attention: macOS saves screenshots"))
+    }
+
+    /// While the launch still asks whether a Focus is on, a pause is plain "paused", not
+    /// called the user's.
+    @Test func whileTheFocusIsUnknownAPauseIsPlain() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        #expect(await h.start())
+        let (server, dir) = try h.controlServer()
+        defer { server.stop() }
+        h.preferences.copyEnabled = false
+        h.model.focusStateKnown = false
+        let status = try ControlProtocol.decoder().decode(ControlStatus.self, from: Data(await h.tool(dir).run(["--json"]).stdout.utf8))
+        #expect(!status.copying && status.pausedBy == nil && status.attention == [])
+        #expect(await h.tool(dir).run([]).stdout.contains("copying: paused\n"))
+        h.model.focusStateKnown = true
+    }
+
+    // MARK: Right after a launch
+
+    /// ClipShot was just launched and binds its socket a moment later: the tool waits for it.
+    @Test func aJustLaunchedAppIsWaitedFor() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        let dir = try CT.shortDir()
+        let server = try StubHandler().server(at: CT.socket(in: dir))
+        defer { server.stop() }
+        let late = Task.detached {
+            try? await Task.sleep(for: .milliseconds(300))
+            try? server.start()
+        }
+        let out = await h.tool(dir, appRunning: true, launchedRecently: true).run(["status", "--json"])
+        await late.value
+        #expect(out.exit == .ok, "\(out.stderr)")
+        #expect(try ControlProtocol.decoder().decode(ControlStatus.self, from: Data(out.stdout.utf8)) == StubHandler.status)
+    }
+
+    /// Not running is said at once: no waiting for a socket that cannot come.
+    @Test func notRunningIsSaidAtOnce() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        var tool = h.tool(try CT.shortDir(), appRunning: false, launchedRecently: true)
+        tool.startupGrace = .seconds(5)
+        let started = ContinuousClock.now
+        #expect(await tool.run(["pause"]).exit == .notRunning)
+        #expect(ContinuousClock.now - started < .seconds(1), "no retry while ClipShot is not running")
+    }
+
+    /// Running, just launched, and the socket never comes: unavailable, after the grace.
+    @Test func aSocketThatNeverComesIsUnavailableAfterTheGrace() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        var tool = h.tool(try CT.shortDir(), appRunning: true, launchedRecently: true)
+        tool.startupGrace = .milliseconds(200)
+        let started = ContinuousClock.now
+        let out = await tool.run(["pause", "--json"])
+        #expect(ContinuousClock.now - started >= .milliseconds(200))
+        #expect(out.exit == .error && out.stdout.contains(#""code":"socketUnavailable""#))
     }
 
     // MARK: Without the app

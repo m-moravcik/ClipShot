@@ -22,6 +22,9 @@ enum ControlProtocol {
     /// For tests and development only: `clipshot` looks for the socket and the ledger in this
     /// folder instead. The app always uses `supportDirectory`.
     static let supportDirectoryEnvironmentKey = "CLIPSHOT_SUPPORT_DIR"
+    /// For tests only, and only with `supportDirectoryEnvironmentKey`: the defaults domain
+    /// `clipshot` reads the app's settings from while the app is not running.
+    static let defaultsDomainEnvironmentKey = "CLIPSHOT_DEFAULTS_DOMAIN"
 
     static func encoder() -> JSONEncoder {
         let encoder = JSONEncoder()
@@ -148,9 +151,14 @@ struct ControlStatus: Codable, Equatable, Sendable {
     var retention: Retention
     /// The newest screenshot, as `latest` picks it.
     var latest: String?
+    /// What the popover's attention rows say needs fixing, by kind (`destinationNotFile`,
+    /// `folderAccessDenied`, `folderMissing`, `couldNotCopy`, `retentionFolderChanged`,
+    /// `noTrash`); nil when the app is not running. Added within version 1: older readers
+    /// ignore it.
+    var attention: [String]? = nil
 
     private enum CodingKeys: String, CodingKey {
-        case running, appVersion, copying, pausedBy, folder, retention, latest
+        case running, appVersion, copying, pausedBy, folder, retention, latest, attention
     }
 
     /// Every key is written, `null` included, so a script reads the same shape whatever the
@@ -164,6 +172,7 @@ struct ControlStatus: Codable, Equatable, Sendable {
         try c.encode(folder, forKey: .folder)
         try c.encode(retention, forKey: .retention)
         try c.encode(latest, forKey: .latest)
+        try c.encode(attention, forKey: .attention)
     }
 }
 
@@ -176,8 +185,11 @@ struct ControlScreenshot: Codable, Equatable, Sendable {
 /// `clipshot pause` and `resume`.
 struct ControlCopying: Codable, Equatable, Sendable {
     var copying: Bool
-    /// False when copying already was as asked: nothing changed and Peg plays nothing.
+    /// False when nothing changed: copying already was as asked, and no Focus held the pause.
     var changed: Bool
+    /// `pause` while a Focus had paused copying: the pause is now the user's and stays after
+    /// the Focus ends. Absent otherwise.
+    var tookOverFocusPause: Bool?
 }
 
 /// `clipshot clean`.
