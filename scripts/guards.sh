@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
 # Static guards. Fails on:
-#   - removeItem / unlink( anywhere under ClipShot/ (user files only go through trashItem)
+#   - removeItem / unlink( anywhere under ClipShot/ (files leave the folder only through trashItem)
 #   - Text("...") literals outside #Preview blocks (user-facing strings must be localised keys)
-#   - the em dash (U+2014) in user-facing resources and docs
+#   - the em dash (U+2014) in any text file of the repository
 #   - Sparkle's version, revision pin and release-tool hashes out of step
 
 set -uo pipefail
@@ -69,12 +69,11 @@ if errors:
     sys.exit(1)
 PY
 
-paths=()
-for p in ClipShot/Resources README.md DEVELOPMENT.md release-notes; do
-  [ -e "$p" ] && paths+=("$p")
-done
-if [ "${#paths[@]}" -gt 0 ] && grep -rn $'\xe2\x80\x94' "${paths[@]}"; then
-  report "em dash (U+2014) found in user-facing files"
+# No em dash anywhere: code, comments, docs, scripts and resources alike. Every text
+# file git tracks or would add (untracked, not ignored); -I skips binaries such as the
+# PNGs, where the same bytes can occur by chance.
+if git grep -n -I --untracked $'\xe2\x80\x94'; then
+  report "em dash (U+2014) found in the repository"
 fi
 
 [ "$fail" -eq 0 ] && echo "guards: OK"

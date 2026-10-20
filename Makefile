@@ -31,6 +31,12 @@ l10n:
 guards:
 	./scripts/guards.sh
 
+# Moves the generated project and the build products to the Trash; nothing is deleted.
 clean:
-	rm -rf ClipShot.xcodeproj
-	rm -rf "$(DERIVED)"
+	@for p in "$(CURDIR)/ClipShot.xcodeproj" "$(DERIVED)"; do \
+		if [ -n "$$p" ] && [ -e "$$p" ]; then \
+			osascript -e 'on run argv' -e 'set f to POSIX file (item 1 of argv)' \
+				-e 'tell application "Finder" to delete f' -e 'end run' "$$p" >/dev/null || exit 1; \
+			echo "moved to the Trash: $$p"; \
+		fi; \
+	done
