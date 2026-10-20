@@ -479,3 +479,28 @@ period. The popover row (above) uses the same sentence shape.
   is stored on its own and the system registration is repaired from it at each
   launch, so a replaced app bundle does not silently drop it (the siblings'
   pattern).
+
+## Addendum C (2026-10-20 evening): more in 0.9.0
+
+The owner moved these into the first release ("everything into 0.9"); the
+non-goal "CLI companion, Shortcuts/App Intents" above no longer holds.
+
+- **Peg moments for the user's own actions.** Moving a screenshot to the
+  Trash from the popover or a preview: Peg opens and lets the picture drop.
+  Undo: Peg grips it again. Clicking the menu bar icon: Peg's handles are
+  squeezed and its jaws open a little as the popover opens (short, never
+  delays the popover). Automatic retention never plays a moment. A Copy from
+  the list or a preview plays the copy moment like an automatic copy, also
+  while the popover is open.
+- **Shortcuts.** App Intents: Get Latest Screenshot (returns the file),
+  Copy Latest Screenshot, pause and resume copying, Clean Up Old Screenshots
+  Now; a Focus filter that pauses copying while a chosen Focus is on, without
+  undoing a pause the user set by hand. App Shortcuts phrases in all six
+  languages.
+- **CLI `clipshot`.** For scripts, terminals and coding agents: status,
+  latest screenshot path(s), copy, pause and resume, clean up (with a dry
+  run). Actions that change state go through the running app, so they share
+  its safety checks, its clipboard path and Peg; nothing that can change
+  state is reachable from a web page. Installed like VibeRes's CLI.
+- **README** opens with a short animated demo (rendered from the app's own
+  views, never a screen recording) and documents Shortcuts and the CLI.
