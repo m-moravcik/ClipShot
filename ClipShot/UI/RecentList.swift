@@ -102,6 +102,7 @@ struct RecentList: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.hoveredRecent) private var hoveredRecent
+    @Environment(\.displayScale) private var displayScale
 
     var body: some View {
         let slots = model.recentSlots
@@ -121,7 +122,12 @@ struct RecentList: View {
                 }
                 .overlay(alignment: .top) {
                     if index > 0 {
-                        Divider().padding(.horizontal, Design.Spacing.l)
+                        // One device pixel, fainter than a system Divider: on the card's
+                        // tint a full Divider reads as a border and splits the group.
+                        Rectangle()
+                            .fill(Design.Palette.rowSeparator)
+                            .frame(height: 1 / displayScale)
+                            .padding(.horizontal, Design.Spacing.l)
                     }
                 }
                 .transition(.opacity)

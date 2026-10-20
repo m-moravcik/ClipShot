@@ -65,6 +65,8 @@ enum Design {
         static let rowSelectedFill = Color.accentColor.opacity(0.12)
         static let rowSelectedTint = Color.accentColor
         static let separator = Color.secondary.opacity(0.15)
+        /// Between rows inside a card, which already sits on `cardFill`.
+        static let rowSeparator = Color.secondary.opacity(0.12)
         /// The update-ready card, the same green wash as VibeRes and Eject Guard.
         static let updateFill = Color.green.opacity(0.10)
         static let updateFillHover = Color.green.opacity(0.18)
