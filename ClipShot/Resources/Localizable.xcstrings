@@ -8783,7 +8783,7 @@
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Prohlídka se otevře, až příště klikneš na ClipShot na liště."
+            "value" : "Prohlídka se otevře, až příště klikneš na ClipShot v řádku nabídek."
           }
         },
         "de" : {
@@ -9103,7 +9103,7 @@
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sleduj lištu menu"
+            "value" : "Sleduj lištu"
           }
         },
         "cs" : {

@@ -22,7 +22,10 @@ the reviewer and the date here when that happens.
   and es (as in the sibling apps); `vous` in fr.
 - Product names (ClipShot, Finder, Homebrew) and keyboard symbols (⇧⌘4, ⌘V) stay as they are.
 - macOS terms aim to match the system's own wording (check against macOS when reviewing): Trash is Kôš / Koš / Papierkorb / Papelera /
-  Corbeille; the floating thumbnail is miniatúra / miniatura / Miniatur / miniatura / vignette.
+  Corbeille; the floating thumbnail is miniatúra / miniatura / Miniatur / miniatura / vignette;
+  the menu bar is lišta / řádek nabídek / Menüleiste / barra de menús / barre des menus, as
+  macOS writes it ("Zobraziť v lište", "Přidat do řádku nabídek"), never "lišta menu" in sk
+  or "lišta" in cs.
   Markup is Anotácie / Anotace in sk and cs, as Preview names it there ("Zobraziť panel
   anotácií", "Zobrazit anotační nástroje"), so "Upraviť v anotáciách" / "Upravit v anotacích";
   Markierungen / Marcación / Annoter in de, es, fr.
