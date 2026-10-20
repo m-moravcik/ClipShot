@@ -199,20 +199,25 @@ enum Peg {
     /// the peg opens, the last shot drops, the new one slides in along the line, gets pegged
     /// with a clamp that lands with a little bounce, swings and bobs on the line, develops
     /// from the bottom and shows a check, which holds; then it fades back into a picture, at
-    /// rest by `PegMoment.copied.duration`. The pinning (slide, clamp, swing) is slow enough to
-    /// follow in the corner of the eye; the old shot's drop stays quick.
+    /// rest by `PegMoment.copied.duration`. The swap (the peg opening, the old shot dropping,
+    /// the new one sliding in) is slow enough that the old card is seen leaving before the
+    /// new one lands; the pinning (clamp, swing) and the check keep their own pace.
     enum Beat {
-        static let pegOpen = 0.0...0.14
-        static let oldDrop = 0.04...0.34
-        static let slideIn = 0.2...0.76
-        static let pegShut = 0.72...0.86
-        static let clampBounce = 0.84...1.2
-        static let swing = 0.84...1.9
-        static let bob = 0.84...1.8
-        static let develop = 1.0...1.3
-        static let checkOn = 1.26...1.5
-        static let checkOff = 2.0...2.1
-        static let drain = 2.04...2.3
+        /// The swap is 1.7 times as slow as it first was (the owner saw the two pictures trade
+        /// places too fast, 2026-10-21); everything from the clamp on keeps its shape and comes
+        /// this much later.
+        static let pinDelay = 0.53
+        static let pegOpen = 0.0...0.24
+        static let oldDrop = 0.07...0.58
+        static let slideIn = 0.34...1.29
+        static let pegShut = (0.72 + pinDelay)...(0.86 + pinDelay)
+        static let clampBounce = (0.84 + pinDelay)...(1.2 + pinDelay)
+        static let swing = (0.84 + pinDelay)...(1.9 + pinDelay)
+        static let bob = (0.84 + pinDelay)...(1.8 + pinDelay)
+        static let develop = (1.0 + pinDelay)...(1.3 + pinDelay)
+        static let checkOn = (1.26 + pinDelay)...(1.5 + pinDelay)
+        static let checkOff = (2.0 + pinDelay)...(2.1 + pinDelay)
+        static let drain = (2.04 + pinDelay)...(2.3 + pinDelay)
     }
 
     /// A frame of the copy animation from the picture back to the picture.
@@ -336,14 +341,15 @@ enum Peg {
 
     /// Beats of resuming: the peg opens, the outline joins up from the top, the picture
     /// develops, and the peg bites again with the copy animation's clamp and bounce (its
-    /// shut and bounce beats, moved earlier).
+    /// shut and bounce beats, the same lengths, starting at `shutAt`).
     enum ResumeBeat {
-        static let shift = 0.34
-        static let pegOpen = Beat.pegOpen
+        static let shutAt = 0.38
+        static let pegOpen = 0.0...0.14
         static let join = 0.08...0.4
         static let develop = 0.2...0.5
-        static let pegShut = (Beat.pegShut.lowerBound - shift)...(Beat.pegShut.upperBound - shift)
-        static let clampBounce = (Beat.clampBounce.lowerBound - shift)...(Beat.clampBounce.upperBound - shift)
+        static let pegShut = shutAt...(shutAt + Beat.pegShut.upperBound - Beat.pegShut.lowerBound)
+        static let clampBounce = (shutAt + Beat.clampBounce.lowerBound - Beat.pegShut.lowerBound)...(
+            shutAt + Beat.clampBounce.upperBound - Beat.pegShut.lowerBound)
     }
 
     static func resumePose(at t: TimeInterval) -> Pose {

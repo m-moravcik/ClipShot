@@ -119,14 +119,15 @@ enum Design {
         static let chip: Animation = .snappy(duration: 0.25, extraBounce: 0.1)
 
         // The menu bar copy animation (`Peg`): every copy confirms itself in the menu bar,
-        // playful and clearly noticeable: the new card is pinned slowly enough to follow in
-        // the corner of the eye, and it is all over in 2.4 s, as VibeRes's switch animation.
+        // playful and clearly noticeable: the old card is seen leaving and the new one pinned,
+        // slowly enough to follow in the corner of the eye. 2.4 s at first, as VibeRes's switch
+        // animation; 2.9 s since the swap was slowed for the owner (2026-10-21).
         // A MenuBarExtra label is a static image, so it is drawn frame by frame on a timer
         // that runs only while it plays (`PegFlash`).
 
         /// The whole animation, from the first frame back to rest.
-        static let menuBarCopy: TimeInterval = 2.4
-        /// Frames per second while it plays: smooth for small moves, 72 redraws per copy.
+        static let menuBarCopy: TimeInterval = 2.9
+        /// Frames per second while it plays: smooth for small moves, 87 redraws per copy.
         static let menuBarFrameRate: Double = 30
         /// Reduce Motion: the copied pose, held, with no movement.
         static let menuBarHold: TimeInterval = 1.4

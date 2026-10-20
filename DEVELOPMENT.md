@@ -139,8 +139,13 @@ Every animation has a job (confirm the copy, show where a screenshot went,
 connect two states, alert, introduce Peg, celebrate the first copy once). In-app
 transitions use springs and settle in 200-450 ms. Menu bar moments are the
 longer ones: a glyph at the edge of the screen has to be slow enough to catch
-at a glance, so the copy animation runs 2.4 s, as VibeRes's approved menu bar
-animation does. Every duration and curve is a token in `Design.Motion`; nothing
+at a glance, so the copy animation runs 2.9 s: VibeRes's approved 2.4 s, plus
+half a second since the owner saw the two pictures trade places too fast
+(2026-10-21). The swap (the peg opening, the old card dropping, the new one
+sliding in) is 1.7 times as slow as before, so the old card is seen leaving
+before the new one lands (it slides in until 1.29 s); the clamp, the swing and
+the check keep their shape and come 0.53 s later (`Peg.Beat.pinDelay`), and the
+copy may not grow past 3 s. Every duration and curve is a token in `Design.Motion`; nothing
 is hard-coded in a view. With Reduce Motion every transition is an opacity
 crossfade or the end state, and decoration (the breathing viewfinder, the
 celebration, the header's nod) does not play.
@@ -151,7 +156,7 @@ frame by frame by a 30 fps timer that runs only while one plays (`PegFlash`):
 
 | Moment | When | Length | Reduce Motion |
 |---|---|---|---|
-| Copy | every copy | 2.4 s | the copied pose held 1.4 s on one timer |
+| Copy | every copy | 2.9 s | the copied pose held 1.4 s on one timer |
 | Attention | when something first needs fixing | 2.0 s | the "!" pose at once |
 | Pause | Copy to clipboard switched off (also by Shortcuts or a Focus) | 0.6 s | the dashed card at once |
 | Resume | Copy to clipboard switched on (also by Shortcuts or a Focus) | 0.9 s | the picture at once |
@@ -195,8 +200,8 @@ still swings ends at once on the new resting pose. A copy plays over an attentio
 happen) and ends on the card the icon rests on, dashed while paused or "!"
 while something needs attention; a change of state never cuts a copy short. The
 floating preview's Copied badge and the tour's check bounce as Peg's clamp
-bites (`Design.Motion.pegged`, derived from `Peg.Beat`), so a retime keeps the
-three in step.
+bites (`Design.Motion.pegged`, derived from `Peg.Beat`, 1.37 s after the copy
+since the swap was slowed), so a retime keeps the three in step.
 
 In the app:
 
@@ -358,8 +363,8 @@ Each state has its own silhouette:
 
 On every copy the peg opens, the last shot drops, the new one slides in along
 the line, gets pegged with a squash, swings and bobs, develops from the bottom
-and shows the check, then turns back into the card it rests on: 72 frames in
-2.4 s (`Peg.pose(at:from:to:)`, driven by `PegFlash`). Its other moments swing
+and shows the check, then turns back into the card it rests on: 87 frames in
+2.9 s (`Peg.pose(at:from:to:)`, driven by `PegFlash`). Its other moments swing
 the card into the "!" pose, break the outline into dashes, join it up again, let
 the card go to the Trash, grip it again on Undo and squeeze the peg as the
 popover opens (see Motion). With Reduce Motion the copied card is held for 1.4 s, no

@@ -22,9 +22,10 @@ struct PegHandoffTests {
         Cut(running: .grip, phase: 14, next: .copied),
         Cut(running: .squeeze, phase: 3, next: .copied),
         Cut(running: .attention, phase: 20, next: .copied, from: .idle, to: .attention),
-        // A copy over a copy: before its new card slid in, and while it swings.
+        // A copy over a copy: before its new card slid in, while it slides in, while it swings.
         Cut(running: .copied, phase: 4, next: .copied),
-        Cut(running: .copied, phase: 40, next: .copied),
+        Cut(running: .copied, phase: 25, next: .copied),
+        Cut(running: .copied, phase: 55, next: .copied),
         // A change of state over the user's own actions.
         Cut(running: .release, phase: 10, next: .attention, from: .idle, to: .attention),
         Cut(running: .grip, phase: 10, next: .attention, from: .idle, to: .attention),
@@ -32,12 +33,14 @@ struct PegHandoffTests {
         Cut(running: .squeeze, phase: 2, next: .attention, from: .idle, to: .attention),
         Cut(running: .pause, phase: 6, next: .attention, from: .idle, to: .attention),
         // The latest of copy, release and grip wins: a release or a grip over a copy, before
-        // its new card slid in (the old card still falling), while it swings, as it drains.
+        // its new card slid in (the old card still falling), while it slides in, while it
+        // swings, as it drains.
         Cut(running: .copied, phase: 4, next: .release),
-        Cut(running: .copied, phase: 30, next: .release),
-        Cut(running: .copied, phase: 66, next: .release),
-        Cut(running: .copied, phase: 30, next: .grip),
-        Cut(running: .copied, phase: 40, next: .release, from: .paused, to: .paused),
+        Cut(running: .copied, phase: 25, next: .release),
+        Cut(running: .copied, phase: 50, next: .release),
+        Cut(running: .copied, phase: 80, next: .release),
+        Cut(running: .copied, phase: 50, next: .grip),
+        Cut(running: .copied, phase: 50, next: .release, from: .paused, to: .paused),
         // Release and grip over each other, and over the squeeze.
         Cut(running: .release, phase: 12, next: .grip),
         Cut(running: .release, phase: 5, next: .release),
@@ -83,7 +86,7 @@ struct PegHandoffTests {
             Cut(running: .attention, phase: 20, next: .copied, from: .idle, to: .attention),
             Cut(running: .release, phase: 10, next: .attention, from: .idle, to: .attention),
             Cut(running: .release, phase: 12, next: .grip),
-            Cut(running: .copied, phase: 30, next: .release),
+            Cut(running: .copied, phase: 50, next: .release),
         ]
         for cut in cuts {
             let shown = Self.onShow(cut)
