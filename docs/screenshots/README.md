@@ -1,50 +1,58 @@
 # Screenshots
 
-These are the pictures the root README embeds. They are rendered from the app,
-not captured by hand, and named with a version suffix so a refresh does not
-silently replace a picture the README still describes in the old terms.
+These are the pictures the [root README](../../README.md) embeds. They are
+rendered from the app by the Debug screenshot harness, not captured by hand, so a
+UI change (or a new menu bar symbol) is one command away from the README:
+
+```sh
+scripts/readme-screenshots.sh
+```
+
+It renders English with `scripts/screenshots.sh` and copies the set below over the
+files here. Look at the diff and read the README against the new pictures before
+committing; the names stay the same, so nothing else needs editing.
 
 | File | Shows |
 |---|---|
 | `icon.png` | App icon at 512 px, as macOS draws it; the README header |
 | `hero-{light,dark}.png` | The popover open under its menu bar icon |
-| `popover-v1-{light,dark}.png` | The popover: the screenshot just copied, the copy switch, the cleanup summary |
-| `popover-attention-v1-{light,dark}.png` | The popover with something to fix: one attention row and "+2 more" |
-| `settings-capture-v1-{light,dark}.png` | Settings > Capture: the screenshot folder and the macOS screenshot settings |
-| `settings-retention-v1-{light,dark}.png` | Settings > Retention: the age limit and what would go to the Trash now |
-| `onboarding-2-try-copied-v1-{light,dark}.png` | Welcome tour step 2: a screenshot taken during "Try it", copied |
+| `preview-hover-{light,dark}.png` | ClipShot's floating preview with its hover buttons |
+| `popover-undo-{light,dark}.png` | The popover just after Move to Trash, with Undo and the strip of earlier screenshots |
+| `settings-capture-{light,dark}.png` | Settings > Capture: the save folder, the Preview picker, Restore previous settings |
+| `settings-retention-{light,dark}.png` | Settings > Retention: the period and what would go to the Trash now |
 
-## Retaking them
+## Rendering more
 
 ```sh
-scripts/screenshots.sh        # English, into build/screenshots/en
-scripts/screenshots.sh sk     # Slovak, for the web.pexelo portfolio (also cs de es fr)
+scripts/screenshots.sh          # English, into build/screenshots/en
+scripts/screenshots.sh sk       # one language (sk cs de es fr), e.g. for the web.pexelo portfolio
+scripts/screenshots.sh all      # all six, one build
 ```
 
-The script builds Debug and runs the harness in
-`ClipShot/Preview/ScreenshotHarness.swift`, which renders the real views at 2x
-and exits. It writes more than this folder keeps:
-
-- `popover-paused`, every attention row on its own (`attention-*`), all four
-  Settings tabs and every welcome tour step, in light and dark;
-- `banner-{light,dark}.png`, the 1920x1080 portfolio image;
-- `menubar-states.png`, every menu bar icon state and every phase of the
-  copied flash at 1x and 2x, on light and dark menu bars and two wallpapers.
+The harness writes far more than this folder keeps: every popover state and
+attention row, all Settings tabs, every welcome tour step, the floating preview
+and its motion key frames, the menu bar states, and the 1920x1080 portfolio
+banner, in light and dark. The header of `scripts/screenshots.sh` lists them.
 
 What it shows is invented and stays on the Mac that renders:
 
-- The screenshot folder is a throwaway directory under the temporary
-  directory, shown as `~/Pictures/Screenshots`. The screenshot in it is a
-  drawing of shapes, written with the markers macOS sets, and copied by the
-  real pipeline to a pasteboard that never reaches the system clipboard.
+- The screenshot folder is a throwaway directory under
+  `build/screenshots-scratch`, shown as `~/Pictures/Screenshots`. The screenshots
+  in it are drawings of shapes, written with the attributes macOS sets, and copied
+  by the real pipeline to a pasteboard that never reaches the system clipboard.
+  The previous run's folder goes to the Trash when the next run starts.
 - `com.apple.screencapture` is an in-memory dictionary, so your screenshot
-  settings are neither read nor changed.
+  settings are neither read nor changed. The demo Trash refuses every move.
 - Preferences come from the script's launch arguments, and every change the
   harness makes stays in memory: the Debug build's stored settings
   (`sk.moravcik.ClipShot.debug`) are not read or written.
+- English renders use a 12-hour clock and the other languages a 24-hour one,
+  whatever this Mac is set to.
 
-Copy the files you need over the ones here, or bump the suffix (`-v2`) and
-update the `<img>` tags in the root README so the two cannot drift apart.
+Popover pictures are drawn off-screen, so the popover's material is a solid fill.
+With `CLIPSHOT_SCREENSHOTS_LIVE=1` they come from a window on screen through
+ScreenCaptureKit instead; that needs Screen Recording for the Debug build, which
+the harness never asks for.
 
-The demo video of the real flow (the shortcut, the floating thumbnail, a paste
-into a chat) is recorded by hand on a real screen; it is not rendered here.
+The demo video of the real flow (the shortcut, the floating preview, a paste into
+a chat) is recorded by hand on a real screen; it is not rendered here.
