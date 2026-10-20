@@ -247,7 +247,7 @@ extension AppModel {
     }
 
     /// The most screenshots Get Recent Screenshots returns.
-    static let shortcutMaxCount = 10
+    static let shortcutMaxCount = RecentScreenshots.maxRequested
     /// The most bytes Get Recent Screenshots hands over at once; each file is at most
     /// `FileTrust`'s 256 MB, so the first one always fits.
     nonisolated static let shortcutMaxBytes = 512 * 1_024 * 1_024

@@ -14,7 +14,9 @@ import Synchronization
 /// - Every connection is checked with `getpeereid` before a byte is read: a peer of another
 ///   user is closed unanswered. One JSON request (at most `Limits.maxRequestBytes`, within
 ///   `Limits.readTimeout`), one JSON response (within `Limits.writeTimeout`), then the
-///   connection closes. At most `Limits.maxConnections` are served at once.
+///   connection closes. At most `Limits.maxConnections` are served at once; one more is told
+///   the app is busy. A command that does not finish within its deadline is answered
+///   "timed out" and its place is freed, whatever the work it started still does.
 final class ControlServer: Sendable {
     typealias Handler = @Sendable (ControlRequest) async -> ControlResponse
 
@@ -23,6 +25,15 @@ final class ControlServer: Sendable {
         var writeTimeout: Duration = .seconds(5)
         var maxRequestBytes = ControlProtocol.maxRequestBytes
         var maxConnections = 8
+        /// How long a command may take before it is answered "timed out": shorter than
+        /// `clipshot`'s own wait, so the tool gets the answer.
+        var handlerTimeout: Duration = .seconds(25)
+        /// `clean`: a run moves up to 500 files to the Trash.
+        var cleanTimeout: Duration = .seconds(170)
+
+        func timeout(for command: ControlRequest.Command) -> Duration {
+            command == .clean ? cleanTimeout : handlerTimeout
+        }
     }
 
     enum StartError: Error, Equatable {
@@ -78,6 +89,8 @@ final class ControlServer: Sendable {
     /// Connections answered (a response written or tried), refused for their user, and
     /// closed without an answer (too many at once, a timeout, a read error).
     var answered: Int { state.withLock { $0.answered } }
+    /// Connections being served now.
+    var active: Int { state.withLock { $0.active } }
     var refusedPeers: Int { state.withLock { $0.refusedPeers } }
     var dropped: Int { state.withLock { $0.dropped } }
 
@@ -193,6 +206,12 @@ final class ControlServer: Sendable {
                 return true
             }
             guard admitted else {
+                // Said, not just closed: a closed connection reads as a broken answer. The
+                // reply is a few bytes into an empty socket buffer, bounded anyway.
+                if let data = try? ControlProtocol.encoder().encode(ControlResponse.failure(
+                    .busy, "ClipShot is busy with other clipshot commands; try again.")) {
+                    _ = ControlSocket.writeAll(client, data, until: .now + .milliseconds(100))
+                }
                 close(client)
                 state.withLock { $0.dropped += 1 }
                 continue
@@ -208,11 +227,7 @@ final class ControlServer: Sendable {
             case .failure(let failure):
                 reply(ControlResponse(error: failure), to: client)
             case .success(let request):
-                let handler = handler
-                Task {
-                    let response = await handler(request)
-                    self.ioQueue.async { self.reply(response, to: client) }
-                }
+                handle(request, client: client)
             }
         case .tooLarge:
             reply(.failure(.tooLarge, "The request is larger than \(limits.maxRequestBytes) bytes."), to: client)
@@ -244,6 +259,29 @@ final class ControlServer: Sendable {
         return .success(request)
     }
 
+    /// Runs the handler against its deadline. Whichever ends first answers, once; a handler
+    /// that ends later is not heard, and the connection's place is free again either way.
+    private func handle(_ request: ControlRequest, client: Int32) {
+        let once = AnswerOnce()
+        let claim = { once.claim() }
+        let handler = handler
+        let timeout = limits.timeout(for: request.command)
+        Task {
+            let response = await handler(request)
+            if claim() { self.ioQueue.async { self.reply(response, to: client) } }
+        }
+        ioQueue.asyncAfter(deadline: .now() + Self.seconds(timeout)) {
+            guard claim() else { return }
+            let log = self.log
+            Task { await log.error("control: \(request.command.rawValue) timed out") }
+            self.reply(.failure(.timedOut, "ClipShot did not finish in time. It may still finish; check with clipshot status."), to: client)
+        }
+    }
+
+    private static func seconds(_ duration: Duration) -> Double {
+        Double(duration.components.seconds) + Double(duration.components.attoseconds) / 1e18
+    }
+
     private func reply(_ response: ControlResponse, to client: Int32) {
         if let data = try? ControlProtocol.encoder().encode(response) {
             _ = ControlSocket.writeAll(client, data, until: .now + limits.writeTimeout)
@@ -252,6 +290,18 @@ final class ControlServer: Sendable {
         state.withLock {
             $0.active -= 1
             $0.answered += 1
+        }
+    }
+}
+
+/// True for the first `claim()` only: the handler's answer or the deadline's, never both.
+private final class AnswerOnce: Sendable {
+    private let claimed = Mutex(false)
+
+    func claim() -> Bool {
+        claimed.withLock { done in
+            defer { done = true }
+            return !done
         }
     }
 }

@@ -6,16 +6,15 @@ import Foundation
 // linked from.
 
 let environment = ProcessInfo.processInfo.environment
-let support = environment[ControlProtocol.supportDirectoryEnvironmentKey].map {
-    URL(fileURLWithPath: $0, isDirectory: true)
-} ?? ControlProtocol.supportDirectory
+let override = environment[ControlProtocol.supportDirectoryEnvironmentKey].map { URL(fileURLWithPath: $0, isDirectory: true) }
+let support = override ?? ControlProtocol.supportDirectory
 let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
 
 let output = await CommandLineTool(
     version: version,
     socket: support.appendingPathComponent(ControlProtocol.socketName),
     workingDirectory: URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true),
-    offline: .live(supportDirectory: support)
+    offline: .live(supportDirectory: support, findsRunningApp: override == nil)
 ).run(Array(CommandLine.arguments.dropFirst()))
 
 FileHandle.standardOutput.write(Data(output.stdout.utf8))

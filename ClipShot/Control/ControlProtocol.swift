@@ -45,7 +45,7 @@ struct ControlRequest: Codable, Equatable, Sendable {
 
     var v = ControlProtocol.version
     var command: Command
-    /// `latest`: how many, 1 to `AppModel.shortcutMaxCount`.
+    /// `latest`: how many, 1 to `RecentScreenshots.maxRequested`.
     var count: Int?
     /// `copy`: an absolute path in the watched folder; nil copies the latest screenshot.
     var path: String?
@@ -81,6 +81,11 @@ struct ControlFailure: Codable, Equatable, Sendable, Error {
         case tooLarge
         /// The request speaks another protocol version.
         case version
+        /// `Limits.maxConnections` requests are being served; nothing was done.
+        case busy
+        /// The app did not finish the command within its deadline (`Limits.handlerTimeout`).
+        /// The work may still finish; nothing more is said about it.
+        case timedOut
     }
 
     let code: Code

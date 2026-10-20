@@ -262,6 +262,10 @@ CLI_ARCHS="$(lipo -archs "$CLI")"
 CLI_INFO="$(codesign --display --verbose=4 "$CLI" 2>&1)" || die "clipshot is not signed"
 grep -qx "Identifier=$CLI_ID" <<<"$CLI_INFO" \
   || die "clipshot is signed as $(grep '^Identifier=' <<<"$CLI_INFO" || echo 'no identifier'), expected $CLI_ID"
+# Re-signing without --entitlements drops the application identifier Xcode's
+# signature carried; a restricted entitlement without a profile would not launch.
+CLI_ENTITLEMENTS="$(codesign -d --entitlements - --xml "$CLI" 2>/dev/null || true)"
+[ -z "$CLI_ENTITLEMENTS" ] || die "clipshot carries entitlements: $CLI_ENTITLEMENTS"
 CLI_VERSION="$("$CLI" --version)" || die "clipshot --version failed"
 [ "$CLI_VERSION" = "$VERSION" ] || die "clipshot says version '$CLI_VERSION', the app is $VERSION"
 echo "Command line tool: Contents/Helpers/clipshot $CLI_VERSION, $CLI_ARCHS"

@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 // `clipshot`, the command line tool (Addendum C). Its logic lives here, compiled into the app
@@ -41,7 +42,7 @@ struct CLIUsageError: Error, Equatable {
 enum CLIParser {
     static let commands = ["status", "latest", "copy", "pause", "resume", "clean"]
     /// The most `latest -n` gives: what Get Recent Screenshots gives.
-    static let maxCount = 10
+    static let maxCount = RecentScreenshots.maxRequested
 
     static func parse(_ arguments: [String]) -> Result<CLIInvocation, CLIUsageError> {
         guard let first = arguments.first else { return .success(CLIInvocation(command: .status)) }
@@ -152,19 +153,30 @@ struct CLIOfflineSources: Sendable {
     var folder: @Sendable () -> URL
     /// The app's settings, read only (`Preferences` writes only when a value is set).
     var preferences: @MainActor @Sendable () -> Preferences
+    /// Why `policy`, while on, would not run on the configured folder now, as the app's
+    /// status says (`RetentionPolicy.refusal`).
+    var retentionRefusal: @Sendable (RetentionPolicy) -> Refusal?
+    /// Whether ClipShot runs, when its socket does not answer: then the socket, not the app,
+    /// is what is missing.
+    var appRunning: @Sendable () -> Bool
 
     /// The app's own files and settings. Nothing is written: the ledger is read, the
     /// screenshot settings are read, and the app's defaults domain is read.
-    static func live(supportDirectory: URL, appDefaultsDomain: String = "sk.moravcik.ClipShot") -> CLIOfflineSources {
+    /// `findsRunningApp` false: the socket is not the app's (`CLIPSHOT_SUPPORT_DIR`), so a
+    /// running ClipShot says nothing about it.
+    static func live(
+        supportDirectory: URL, appDefaultsDomain: String = "sk.moravcik.ClipShot", findsRunningApp: Bool = true
+    ) -> CLIOfflineSources {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let support = supportDirectory
+        // Read only: `folder()` reads the macOS screenshot settings; nothing here writes them.
+        let settings = CaptureSettings(
+            prefs: SystemScreencapturePreferences(), home: home,
+            backup: PrefsBackup(fileURL: support.appendingPathComponent("prefs-backup.plist")),
+            log: CommandLineTool.quietLog)
         return CLIOfflineSources(
             ledgerURL: support.appendingPathComponent("ledger.json"),
             folder: {
-                let settings = CaptureSettings(
-                    prefs: SystemScreencapturePreferences(), home: home,
-                    backup: PrefsBackup(fileURL: support.appendingPathComponent("prefs-backup.plist")),
-                    log: CommandLineTool.quietLog)
                 let configured = settings.folder()
                 var isDirectory: ObjCBool = false
                 guard FileManager.default.fileExists(atPath: configured.path, isDirectory: &isDirectory),
@@ -174,6 +186,12 @@ struct CLIOfflineSources: Sendable {
             },
             preferences: {
                 Preferences(store: UserDefaults(suiteName: appDefaultsDomain) ?? UserDefaults.standard)
+            },
+            retentionRefusal: { policy in
+                policy.refusal(folder: settings.folder(), home: home, hasTrash: FolderGuard.systemTrashLookup)
+            },
+            appRunning: {
+                findsRunningApp && !NSRunningApplication.runningApplications(withBundleIdentifier: appDefaultsDomain).isEmpty
             })
     }
 }
@@ -184,9 +202,10 @@ struct CommandLineTool {
     let socket: URL
     let workingDirectory: URL
     let offline: CLIOfflineSources
-    /// How long `clean` may take: a run moves up to 500 files to the Trash.
-    var cleanTimeout: Duration = .seconds(120)
-    var timeout: Duration = .seconds(20)
+    /// How long `clean` may take: a run moves up to 500 files to the Trash. Longer than the
+    /// app's own deadline (`ControlServer.Limits`), so its "timed out" answer arrives.
+    var cleanTimeout: Duration = .seconds(180)
+    var timeout: Duration = .seconds(30)
 
     /// The tool never writes the app's log; a read that logs goes nowhere.
     nonisolated static let quietLog = Log(fileURL: URL(fileURLWithPath: "/dev/null"))
@@ -195,8 +214,11 @@ struct CommandLineTool {
         let invocation: CLIInvocation
         switch CLIParser.parse(arguments) {
         case .failure(let usage):
+            // An agent that asked for JSON reads the error as JSON too.
+            let json = arguments.contains("--json")
+                ? CLIRender.json(["error": ["code": "usage", "message": usage.message]]) : ""
             return CLIOutput(
-                stderr: "error: \(usage.message)\n\n" + CLIHelp.text(usage.topic), exit: .usage)
+                stdout: json, stderr: "error: \(usage.message)\n\n" + CLIHelp.text(usage.topic), exit: .usage)
         case .success(let parsed):
             invocation = parsed
         }
@@ -239,7 +261,7 @@ struct CommandLineTool {
             if let failure = response.error { return fail(failure.code.rawValue, failure.message, .error, invocation, &out) }
             guard let status = response.status else { return clientFailure(.badResponse, invocation, &out) }
             out.stdout = invocation.json ? CLIRender.json(status) : CLIRender.status(status)
-        case .failure(.notRunning):
+        case .failure(.notRunning) where !offline.appRunning():
             let status = await offlineStatus()
             out.stdout = invocation.json ? CLIRender.json(status) : CLIRender.status(status)
         case .failure(let failure):
@@ -295,8 +317,10 @@ struct CommandLineTool {
     func offlineStatus() async -> ControlStatus {
         let preferences = offline.preferences()
         let ready = preferences.tourCompleted
+        let policy = preferences.retention
+        let refusal = policy.enabled ? await Task.detached { [offline] in offline.retentionRefusal(policy) }.value : nil
         let retention = ControlStatus.Retention(
-            enabled: preferences.retention.enabled, days: preferences.retention.days, refusal: nil)
+            enabled: policy.enabled, days: policy.days, refusal: refusal?.controlName)
         let folder = ready ? await Task.detached { [offline] in offline.folder() }.value : nil
         let latest = ready ? (try? await offlineLatest(1).get())?.first?.path : nil
         return ControlStatus(
@@ -329,6 +353,11 @@ struct CommandLineTool {
 
     private func clientFailure(_ failure: ControlClient.Failure, _ invocation: CLIInvocation, _ out: inout CLIOutput) {
         switch failure {
+        case .notRunning where offline.appRunning():
+            fail("socketUnavailable",
+                 "ClipShot is running, but its control socket is not available, so clipshot cannot reach it. "
+                    + "See ~/Library/Logs/clipshot.log, then quit ClipShot and open it again.",
+                 .error, invocation, &out)
         case .notRunning:
             fail("notRunning", "ClipShot is not running. Start it with: open -a ClipShot", .notRunning, invocation, &out)
         case .unsafeSocket:
@@ -504,8 +533,9 @@ enum CLIHelp {
                 usage:
                   clipshot [status] [--json]            copying on or paused, folder, cleanup, latest
                   clipshot latest [-n N] [--json]       newest screenshot paths, newest first (N 1-\(CLIParser.maxCount))
-                  clipshot copy [PATH | --latest]       copy a screenshot to the clipboard
-                  clipshot pause | resume               switch copying off or on
+                  clipshot copy [PATH | --latest] [--json]
+                                                        copy a screenshot to the clipboard
+                  clipshot pause | resume [--json]      switch copying off or on
                   clipshot clean [--dry-run] [--json]   move old screenshots to the Trash now
                   clipshot help [COMMAND] | --version
 

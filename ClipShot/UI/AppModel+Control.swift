@@ -113,6 +113,10 @@ extension AppModel {
                 message: "\(url.path) is not in the screenshot folder, \(folder.path). "
                     + "clipshot copies only files directly in it."))
         }
+        var st = stat()
+        if lstat(url.path, &st) != 0, errno == ENOENT {
+            return .failure(ControlFailure(code: .refusedFile, message: "No such file: \(url.path)"))
+        }
         guard let file = CaptureFile.inspect(url) else {
             return .failure(ControlFailure(
                 code: .refusedFile,

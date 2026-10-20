@@ -191,11 +191,13 @@ verify_app() {
   grep -qx "Identifier=$CLI_ID" <<<"$info" || die "clipshot in $app is not signed as $CLI_ID"
   grep -q "flags=.*runtime" <<<"$info" || die "clipshot in $app lacks the hardened runtime"
   grep -q "^Authority=Developer ID Application" <<<"$info" || die "clipshot in $app has no Developer ID authority"
+  # None at all: a plain tool needs none, and a restricted one (the application
+  # identifier Xcode adds, say) without a provisioning profile would not launch.
   entitlements="$(codesign -d --entitlements - --xml "$cli" 2>/dev/null || true)"
-  if [[ "$entitlements" == *get-task-allow* ]]; then die "clipshot in $app carries get-task-allow"; fi
+  [ -z "$entitlements" ] || die "clipshot in $app carries entitlements: $entitlements"
   value="$("$cli" --version 2>/dev/null || true)"
   [ "$value" = "$VERSION" ] || die "clipshot in $app says version '$value', expected $VERSION"
-  echo "verified: $BUNDLE_ID $VERSION ($BUILD), $archs, team $TEAM_ID, EdDSA key, no get-task-allow, notarized and stapled; clipshot $value signed as $CLI_ID"
+  echo "verified: $BUNDLE_ID $VERSION ($BUILD), $archs, team $TEAM_ID, EdDSA key, no get-task-allow, notarized and stapled; clipshot $value signed as $CLI_ID, no entitlements"
 }
 
 # A release archive: unpacked into a temp folder, its top level must be exactly

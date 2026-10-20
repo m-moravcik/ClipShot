@@ -1147,13 +1147,7 @@ final class AppModel {
     nonisolated static func retentionRefusal(
         folder: URL, policy: RetentionPolicy, home: URL, hasTrash: FolderGuard.TrashLookup
     ) -> Refusal? {
-        guard policy.enabled else { return nil }
-        let resolved = URL(fileURLWithPath: CaptureSettings.realPath(folder), isDirectory: true)
-        guard let current = ConfirmedFolder.of(resolved) else { return nil }
-        if let refusal = FolderGuard.refusal(resolvedPath: current.path, home: home, hasTrash: hasTrash) {
-            return refusal
-        }
-        return policy.confirmed == current ? nil : .notConfirmed
+        policy.refusal(folder: folder, home: home, hasTrash: hasTrash)
     }
 
     private func recomputeAttentions() {

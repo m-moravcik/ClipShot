@@ -53,6 +53,12 @@ enum CT {
 /// A handler that records what it was asked and answers with a fixed status.
 final class StubHandler: Sendable {
     private let requests = Mutex<[ControlRequest]>([])
+    /// How long each answer takes.
+    private let delay: Duration
+
+    init(delay: Duration = .zero) {
+        self.delay = delay
+    }
     var seen: [ControlRequest] { requests.withLock { $0 } }
 
     static let status = ControlStatus(
@@ -61,6 +67,7 @@ final class StubHandler: Sendable {
 
     func handle(_ request: ControlRequest) async -> ControlResponse {
         requests.withLock { $0.append(request) }
+        if delay > .zero { try? await Task.sleep(for: delay) }
         return ControlResponse(status: Self.status)
     }
 
@@ -86,16 +93,23 @@ extension ModelHarness {
 
     /// What `clipshot` reads itself while the app is not running: this harness's ledger and
     /// folder, and `preferences`.
-    func offlineSources(_ preferences: Preferences? = nil) -> CLIOfflineSources {
+    func offlineSources(_ preferences: Preferences? = nil, appRunning: Bool = false) -> CLIOfflineSources {
         let folder = folder
+        let home = home
         let stored = preferences ?? self.preferences
-        return CLIOfflineSources(ledgerURL: ledgerURL, folder: { folder }, preferences: { stored })
+        return CLIOfflineSources(
+            ledgerURL: ledgerURL, folder: { folder }, preferences: { stored },
+            retentionRefusal: { $0.refusal(folder: folder, home: home, hasTrash: RT.hasTrash) },
+            appRunning: { appRunning })
     }
 
-    /// `clipshot` talking to the socket in `dir`.
-    func tool(_ dir: URL, workingDirectory: URL? = nil, offline: Preferences? = nil) -> CommandLineTool {
+    /// `clipshot` talking to the socket in `dir`. `appRunning`: what the tool finds when the
+    /// socket does not answer.
+    func tool(
+        _ dir: URL, workingDirectory: URL? = nil, offline: Preferences? = nil, appRunning: Bool = false
+    ) -> CommandLineTool {
         CommandLineTool(
             version: "0.9.0", socket: CT.socket(in: dir), workingDirectory: workingDirectory ?? home,
-            offline: offlineSources(offline))
+            offline: offlineSources(offline, appRunning: appRunning))
     }
 }

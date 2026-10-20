@@ -338,13 +338,14 @@ itself is `ClipShotCLI/main.swift`, the Xcode target `clipshot-cli`, which compi
 | Command | What it does | Needs the app |
 |---|---|---|
 | `clipshot`, `clipshot status [--json]` | Copying on or paused, and why (`manual`, `focus`, `setup`, `notRunning`), the folder, cleanup, the latest screenshot. | No |
-| `clipshot latest [-n N] [--json]` | Paths of the newest 1 to 10 screenshots, newest first, one per line. | No |
+| `clipshot latest [-n N] [--json]` | Paths of the newest 1 to 10 (`RecentScreenshots.maxRequested`, as Get Recent Screenshots) screenshots, newest first, one per line. | No |
 | `clipshot copy [PATH \| --latest] [--json]` | Copies the latest screenshot, or PATH, to the clipboard. | Yes |
 | `clipshot pause`, `clipshot resume` | The Copy to clipboard switch. Already so: exit 0, says so. | Yes |
 | `clipshot clean [--dry-run] [--json]` | Retention's run now; the dry run lists what would go. | Yes |
 | `clipshot help [COMMAND]`, `--help`, `--version` | Help; the version, which is the app's. | No |
 
-Exit codes: 0 ok, 1 error, 2 usage (an unknown command or flag, with that command's help),
+Exit codes: 0 ok, 1 error, 2 usage (an unknown command or flag, with that command's help;
+with `--json` also `{"error":{"code":"usage",...}}` on stdout),
 3 ClipShot is not running (the message says `open -a ClipShot`). Errors go to stderr, so
 `$(clipshot latest)` never takes one for a path; with `--json` the error object
 (`{"error":{"code","message"}}`) is on stdout too. `--json` output writes every key, `null`
@@ -370,6 +371,8 @@ words.
   folder macOS screenshots go to (`~/Desktop` while it is missing, as the app watches) and
   the app's own settings (the `sk.moravcik.ClipShot` defaults domain). `latest` uses the
   same `RecentScreenshots.select` and `FileTrust` rules; before the tour it refuses too.
+  `status` reports cleanup's refusal as the app does (`RetentionPolicy.refusal`: not
+  confirmed for this folder, a system folder, no Trash).
   The tool writes nothing: not the ledger, not the log (`Log` goes to /dev/null), no
   preference.
 
@@ -393,9 +396,21 @@ launch with the app's model; never under XCTest, the harness or the probes.
 - **Each connection** is checked with `getpeereid` before a byte is read: a peer of another
   user is closed unanswered (the tool checks the server the same way). One JSON request,
   at most 16 KB, within 2 s; one JSON response, at most 4 MB, written within 5 s; then the
-  connection closes. At most 8 at once. Descriptors are non-blocking, close-on-exec and
-  never raise SIGPIPE; every read and write waits in `poll` against a deadline. The tool
-  waits 20 s for an answer, 120 s for `clean`.
+  connection closes. At most 8 at once; a ninth is answered `busy` ("try again"), not
+  closed silently. Each command has a deadline, 25 s, 170 s for `clean`: past it the app
+  answers `timedOut` and frees the place, while the work it started may still finish. The
+  tool waits a little longer (30 s, 180 s), so it gets that answer. Descriptors are
+  non-blocking, close-on-exec and never raise SIGPIPE; every read and write waits in `poll`
+  against a deadline.
+- **Started off the main thread.** The folder checks, the probe of a socket left behind,
+  bind and rename run on a utility task, so launch never waits on them. When another
+  instance still answers (a relaunch while the old one exits), it tries once more after
+  2 s. A start that fails is logged (`control socket not started: ...`).
+- **Running, but no socket.** When nothing answers, the tool asks Launch Services whether
+  ClipShot runs. If it does (the socket could not be started: a symlinked
+  `Application Support/ClipShot`, say), every command says so and to check the log and
+  reopen ClipShot (exit 1, `socketUnavailable`) instead of "not running"; `latest` still
+  reads for itself.
 - **Versioned.** Every request and response carries `"v": 1` (`ControlProtocol.version`),
   read before the rest; another version gets a clear error on both sides instead of a
   guess. An unknown command or a request that is not JSON is `badRequest`.
@@ -413,14 +428,22 @@ formula; ClipShot does not need one:
 
 - **Homebrew**: the cask's `binary` stanza links the bundled tool into Homebrew's `bin`, so
   `brew install --cask m-moravcik/clipshot/clipshot` puts `clipshot` on the PATH.
-- **The ZIP**: `ln -s /Applications/ClipShot.app/Contents/Helpers/clipshot /usr/local/bin/clipshot`.
+- **The ZIP** (and Sparkle updates, which keep the path): a link by hand. On Apple
+  Silicon `/usr/local/bin` may not exist and is root's:
+  `sudo mkdir -p /usr/local/bin && sudo ln -s /Applications/ClipShot.app/Contents/Helpers/clipshot /usr/local/bin/clipshot`.
 - **From source**: `make install-cli` (to `/usr/local/bin/clipshot`, as VibeRes;
-  `PREFIX=` to change), `make uninstall-cli` moves it to the Trash.
+  `PREFIX=` to change; `sudo` when that folder is root's), `make uninstall-cli` moves it
+  to the Trash.
+- **One of them only.** On Intel, Homebrew's prefix is `/usr/local`, so the cask links
+  `/usr/local/bin/clipshot` too: with a hand-made link or `make install-cli` there, `brew
+  install` refuses to link over it. Remove the other one first (`make uninstall-cli`, or
+  move the link to the Trash).
 
 `scripts/release-signed.sh` signs the tool with the Developer ID identity, its own
 identifier `sk.moravcik.ClipShot.cli`, the hardened runtime and a timestamp, before the
 app, then checks it like every signable item (team, Developer ID authority, runtime,
-timestamp, no debug entitlements) and checks that it is universal and prints the app's
+timestamp, no debug entitlements) and checks that it is universal, carries no entitlements
+(re-signing drops the application identifier Xcode's signature had) and prints the app's
 version. `verify_app` in `scripts/release.sh` repeats those checks on the built app, the
 local ZIP and the downloaded asset.
 
@@ -623,7 +646,7 @@ scripts/release.sh
    team (`TEAM_ID`), `SUPublicEDKey` as in `project.yml`, no `get-task-allow`, `spctl -a -vv` says Notarized
    Developer ID and `stapler validate` passes; `Contents/Helpers/clipshot` is universal,
    verifies, is signed by the team as `sk.moravcik.ClipShot.cli` with the hardened runtime,
-   carries no `get-task-allow` and prints this version. The ZIP's top level must be
+   carries no entitlements at all and prints this version. The ZIP's top level must be
    exactly `ClipShot.app`: Sparkle installs any bundle in the archive that has
    the app's name or bundle id, so nothing else may be in it.
 4. Rehearse the appcast on the local ZIP into a temporary feed, with both
@@ -721,7 +744,7 @@ Swift Testing. Pure logic is tested; views are not, except their layout rules. T
 | `PegMomentTests`, `PegMomentModelTests` | Every moment starts where the icon rested and ends exactly on its resting pose, every frame is a template image that fits the canvas; the model plays them on real state changes only, once, never cuts a copy short, leaves no timer behind, and plays none with Reduce Motion. |
 | `PegActionMomentModelTests`, `PegHandoffTests` | Move to Trash from a row or a preview plays the release, Undo the grip, a fresh open of the popover the squeeze (`PopoverPresence`, and the reader's wiring on a real window); retention, Clean up now, "Also clean up", a refused move, a failed Undo and closing the popover play nothing; precedence (the latest of copy, release and grip wins); a moment that replaces another starts from the pose on show (drawn pixel for pixel), changes no frame of the hand-off more than the two moments do on their own, lets a falling card finish falling, and ends at rest; the squeeze moves whole pixels at 1x and 2x; Reduce Motion holds the key poses on one tick and never squeezes. |
 | `ShortcutsTests` | The actions pick what the popover lists and hand out existing files only (never one outside the folder or a symlink; a refused newest falls back to the next; Get waits for the folder on a launch; the 512 MB cap); Copy Latest Screenshot leaves exactly what the popover's Copy leaves, also while paused; Pause and Resume play the switch's moments; Clean Up keeps retention's refusals, and Preview Only counts what the run then moves; the Focus precedence matrix, a switch between pausing Focus modes, its relaunch and the launch read (known, failed, timed out); nothing runs before or during the tour, and a Focus reported during it applies at its end; the extracted metadata and the phrases in six languages. |
-| `ControlServerTests`, `CommandLineToolTests`, `CLIBinaryTests` | The socket: a round trip; 0700 and 0600; another user's peer closed unanswered; an oversize, silent, non-JSON or other-version request refused before the handler; a symlink, file or folder at the socket path neither followed nor replaced, a stale socket replaced, a live one left to its server, a symlinked folder refused. The tool: its arguments and usage errors, the JSON shapes (every key, `null` included), text output; through a real socket to the model, status and why copying is paused, pause and resume as the switch (Peg, the Focus rule), latest as the popover chooses, copy as the row's Copy also while paused, copy PATH refused outside the folder, for a symlink or a non-image, clean and its dry run with retention's refusals, nothing before the tour; exit 3 without the app; status and latest from the files without it. The built binary inside the app: its version, help, exit codes, a round trip, a symlink not used. |
+| `ControlServerTests`, `CommandLineToolTests`, `CLIBinaryTests` | The socket: a round trip; 0700 and 0600; another user's peer closed unanswered; an oversize, silent, non-JSON or other-version request refused before the handler; a symlink, file or folder at the socket path neither followed nor replaced, a stale socket replaced, a live one left to its server, a symlinked folder refused; past the connection cap the answer is `busy`; a stuck command is answered `timedOut` at its deadline and frees its place; the client gives up at its timeout. The tool: its arguments and usage errors (JSON with `--json`), one `latest` maximum shared with Shortcuts, the JSON shapes (every key, `null` included), text output; through a real socket to the model, status and why copying is paused, pause and resume as the switch (Peg, the Focus rule), latest as the popover chooses, copy as the row's Copy also while paused, copy PATH refused outside the folder, for a symlink, a non-image or a missing file, clean and its dry run with retention's refusals, nothing before the tour; exit 3 without the app, `socketUnavailable` when the app runs without its socket; status (with cleanup's refusal) and latest from the files without it, and the real sources write nothing. The built binary inside the app: its version, help, exit codes, a round trip, a symlink not used. |
 | `PreviewMotionTests`, `OnboardingTests` | The swipe commits exactly where a release dismisses; the drag image is lifted off its card; Copy again reports back so the badge bounces; the first copy is celebrated once per install, the burst stays small, short and ends. |
 
 Tests never touch real preferences (`make guards` refuses `UserDefaults` in

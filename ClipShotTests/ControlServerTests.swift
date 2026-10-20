@@ -198,6 +198,67 @@ struct ControlServerTests {
         #expect(!FileManager.default.fileExists(atPath: dir.path), "nothing made")
     }
 
+    // MARK: Load and deadlines
+
+    /// One more connection than the server serves at once is told it is busy, not closed
+    /// silently; the ones in flight finish.
+    @Test func pastTheConnectionCapTheAnswerIsBusy() async throws {
+        let dir = try CT.shortDir()
+        var limits = ControlServer.Limits()
+        limits.maxConnections = 2
+        let stub = StubHandler(delay: .milliseconds(800))
+        let server = try stub.server(at: CT.socket(in: dir), limits: limits)
+        try server.start()
+        defer { server.stop() }
+        let socket = CT.socket(in: dir)
+        let slow = (0..<2).map { _ in
+            Task.detached { ControlClient.send(ControlRequest(command: .status), to: socket, timeout: .seconds(5)) }
+        }
+        #expect(await eventually { server.active == 2 })
+        let busy = try await Task.detached {
+            try ControlClient.send(ControlRequest(command: .status), to: socket, timeout: .seconds(5)).get()
+        }.value
+        #expect(busy.error?.code == .busy)
+        for task in slow { #expect((try? await task.value.get())?.status == StubHandler.status) }
+        #expect(stub.seen.count == 2, "the busy request never reached the handler")
+        #expect(await eventually { server.active == 0 })
+    }
+
+    /// A command that outlives its deadline is answered "timed out" and frees its place.
+    @Test func aStuckCommandIsAnsweredAtItsDeadline() async throws {
+        let dir = try CT.shortDir()
+        var limits = ControlServer.Limits()
+        limits.handlerTimeout = .milliseconds(200)
+        limits.cleanTimeout = .seconds(60)
+        #expect(limits.timeout(for: .clean) == .seconds(60) && limits.timeout(for: .status) == .milliseconds(200))
+        let stub = StubHandler(delay: .seconds(3))
+        let server = try stub.server(at: CT.socket(in: dir), limits: limits)
+        try server.start()
+        defer { server.stop() }
+        let socket = CT.socket(in: dir)
+        let started = ContinuousClock.now
+        let response = try await Task.detached {
+            try ControlClient.send(ControlRequest(command: .status), to: socket, timeout: .seconds(5)).get()
+        }.value
+        #expect(response.error?.code == .timedOut)
+        #expect(ContinuousClock.now - started < .seconds(2))
+        #expect(await eventually { server.active == 0 }, "the place is free while the work goes on")
+    }
+
+    @Test func theClientGivesUpAtItsTimeout() async throws {
+        let dir = try CT.shortDir()
+        let server = try StubHandler(delay: .seconds(3)).server(at: CT.socket(in: dir))
+        try server.start()
+        defer { server.stop() }
+        let socket = CT.socket(in: dir)
+        let started = ContinuousClock.now
+        let result = await Task.detached {
+            ControlClient.send(ControlRequest(command: .status), to: socket, timeout: .milliseconds(300))
+        }.value
+        #expect(result == .failure(.timedOut))
+        #expect(ContinuousClock.now - started < .seconds(2))
+    }
+
     // MARK: The client
 
     @Test func noSocketOrNobodyListeningIsNotRunning() throws {

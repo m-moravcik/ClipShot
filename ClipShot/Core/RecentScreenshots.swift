@@ -7,6 +7,9 @@ import Foundation
 enum RecentScreenshots {
     /// How many rows the list shows: the current screenshot and the 3 before it.
     static let count = 4
+    /// The most screenshots handed out at once: by Get Recent Screenshots
+    /// (`AppModel.shortcutMaxCount`) and `clipshot latest -n` (`CLIParser.maxCount`).
+    static let maxRequested = 10
 
     /// Reads the files. Candidates are the screenshots in the ledger (seen being taken, or
     /// older ones the user adopted for cleanup) and the last copied one, each listed once,

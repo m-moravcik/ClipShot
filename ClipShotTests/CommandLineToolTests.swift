@@ -66,6 +66,25 @@ struct CommandLineToolTests {
         #expect(out.stderr.contains("usage: clipshot latest"))
     }
 
+    @Test func usageErrorsAreJSONWhenJSONWasAskedFor() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        let out = await h.tool(try CT.shortDir()).run(["latest", "-n", "99", "--json"])
+        #expect(out.exit == .usage)
+        let object = try #require(try JSONSerialization.jsonObject(with: Data(out.stdout.utf8)) as? [String: [String: String]])
+        #expect(object["error"]?["code"] == "usage")
+        #expect(object["error"]?["message"]?.contains("1 to 10") == true)
+        #expect(out.stderr.contains("usage: clipshot latest"))
+    }
+
+    /// The parser and the app allow the same counts: one constant.
+    @Test func latestCountsAreTheShortcutsCounts() {
+        #expect(CLIParser.maxCount == AppModel.shortcutMaxCount)
+        #expect(CLIParser.maxCount == RecentScreenshots.maxRequested)
+        #expect((try? CLIParser.parse(["latest", "-n", "\(CLIParser.maxCount)"]).get()) != nil)
+        #expect((try? CLIParser.parse(["latest", "-n", "\(CLIParser.maxCount + 1)"]).get()) == nil)
+    }
+
     @Test func helpAndVersion() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }
@@ -75,6 +94,9 @@ struct CommandLineToolTests {
         #expect(help.exit == .ok && help.stderr.isEmpty)
         for command in CLIParser.commands { #expect(help.stdout.contains(command)) }
         #expect(help.stdout.contains("exit codes: 0 ok, 1 error, 2 usage, 3 ClipShot is not running"))
+        for line in ["clipshot copy [PATH | --latest] [--json]", "clipshot pause | resume [--json]", "clipshot clean [--dry-run] [--json]"] {
+            #expect(help.stdout.contains(line))
+        }
         #expect(await tool.run(["help", "clean"]).stdout.contains("--dry-run"))
     }
 
@@ -281,6 +303,8 @@ struct CommandLineToolTests {
         let nested = try RT.shot("nested.png", in: sub, age: 10, now: RT.now())
         let link = h.folder.appendingPathComponent("link.png")
         try FileManager.default.createSymbolicLink(at: link, withDestinationURL: outside)
+        let missing = await tool.run(["copy", h.folder.appendingPathComponent("typo.png").path])
+        #expect(missing.exit == .error && missing.stderr.contains("No such file: "))
         let text = h.folder.appendingPathComponent("notes.txt")
         try Data("x".utf8).write(to: text)
         let cases: [(URL, String)] = [
@@ -365,6 +389,56 @@ struct CommandLineToolTests {
     }
 
     // MARK: Without the app
+
+    /// ClipShot runs but its socket does not answer (it could not start it): said as such,
+    /// with what to do, never "not running".
+    @Test func aRunningAppWithoutItsSocketIsNotCalledNotRunning() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        let tool = h.tool(try CT.shortDir(), appRunning: true)
+        for arguments in [["pause"], ["status"], ["clean", "--dry-run"]] {
+            let out = await tool.run(arguments + ["--json"])
+            #expect(out.exit == .error, "\(arguments)")
+            #expect(out.stdout.contains(#""code":"socketUnavailable""#))
+            #expect(out.stderr.contains("ClipShot is running, but its control socket is not available"))
+            #expect(out.stderr.contains("quit ClipShot and open it again"))
+        }
+    }
+
+    /// Without the app, status still says why cleanup would not run.
+    @Test func offlineStatusReportsTheRetentionRefusal() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        let stored = Preferences(store: InMemoryPreferenceStore())
+        stored.onboardingShown = true
+        stored.retention = RT.policy(try Fixtures.makeDir())
+        let tool = h.tool(try CT.shortDir(), offline: stored)
+        let status = try ControlProtocol.decoder().decode(ControlStatus.self, from: Data(await tool.run(["--json"]).stdout.utf8))
+        #expect(status.retention.refusal == "notConfirmed")
+        #expect(await tool.run([]).stdout.contains("cleanup: after 30 days, paused until you check"))
+        stored.retention = RT.policy(h.folder)
+        let confirmed = try ControlProtocol.decoder().decode(ControlStatus.self, from: Data(await tool.run(["--json"]).stdout.utf8))
+        #expect(confirmed.retention.refusal == nil)
+    }
+
+    /// The real sources read and never write: no ledger, no log, no settings file appear.
+    @Test func liveOfflineSourcesWriteNothing() async throws {
+        let support = try CT.shortDir()
+        let domain = "sk.moravcik.ClipShot.tests.\(UUID().uuidString)"
+        let sources = CLIOfflineSources.live(supportDirectory: support, appDefaultsDomain: domain, findsRunningApp: false)
+        #expect(!sources.appRunning())
+        let tool = CommandLineTool(
+            version: "0.9.0", socket: CT.socket(in: support), workingDirectory: support, offline: sources)
+        // Never set up in that domain: refused before the folder is read.
+        let latest = await tool.run(["latest"])
+        #expect(latest.stderr == "error: \(Copy.Shortcuts.notSetUp.key)\n")
+        let status = try ControlProtocol.decoder().decode(ControlStatus.self, from: Data(await tool.run(["--json"]).stdout.utf8))
+        #expect(status.pausedBy == .notRunning && status.folder == nil && status.latest == nil)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: support.path).isEmpty)
+        let plist = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Preferences/\(domain).plist")
+        #expect(!FileManager.default.fileExists(atPath: plist.path))
+    }
 
     @Test func commandsThatNeedTheAppExitWithThree() async throws {
         let h = try ModelHarness()

@@ -3,12 +3,11 @@
 # Install:
 #   brew install --cask m-moravcik/clipshot/clipshot
 #
-# This copy is the cask, kept next to the source so a change to the install,
-# the uninstall or the zap list is reviewed with the code that writes those
-# files. The cask Homebrew installs lives in the m-moravcik/homebrew-clipshot
-# tap; on every release scripts/release.sh copies this file there and writes
-# the release's version and sha256 into it, so the two lines below are
-# placeholders here.
+# Source: Casks/clipshot.rb in m-moravcik/ClipShot, next to the code that writes
+# the files the install, uninstall and zap lists name, so a change to them is
+# reviewed with that code. On every release scripts/release.sh copies it into
+# the m-moravcik/homebrew-clipshot tap, which Homebrew installs from, with that
+# release's version and sha256; in the source the two are placeholders.
 #
 # `binary` links the command line tool that ships inside the app,
 # ClipShot.app/Contents/Helpers/clipshot, into Homebrew's bin as `clipshot`.
