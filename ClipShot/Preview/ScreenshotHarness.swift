@@ -114,7 +114,7 @@ enum ScreenshotHarness {
         DemoScene.wait { scene.model.recent.count == RecentScreenshots.count }
 
         let updater = DemoUpdater()
-        measure("popover", MenuContent().harnessEnvironment(scene.model, updater: updater))
+        measure("popover", MenuContent().harnessEnvironment(scene.model, updater: updater), mustFit: true)
         for scheme in ColorScheme.allCases {
             let popover = capturePanel(PopoverPanel(scheme: scheme) { MenuContent() }
                 .harnessEnvironment(scene.model, updater: updater), scheme: scheme)
@@ -167,26 +167,28 @@ enum ScreenshotHarness {
             try shots.write(render(WindowShadow(window: window, scheme: scheme)), "settings-retention-older", scheme)
         }
 
-        // Just after Move to Trash on the second row: Undo for 5 s, the rows under it moved
-        // up and the last one filled from an older screenshot. The demo Trash refuses every
-        // move, so the file goes to a demo Trash folder by hand.
-        if scene.model.recent.count > 1 {
-            let moved = scene.model.recent[1]
-            let trash = scene.home.appendingPathComponent(".Trash", isDirectory: true)
-            try FileManager.default.createDirectory(at: trash, withIntermediateDirectories: true)
+        // Just after Move to Trash on the second row: for 5 s the Undo strip in its place, the
+        // other rows where they were, the older screenshot not yet on the last row. The demo
+        // Trash refuses every move, so the file goes to a demo Trash folder by hand.
+        let trash = scene.home.appendingPathComponent(".Trash", isDirectory: true)
+        try FileManager.default.createDirectory(at: trash, withIntermediateDirectories: true)
+        func moveToDemoTrash(_ moved: CaptureFile) throws {
             let inTrash = trash.appendingPathComponent(moved.url.lastPathComponent)
             try FileManager.default.moveItem(at: moved.url, to: inTrash)
             scene.model.showUndoForHarness(AppModel.TrashedScreenshot(file: moved, inTrash: inTrash))
             scene.model.screenshotLeft(moved)
-            // The list fills up again from an older screenshot.
+            // The older screenshot is read in, and waits for Undo to be over.
             DemoScene.wait { scene.model.recent.count == RecentScreenshots.count && !scene.model.recent.contains(moved) }
             DemoScene.settle(0.6)
-            measure("popover-undo", MenuContent().harnessEnvironment(scene.model, updater: updater))
+        }
+        if scene.model.recent.count > 1 {
+            try moveToDemoTrash(scene.model.recent[1])
+            measure("popover-undo", MenuContent().harnessEnvironment(scene.model, updater: updater), mustFit: true)
             for scheme in ColorScheme.allCases {
                 try shots.write(popoverWindow(capturePanel(PopoverPanel(scheme: scheme) { MenuContent() }
                     .harnessEnvironment(scene.model, updater: updater), scheme: scheme), scheme: scheme), "popover-undo", scheme)
             }
-            // A move that could not happen, said in the Undo row's place.
+            // A move that could not happen, said above the list.
             scene.model.showUndoForHarness(nil)
             scene.model.showNoteForHarness(.trash(.failed))
             DemoScene.settle(0.4)
@@ -195,6 +197,16 @@ enum ScreenshotHarness {
                     .harnessEnvironment(scene.model, updater: updater), scheme: scheme), scheme: scheme), "popover-note", scheme)
             }
             scene.model.showNoteForHarness(nil)
+
+            // Move to Trash on the floating preview of the screenshot just taken: its strip
+            // on top, where its row was.
+            try moveToDemoTrash(scene.model.recent[0])
+            measure("popover-undo-top", MenuContent().harnessEnvironment(scene.model, updater: updater), mustFit: true)
+            for scheme in ColorScheme.allCases {
+                try shots.write(popoverWindow(capturePanel(PopoverPanel(scheme: scheme) { MenuContent() }
+                    .harnessEnvironment(scene.model, updater: updater), scheme: scheme), scheme: scheme), "popover-undo-top", scheme)
+            }
+            scene.model.showUndoForHarness(nil)
         }
 
         // General just after "Replay welcome tour": the tour waits in the popover.
@@ -628,7 +640,7 @@ enum ScreenshotHarness {
 
     /// Prints how tall the popover's content is and how tall the popover is (its height cap
     /// taken off, then on), and fails the run if the popover passes the cap.
-    private static func measure(_ name: String, _ view: some View) {
+    private static func measure(_ name: String, _ view: some View, mustFit: Bool = false) {
         func height(_ view: some View) -> CGFloat {
             let hosting = NSHostingView(rootView: view.frame(width: Design.Layout.popoverWidth))
             let window = HarnessWindow(
@@ -652,6 +664,10 @@ enum ScreenshotHarness {
             + "popover \(Int(shown.rounded())) pt (cap \(Int(cap)))\(content > cap ? ", scrolls" : "")")
         if shown > cap + 0.5 {
             failedChecks.append("\(name) is \(shown) pt tall in \(DemoContent.language), past the \(cap) pt cap")
+        }
+        // The everyday popover, Undo strip and all, fits without scrolling in every language.
+        if mustFit, content > cap + 0.5 {
+            failedChecks.append("\(name) needs \(content) pt in \(DemoContent.language): it scrolls under the \(cap) pt cap")
         }
     }
 

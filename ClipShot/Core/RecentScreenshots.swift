@@ -49,3 +49,45 @@ enum RecentScreenshots {
         return file
     }
 }
+
+/// One place in the popover's list: a screenshot's row, or, while its Undo is offered, the
+/// strip that stands in for the screenshot just moved to the Trash. Both are named by the
+/// file's name, unique in the folder, so a row and the strip that replaces it are the same
+/// place and one turns into the other.
+enum RecentSlot: Equatable, Identifiable, Sendable {
+    case screenshot(CaptureFile)
+    case trashed(CaptureFile)
+
+    var file: CaptureFile {
+        switch self {
+        case .screenshot(let file), .trashed(let file): file
+        }
+    }
+
+    var id: String { file.url.lastPathComponent }
+}
+
+extension RecentScreenshots {
+    /// The list's places: `files` (newest first), with the Undo strip for `trashed` where its
+    /// row was in time order, never more than `count`. While the strip is there, the older
+    /// screenshot that will take the last row waits until Undo is over. A trashed file older
+    /// than every listed row (a floating preview's, say) puts its strip on top.
+    static func slots(files: [CaptureFile], trashed: CaptureFile?, count: Int = count) -> [RecentSlot] {
+        guard let trashed else { return files.prefix(count).map(RecentSlot.screenshot) }
+        let name = trashed.url.lastPathComponent
+        var slots = files.filter { $0.url.lastPathComponent != name }.map(RecentSlot.screenshot)
+        let index = slots.firstIndex { $0.file.created < trashed.created } ?? slots.count
+        slots.insert(.trashed(trashed), at: index < count ? index : 0)
+        return Array(slots.prefix(count))
+    }
+
+    /// `file` back among `files` in time order, at most `count`: an Undo puts its row back
+    /// in place before the folder is read again.
+    static func inserting(_ file: CaptureFile, into files: [CaptureFile], count: Int = count) -> [CaptureFile] {
+        let name = file.url.lastPathComponent
+        var files = files.filter { $0.url.lastPathComponent != name }
+        let index = files.firstIndex { $0.created < file.created } ?? files.count
+        files.insert(file, at: index)
+        return Array(files.prefix(count))
+    }
+}

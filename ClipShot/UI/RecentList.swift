@@ -52,25 +52,21 @@ enum ScreenshotAge {
     }
 }
 
-/// The recent screenshots (Task 12i): the Undo row on top for 5 s after a move to the Trash
-/// (A6), and in its place why a Move to Trash or an Undo from here did not happen; then the
-/// list, or a quiet line before the first screenshot.
+/// The recent screenshots (Task 12i): why a Move to Trash or an Undo from here did not
+/// happen, for 5 s; then the list, or a quiet line before the first screenshot.
 struct RecentSection: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        let empty = model.recentSlots.isEmpty
         VStack(spacing: Design.Spacing.m) {
             if let note = model.actionNote {
                 ActionNoteRow(message: note.failure.message)
                     .id(note.generation)
-                    .transition(UndoRow.transition(reduceMotion: reduceMotion))
+                    .transition(ActionNoteRow.transition(reduceMotion: reduceMotion))
             }
-            if let trashed = model.undoable {
-                UndoRow(trashed: trashed)
-                    .transition(UndoRow.transition(reduceMotion: reduceMotion))
-            }
-            if model.recent.isEmpty {
+            if empty {
                 Text(Copy.Latest.none)
                     .font(Design.Typography.note)
                     .foregroundStyle(.secondary)
@@ -81,53 +77,100 @@ struct RecentSection: View {
                     .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.cardFill))
                     .transition(.opacity)
             } else {
-                // Reduce Motion: no row moves; the list crossfades to its new rows.
                 RecentList()
-                    .id(reduceMotion ? AnyHashable(model.recent) : AnyHashable(0))
                     .transition(.opacity)
             }
         }
-        .animation(reduceMotion ? Design.Motion.quick : Design.Motion.undoMakeRoom, value: model.undoable != nil)
-        .animation(reduceMotion ? Design.Motion.quick : Design.Motion.undoMakeRoom, value: model.actionNote)
-        .animation(Design.Motion.quick, value: model.recent.isEmpty)
-        .animation(reduceMotion ? Design.Motion.quick : nil, value: model.recent)
+        .animation(reduceMotion ? Design.Motion.quick : Design.Motion.noteMakeRoom, value: model.actionNote)
+        .animation(Design.Motion.quick, value: empty)
     }
 }
 
 /// The current screenshot and the ones before it, newest first, one row each in one rounded
 /// group with hairlines between them, as Eject Guard lists its disks. Every row looks the
-/// same: only its place and its age say which one is the current screenshot.
+/// same: only its place and its age say which one is the current screenshot. While Undo is
+/// offered, the screenshot just moved to the Trash keeps its place as a short Undo strip.
 ///
-/// Motion: a row that leaves (Move to Trash) fades while the rows under it move up into its
-/// place, and one that arrives (a new screenshot, an Undo, an older one filling the last
-/// row) fades in while the others make room, on `Design.Motion.layout`. Reduce Motion: the
-/// whole list crossfades to its new rows (`RecentSection`), nothing moves.
+/// Motion, on `Design.Motion.layout`: a row moved to the Trash shrinks into the Undo strip
+/// in one continuous change (same place, so its height animates while the contents
+/// crossfade), and Undo grows it back. Once Undo is over the strip closes, the rows under it
+/// move up and the older screenshot fades in on the last row; the rows above never move. A
+/// new screenshot fades in on top while the others make room. Reduce Motion: the same
+/// crossfades on `quick`.
 struct RecentList: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.hoveredRecent) private var hoveredRecent
 
     var body: some View {
-        let files = model.recent
+        let slots = model.recentSlots
         VStack(spacing: 0) {
-            ForEach(Array(files.enumerated()), id: \.element) { index, file in
-                RecentRow(
-                    file: file, image: model.thumbnails[file], position: index + 1, count: files.count,
-                    onClipboard: model.isOnClipboard(file), hovering: index == hoveredRecent)
-                    .overlay(alignment: .top) {
-                        if index > 0 {
-                            Divider().padding(.horizontal, Design.Spacing.l)
-                        }
+            ForEach(Array(slots.enumerated()), id: \.element.id) { index, slot in
+                Group {
+                    switch slot {
+                    case .screenshot(let file):
+                        RecentRow(
+                            file: file, image: model.thumbnails[file], position: index + 1, count: slots.count,
+                            onClipboard: model.isOnClipboard(file), hovering: index == hoveredRecent)
+                            .transition(.opacity)
+                    case .trashed:
+                        UndoStrip(inTrash: model.undoable?.inTrash)
+                            .transition(.opacity)
                     }
-                    .transition(.opacity)
+                }
+                .overlay(alignment: .top) {
+                    if index > 0 {
+                        Divider().padding(.horizontal, Design.Spacing.l)
+                    }
+                }
+                .transition(.opacity)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.cardFill))
         .clipShape(RoundedRectangle(cornerRadius: Design.Radius.card))
-        .animation(reduceMotion ? nil : Design.Motion.layout, value: files)
+        .animation(reduceMotion ? Design.Motion.quick : Design.Motion.layout, value: slots)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(Copy.Recent.list))
+    }
+}
+
+/// For 5 seconds after a move to the Trash, from a row or the floating preview, in that
+/// screenshot's place in the list: "Moved to the Trash" and Undo (⌘Z), which puts it back
+/// there (A6). A second move replaces it; the trash can bounces to say so.
+struct UndoStrip: View {
+    /// Where the file went; a new one bounces the trash can.
+    let inTrash: URL?
+
+    @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        // Undo beside the sentence, or under it when a translation makes it too wide there.
+        TrailingActionLayout(hasIcon: true, iconSpacing: Design.Spacing.m) {
+            // In the thumbnails' column, so the strip lines up with the rows.
+            Image(systemName: "trash")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .symbolEffect(.bounce, options: .nonRepeating, value: reduceMotion ? nil : inTrash)
+                .frame(width: RecentRow.thumbnailSize.width)
+                .accessibilityHidden(true)
+            Text(Copy.Recent.moved)
+                .font(Design.Typography.body)
+                .fixedSize(horizontal: false, vertical: true)
+            Button {
+                Task { await model.putBack() }
+            } label: {
+                PillLabel(symbol: "arrow.uturn.backward", title: Copy.Recent.undo)
+            }
+            .buttonStyle(PillButtonStyle())
+            .fixedSize()
+            .keyboardShortcut("z")
+            .help(Text(Copy.Recent.undo))
+        }
+        .padding(.horizontal, Design.Spacing.l)
+        .padding(.vertical, Design.Spacing.m)
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -211,8 +254,17 @@ struct RecentRow: View {
     private var size: String { file.size.formatted(.byteCount(style: .file)) }
     private var copyTitle: LocalizedStringResource { Self.title(.copy, onClipboard: onClipboard) }
 
+    /// The age and its VoiceOver value come from one clock: the moment "Just now" ends, then
+    /// once a minute.
     var body: some View {
-        HStack(spacing: Design.Spacing.m) {
+        TimelineView(AgeSchedule(switchAt: file.created.addingTimeInterval(ScreenshotAge.justNowInterval))) { context in
+            row(now: context.date)
+        }
+    }
+
+    private func row(now: Date) -> some View {
+        let age = Text(verbatim: ScreenshotAge.text(file.created, now: now, locale: locale))
+        return HStack(spacing: Design.Spacing.m) {
             thumbnail
             VStack(alignment: .leading, spacing: 1) {
                 FileNameLabel(name: name)
@@ -254,7 +306,7 @@ struct RecentRow: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(verbatim: name))
         .accessibilityValue(Text(Self.accessibilityValue(
-            created: file.created, size: size, position: position, count: count, now: Date(), locale: locale)))
+            created: file.created, size: size, position: position, count: count, now: now, locale: locale)))
         .accessibilityHint(Text(Copy.Preview.markupHint))
         .accessibilityAction { markup() }
         .accessibilityActions {
@@ -304,14 +356,6 @@ struct RecentRow: View {
             return .handled
         }
         .animation(Design.Motion.quick, value: hovering)
-    }
-
-    /// The age, refreshed the moment "Just now" ends and then once a minute.
-    private var age: some View {
-        let created = file.created
-        return TimelineView(AgeSchedule(switchAt: created.addingTimeInterval(ScreenshotAge.justNowInterval))) { context in
-            Text(verbatim: ScreenshotAge.text(created, now: context.date, locale: locale))
-        }
     }
 
     /// Copy, or Copy again for the screenshot on the clipboard; the symbol turns into a
@@ -431,52 +475,6 @@ struct FileNameLabel: View {
     }
 }
 
-/// For 5 seconds after a move to the Trash, from a row or the floating preview: Undo puts
-/// the file back (A6). A second move replaces it; the trash can bounces to say so. It drops
-/// in from just above and fades out; Reduce Motion only fades.
-struct UndoRow: View {
-    let trashed: AppModel.TrashedScreenshot
-
-    @Environment(AppModel.self) private var model
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        // The button under the sentence when a translation makes it too wide beside it.
-        TrailingActionLayout(hasIcon: true, iconSpacing: Design.Spacing.m) {
-            Image(systemName: "trash")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-                .symbolEffect(.bounce, options: .nonRepeating, value: reduceMotion ? nil : trashed.inTrash)
-                .frame(width: Design.Layout.iconColumn)
-                .accessibilityHidden(true)
-            Text(Copy.Recent.moved)
-                .font(Design.Typography.body)
-                .fixedSize(horizontal: false, vertical: true)
-            Button {
-                Task { await model.putBack() }
-            } label: {
-                Text(Copy.Recent.undo)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .fixedSize()
-            .keyboardShortcut("z")
-        }
-        .padding(.horizontal, Design.Spacing.l)
-        .padding(.vertical, Design.Spacing.s)
-        .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.cardFill))
-        .accessibilityElement(children: .contain)
-    }
-
-    /// Drops in from just above; leaves by fading, faster.
-    static func transition(reduceMotion: Bool) -> AnyTransition {
-        guard !reduceMotion else { return .opacity }
-        return .asymmetric(
-            insertion: .offset(y: -Design.Motion.undoDrop).combined(with: .opacity).animation(Design.Motion.undoIn),
-            removal: .opacity.animation(Design.Motion.leave))
-    }
-}
-
 /// Why something the user asked for in the popover did not happen: a Move to Trash or an
 /// Undo (in the Undo row's place, for 5 s, with the alert sound as well), or a macOS setting
 /// ClipShot could not change.
@@ -499,6 +497,14 @@ struct ActionNoteRow: View {
         .padding(.vertical, Design.Spacing.s + 2)
         .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.cardFill))
         .accessibilityElement(children: .combine)
+    }
+
+    /// Drops in from just above; leaves by fading, faster.
+    static func transition(reduceMotion: Bool) -> AnyTransition {
+        guard !reduceMotion else { return .opacity }
+        return .asymmetric(
+            insertion: .offset(y: -Design.Motion.noteDrop).combined(with: .opacity).animation(Design.Motion.noteIn),
+            removal: .opacity.animation(Design.Motion.leave))
     }
 }
 

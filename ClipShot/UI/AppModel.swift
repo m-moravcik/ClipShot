@@ -53,6 +53,11 @@ final class AppModel {
     /// ones before it, newest first, at most `RecentScreenshots.count`, existing files only.
     /// Changes once the thumbnails are decoded (or failed to), so rows never flash empty.
     private(set) var recent: [CaptureFile] = []
+    /// The list as the popover shows it: the rows, with the Undo strip in the place of the
+    /// screenshot just moved to the Trash while its Undo is offered (Task 12i fix 1).
+    var recentSlots: [RecentSlot] {
+        RecentScreenshots.slots(files: recent, trashed: undoable?.file)
+    }
     /// Decoded thumbnails of the listed screenshots, so a popover that opens, or a row that
     /// moves up, never waits for a decode.
     private(set) var thumbnails: [CaptureFile: CGImage] = [:]
@@ -184,6 +189,8 @@ final class AppModel {
     @ObservationIgnored private var undecodable: Set<CaptureFile> = []
     /// Names the Undo on offer, so the timer of a replaced one does not end the newer one.
     @ObservationIgnored private var undoGeneration = 0
+    /// An Undo is putting its file back: a second one waits for nothing and fails.
+    @ObservationIgnored private var restoring = false
     /// Names the note on show, so the timer of a replaced one does not end the newer one.
     @ObservationIgnored private var noteGeneration = 0
     @ObservationIgnored private var flash = CopiedFlash()
@@ -525,9 +532,9 @@ final class AppModel {
         if recent != files { recent = files }
     }
 
-    /// `file` left the folder (moved to the Trash): its row leaves at once and the rows under
-    /// it move up, before the folder is read again; that read fills the last row from an
-    /// older screenshot.
+    /// `file` left the folder (moved to the Trash): its row leaves at once, before the folder
+    /// is read again (the Undo strip takes its place while Undo is offered); that read brings
+    /// the older screenshot that takes the last row once Undo is over.
     func screenshotLeft(_ file: CaptureFile) {
         let path = file.url.standardizedFileURL.path
         if recent.contains(where: { $0.url.standardizedFileURL.path == path }) {
@@ -1198,11 +1205,17 @@ extension AppModel {
     /// back on show. False when no Undo is on offer (none, or its time is up), when it is for
     /// another screenshot than `file` (when given), or when its place is taken. Its Undo
     /// previews leave either way, except `preview`, which says why it failed.
+    ///
+    /// The Undo strip stays in the row's place until the file is back, then the row takes
+    /// its place again in the same step, so the list never shows the gap or the older
+    /// screenshot in between.
     @discardableResult
     func undoTrash(expecting file: CaptureFile? = nil, fromPreview preview: UUID? = nil) async -> Bool {
-        guard let trashed = undoable, file == nil || trashed.file == file else { return false }
+        guard !restoring, let trashed = undoable, file == nil || trashed.file == file else { return false }
+        restoring = true
+        defer { restoring = false }
+        // Its timer no longer ends it; this does.
         undoGeneration += 1
-        undoable = nil
         let restored = await Task.detached(priority: .userInitiated) { () -> CaptureFile? in
             guard !FileManager.default.fileExists(atPath: trashed.original.path) else { return nil }
             do {
@@ -1213,11 +1226,16 @@ extension AppModel {
             return CaptureFile.inspect(trashed.original)
         }.value
         guard let restored else {
+            if undoable == trashed { undoable = nil }
             previews.endUndo(file: trashed.file, except: preview)
             return false
         }
         previews.endUndo(file: trashed.file)
         await ledger.restore(restored, adopted: trashed.adopted)
+        // Back in its place, in the strip's step.
+        if let image = thumbnails[trashed.file], thumbnails[restored] == nil { thumbnails[restored] = image }
+        recent = RecentScreenshots.inserting(restored, into: recent)
+        if undoable == trashed { undoable = nil }
         preferences.totals.trashed = max(0, preferences.totals.trashed - 1)
         refreshRecent()
         announce(Copy.Recent.putBack)

@@ -403,8 +403,9 @@ a mandate:
 - Stack: older previews slide up with a spring when a new one arrives.
 - Move to Trash: the preview shrinks and drops with a fade (a nod to the
   Trash); neighbours close the gap with a spring.
-- Recents strip (A5): a new screenshot slides into the strip; deleting one
-  collapses the gap.
+- Recents list (A5): a new screenshot fades in on top while the rows make
+  room; a row moved to the Trash shrinks into its Undo strip, and once Undo is
+  over the strip closes and the rows under it move up.
 - Reduce Motion: opacity crossfades only; no bounce, no scale.
 
 ### A4. Editing with Markup
@@ -423,20 +424,34 @@ a mandate:
 
 ### A5. Recent screenshots in the popover
 
-- The latest capture card stays. Under it a strip of the previous 4
-  screenshots (from the ledger, newest first, existing files only).
-- Each item: click = Markup (A4); hover/right-click actions: Copy, Show in
-  Finder, Move to Trash; drag out to other apps.
-- Empty state: the strip is hidden.
+Updated 2026-10-20 (Task 12i, owner request): the latest card and the strip
+of 4 became one list.
+
+- One list of 4 rows: the current screenshot on top, then the 3 before it
+  (from the ledger, newest first, existing files only; fewer rows when fewer
+  exist).
+- Every row looks the same; only its place and its age ("Just now") say which
+  one is current. A row: a small thumbnail (click = Markup (A4), drag out to
+  other apps, right-click menu: Copy, Edit with Markup, Show in Finder, Move to
+  Trash), the name with its time whole, the age and size, and the pills Copy,
+  Show in Finder, Move to Trash, always shown. The screenshot on the clipboard
+  says Copy again instead of Copy.
+- Rows sit in one rounded group with hairlines between them.
+- Empty state: "No screenshot copied yet".
 
 ### A6. Delete
 
-- "Move to Trash" in the preview, the latest card and the recents strip. Only
+- "Move to Trash" in the preview and on every row of the recents list. Only
   through `FileManager.trashItem`, only for files in the ledger, with the same
   realpath folder guard as retention. No confirmation dialog (it is reversible
-  from the Trash); the latest card shows an "Undo" for 5 s that puts the file
-  back from the Trash.
-- The ledger drops the entry; the recents strip and the card update.
+  from the Trash).
+- Undo in place (updated 2026-10-20, Task 12i): for 5 s the trashed row's
+  place holds a short strip, "Moved to the Trash" and an Undo pill (⌘Z), which
+  puts the file back in that same place. The other rows stay where they are;
+  the next older screenshot fills the last row only once Undo is over. A
+  screenshot moved from its floating preview gets its strip where its row was
+  in time order, or on top when it was not among the rows.
+- The ledger drops the entry; the list updates.
 
 ### A7. Retention visibility
 

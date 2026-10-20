@@ -135,15 +135,17 @@ summary, and at the bottom Open Screenshots Folder, Settings, About and Quit.
 ### Move to Trash, and Undo
 
 Move to Trash on the preview or on a row in the popover moves the file to the Trash,
-with no dialog; the rows below move up and an older screenshot fills the last row. For five seconds the popover shows **Undo** (⌘Z), which
-puts it back where it was; moved from the floating preview, the preview itself
-turns into **Moved to the Trash** with Undo, so there is no need to open the
-popover. If a move or an Undo cannot happen, ClipShot says why where you clicked.
+with no dialog. For five seconds its row in the popover turns into **Moved to the
+Trash** with **Undo** (⌘Z), which puts it back in the same place; after that the rows
+below move up and an older screenshot fills the last row. Moved from the floating
+preview, the preview itself turns into **Moved to the Trash** with Undo too, so there
+is no need to open the popover. If a move or an Undo cannot happen, ClipShot says why
+where you clicked.
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/popover-undo-dark.png">
-    <img src="docs/screenshots/popover-undo-light.png" width="388" alt="The popover just after Move to Trash: a Moved to the Trash row with Undo above the list of recent screenshots, which has filled up again to four">
+    <img src="docs/screenshots/popover-undo-light.png" width="388" alt="The popover just after Move to Trash on the second screenshot: in its place in the list, Moved to the Trash with an Undo pill, the other rows where they were">
   </picture>
 </p>
 

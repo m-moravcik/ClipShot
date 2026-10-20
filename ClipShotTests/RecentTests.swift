@@ -31,6 +31,13 @@ struct RecentTests {
 
     private func names(_ files: [CaptureFile]) -> [String] { files.map(\.url.lastPathComponent) }
 
+    /// The list as shown: names, the Undo strip as "undo:<name>".
+    private func slots(_ h: ModelHarness) -> [String] {
+        h.model.recentSlots.map { slot in
+            if case .trashed(let file) = slot { "undo:" + file.url.lastPathComponent } else { slot.file.url.lastPathComponent }
+        }
+    }
+
     private func topRowHasThumbnail(_ h: ModelHarness) -> Bool {
         h.model.recent.first.flatMap { h.model.thumbnails[$0] } != nil
     }
@@ -195,9 +202,10 @@ struct RecentTests {
 
     // MARK: - Move to Trash and Undo
 
-    /// Any row: it leaves at once and the rows under it move up; the next read fills the last
-    /// row from an older screenshot; Undo puts it back in its place.
-    @Test func trashCollapsesTheRowAndUndoRestoresTheOrder() async throws {
+    /// Any row: the Undo strip takes its place at once and the other rows stay where they
+    /// were; the older screenshot read in meanwhile waits for Undo to be over. Undo puts the
+    /// row back in the same step as the strip goes, so nothing in between is ever shown.
+    @Test func trashLeavesTheUndoStripInPlaceAndUndoRestoresTheRow() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }
         try await tracked(h, [("A.png", 50), ("B.png", 40), ("C.png", 30), ("D.png", 20), ("E.png", 10)])
@@ -207,19 +215,67 @@ struct RecentTests {
         // A middle row.
         let c = try row(h, "C.png")
         try await h.model.trash(c)
-        #expect(names(h.model.recent) == ["E.png", "D.png", "B.png"], "at once, before the folder is read")
+        #expect(slots(h) == ["E.png", "D.png", "undo:C.png", "B.png"], "at once, before the folder is read")
         #expect(h.model.undoable?.original == c.url)
         #expect(await eventually { await self.names(h.model.recent) == ["E.png", "D.png", "B.png", "A.png"] })
+        #expect(slots(h) == ["E.png", "D.png", "undo:C.png", "B.png"], "A waits for Undo to be over")
         #expect(await h.model.undoTrash())
-        #expect(await eventually { await self.names(h.model.recent) == ["E.png", "D.png", "C.png", "B.png"] })
+        #expect(slots(h) == ["E.png", "D.png", "C.png", "B.png"], "back in place in the strip's step")
+        h.model.refreshRecent()
+        #expect(await h.recentSettled())
+        #expect(slots(h) == ["E.png", "D.png", "C.png", "B.png"])
 
-        // The top row: the one under it moves up to the top.
-        let e = try row(h, "E.png")
-        try await h.model.trash(e)
-        #expect(names(h.model.recent) == ["D.png", "C.png", "B.png"])
-        #expect(await eventually { await self.names(h.model.recent) == ["D.png", "C.png", "B.png", "A.png"] })
+        // The top row.
+        try await h.model.trash(try row(h, "E.png"))
+        #expect(slots(h) == ["undo:E.png", "D.png", "C.png", "B.png"])
         #expect(await h.model.undoTrash())
-        #expect(await eventually { await self.names(h.model.recent) == ["E.png", "D.png", "C.png", "B.png"] })
+        #expect(slots(h) == ["E.png", "D.png", "C.png", "B.png"])
+
+        // The last row.
+        try await h.model.trash(try row(h, "B.png"))
+        #expect(slots(h) == ["E.png", "D.png", "C.png", "undo:B.png"])
+        #expect(await eventually { await self.names(h.model.recent).last == "A.png" })
+        #expect(slots(h) == ["E.png", "D.png", "C.png", "undo:B.png"])
+    }
+
+    /// Once Undo is over, the strip closes: the rows under it move up and the older
+    /// screenshot fills the last row; the rows above stay.
+    @Test func whenUndoEndsTheOlderScreenshotFillsTheLastRow() async throws {
+        let h = try ModelHarness(undoLifetime: .milliseconds(300))
+        defer { h.tearDown() }
+        try await tracked(h, [("A.png", 50), ("B.png", 40), ("C.png", 30), ("D.png", 20), ("E.png", 10)])
+        #expect(await h.start())
+        #expect(await eventually { await h.model.recent.count == 4 })
+        try await h.model.trash(try row(h, "D.png"))
+        #expect(slots(h) == ["E.png", "undo:D.png", "C.png", "B.png"])
+        #expect(await eventually(timeout: .seconds(2)) { await h.model.undoable == nil })
+        #expect(await eventually { await self.slots(h) == ["E.png", "C.png", "B.png", "A.png"] })
+    }
+
+    /// Where the strip goes: the row's place in time order, at most four places; a trashed
+    /// file older than all four rows (a floating preview's) on top.
+    @Test func undoStripPlace() throws {
+        let now = Date()
+        func file(_ name: String, _ minutes: Double) -> CaptureFile {
+            CaptureFile(
+                url: URL(fileURLWithPath: "/S/\(name)"), created: now.addingTimeInterval(-minutes * 60),
+                modified: now, size: 1, resourceID: Data(name.utf8), isScreenshot: true)
+        }
+        func names(_ slots: [RecentSlot]) -> [String] {
+            slots.map { slot in
+                if case .trashed(let f) = slot { "undo:" + f.url.lastPathComponent } else { slot.file.url.lastPathComponent }
+            }
+        }
+        let rows = [file("E", 10), file("D", 20), file("B", 40), file("A", 50)]
+        #expect(names(RecentScreenshots.slots(files: rows, trashed: nil)) == ["E", "D", "B", "A"])
+        #expect(names(RecentScreenshots.slots(files: rows, trashed: file("C", 30))) == ["E", "D", "undo:C", "B"])
+        #expect(names(RecentScreenshots.slots(files: rows, trashed: file("New", 1))) == ["undo:New", "E", "D", "B"])
+        #expect(names(RecentScreenshots.slots(files: rows, trashed: file("Old", 90))) == ["undo:Old", "E", "D", "B"],
+                "not among the rows: on top")
+        #expect(names(RecentScreenshots.slots(files: Array(rows.prefix(2)), trashed: file("Old", 90))) == ["E", "D", "undo:Old"],
+                "fewer rows: where it was")
+        #expect(names(RecentScreenshots.slots(files: [], trashed: file("Only", 1))) == ["undo:Only"])
+        #expect(RecentScreenshots.inserting(file("C", 30), into: rows).map(\.url.lastPathComponent) == ["E", "D", "C", "B"])
     }
 
     @Test func trashFromFloatingPreviewUpdatesTheList() async throws {
@@ -238,12 +294,14 @@ struct RecentTests {
         // The preview's Move to Trash: the list never keeps the trashed file.
         try await h.model.trash(shown)
         #expect(names(h.model.recent) == ["Earlier.png"])
+        #expect(slots(h) == ["undo:Screenshot 1.png", "Earlier.png"], "the strip where its row was, on top")
         #expect(h.model.previews.visible.isEmpty)
         h.model.refreshRecent()
         #expect(await h.recentSettled())
         #expect(names(h.model.recent) == ["Earlier.png"], "a refresh does not bring it back")
 
         #expect(await h.model.undoTrash())
+        #expect(slots(h) == ["Screenshot 1.png", "Earlier.png"])
         #expect(await eventually { await self.names(h.model.recent) == ["Screenshot 1.png", "Earlier.png"] })
     }
 

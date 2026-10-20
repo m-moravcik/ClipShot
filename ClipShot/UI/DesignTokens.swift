@@ -124,15 +124,16 @@ enum Design {
         /// Faster than the system bounce, so the peak stays well under half a second.
         static let successBounceSpeed: Double = 1.5
 
-        // The popover's Undo and failure rows (A6). Reduce Motion: `quick` crossfades. The
-        // list of recent screenshots moves its rows on `layout`.
+        // The popover's failure note (A6), said where an Undo or a Move to Trash did not
+        // happen. Reduce Motion: `quick` crossfades. The list of recent screenshots, with its
+        // Undo strip in place of a trashed row, moves on `layout`.
 
-        /// The rows around the Undo row make room for it, or close up after it.
-        static let undoSpring = Spring(duration: 0.32, bounce: 0.18)
-        static let undoMakeRoom: Animation = .spring(undoSpring)
-        /// The Undo row drops in from just above; it leaves by fading, faster.
-        static let undoIn: Animation = .spring(duration: 0.3, bounce: 0.22)
-        static let undoDrop: CGFloat = 8
+        /// The rows under the note make room for it, or close up after it.
+        static let noteSpring = Spring(duration: 0.32, bounce: 0.18)
+        static let noteMakeRoom: Animation = .spring(noteSpring)
+        /// The note drops in from just above; it leaves by fading, faster.
+        static let noteIn: Animation = .spring(duration: 0.3, bounce: 0.22)
+        static let noteDrop: CGFloat = 8
 
         /// A swipe released at `velocity` (points per second) flings out along `distance`
         /// with that speed, then settles without bounce.
