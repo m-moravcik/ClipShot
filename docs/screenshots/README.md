@@ -17,7 +17,7 @@ committing; the names stay the same, so nothing else needs editing.
 | `icon.png` | App icon at 512 px, as macOS draws it; the README header |
 | `hero-{light,dark}.png` | The popover open under its menu bar icon |
 | `preview-hover-{light,dark}.png` | ClipShot's floating preview with its hover buttons |
-| `popover-undo-{light,dark}.png` | The popover just after Move to Trash, with Undo and the strip of earlier screenshots |
+| `popover-undo-{light,dark}.png` | The popover just after Move to Trash, with the Undo strip in place of the trashed row |
 | `settings-capture-{light,dark}.png` | Settings > Capture: the save folder, the Preview picker, Restore previous settings |
 | `settings-retention-{light,dark}.png` | Settings > Retention: the period and what would go to the Trash now |
 

@@ -76,6 +76,27 @@ first (F3). Copying both would leave the second display on the clipboard, so the
 first display capture of a group within 1 s is copied; the rest are recorded and
 shown as "+1" on the preview.
 
+### At rest
+
+With nothing happening, ClipShot still wakes for three things:
+
+- The coordinator's poll, every 1 s (`CopyCoordinator.start`): it re-reads the
+  folder pref (`CaptureSettings.folder()`, two or three
+  `CFPreferencesAppSynchronize` calls) and `stat`s the folder. macOS posts
+  nothing when ⇧⌘5 > Options or `defaults write` changes the folder (F12 saw the
+  change by polling), so this read is what picks a new folder up at once; the
+  same read notices a watched folder that was removed or replaced. It stays
+  until a notification (kqueue on the prefs file, or a `CFPreferences` one) can
+  replace it. A pass runs on the poll only while a file is open in Markup.
+- The model's status loop, every 5 s with 20 % tolerance: destination, Preview
+  and format prefs, the retention status and whether another app took the
+  clipboard. The list of recent screenshots is re-read only while the popover is
+  open.
+- Retention's hourly timer and the wake notification.
+
+Peg's frame timer runs only while a moment plays. Idle CPU measured over 60 s
+with the popover never opened: 0.03 to 0.04 %, far under the 0.1 % target.
+
 ## Preview modes
 
 While the macOS floating thumbnail is on screen, the screenshot exists only in
@@ -184,7 +205,8 @@ Retention runs at launch, every hour and after wake, one run at a time, at most
 500 files per run. It only runs on a folder the user confirmed with a preview.
 `FolderGuard` refuses, after resolving symlinks, the home folder and its
 ancestors, `~/Library`, system locations and volume roots, and any folder whose
-volume has no Trash. Files go through `FileManager.trashItem` only.
+volume has no Trash. Files leave the folder only through `FileManager.trashItem`;
+Undo moves the same file back.
 
 ## Native settings
 
@@ -448,7 +470,9 @@ time real run-loop timers and real-clock deadlines on purpose.
 ## Safety notes
 
 - Nothing under `ClipShot/` calls `removeItem` or `unlink`; `make guards`
-  enforces it. User files only ever go through `FileManager.trashItem`.
+  enforces it. User files leave the screenshot folder only through
+  `FileManager.trashItem`; Undo moves the same file back from the Trash
+  (`FileManager.moveItem`).
 - The app is not sandboxed: it reads and writes `com.apple.screencapture` and
   watches any folder the user picks.
 - Folder access (TCC) for Desktop, Documents, Downloads, removable and network
