@@ -31,12 +31,36 @@ final class GatedWork {
     }
 }
 
+/// A trigger publisher that counts who listens: no subscriber means a send can start nothing.
+@MainActor
+final class CountedTrigger {
+    let subject = PassthroughSubject<Void, Never>()
+    private(set) var subscribers = 0
+
+    var publisher: AnyPublisher<Void, Never> {
+        subject
+            .handleEvents(
+                receiveSubscription: { _ in MainActor.assumeIsolated { self.subscribers += 1 } },
+                receiveCancel: { MainActor.assumeIsolated { self.subscribers -= 1 } })
+            .eraseToAnyPublisher()
+    }
+
+    func send() { subject.send() }
+}
+
+/// Waits until everything already queued on the main queue has run: the triggers are
+/// delivered there (`receive(on: DispatchQueue.main)`).
+@MainActor
+private func mainQueueDrained() async {
+    await withCheckedContinuation { done in DispatchQueue.main.async { done.resume() } }
+}
+
 @MainActor
 struct RetentionSchedulerTests {
-    private func makeScheduler(_ work: GatedWork) -> (RetentionScheduler, PassthroughSubject<Void, Never>, PassthroughSubject<Void, Never>) {
-        let hourly = PassthroughSubject<Void, Never>()
-        let wake = PassthroughSubject<Void, Never>()
-        let scheduler = RetentionScheduler(hourly: hourly.eraseToAnyPublisher(), wake: wake.eraseToAnyPublisher())
+    private func makeScheduler(_ work: GatedWork) -> (RetentionScheduler, CountedTrigger, CountedTrigger) {
+        let hourly = CountedTrigger()
+        let wake = CountedTrigger()
+        let scheduler = RetentionScheduler(hourly: hourly.publisher, wake: wake.publisher)
         scheduler.work = { await work.run() }
         return (scheduler, hourly, wake)
     }
@@ -45,19 +69,22 @@ struct RetentionSchedulerTests {
         let work = GatedWork()
         let (scheduler, hourly, wake) = makeScheduler(work)
         defer { scheduler.stop() }
-        try? await Task.sleep(for: .milliseconds(100))
-        #expect(work.started == 0, "nothing runs before start")
+        #expect(hourly.subscribers == 0 && wake.subscribers == 0, "nothing listens before start")
+        #expect(work.started == 0)
         scheduler.start()
+        #expect(hourly.subscribers == 1 && wake.subscribers == 1)
         #expect(await eventually { await work.finished == 1 })
         hourly.send()
         #expect(await eventually { await work.finished == 2 })
         wake.send()
         #expect(await eventually { await work.finished == 3 })
         scheduler.stop()
+        #expect(hourly.subscribers == 0 && wake.subscribers == 0, "after stop, a trigger reaches nothing")
         hourly.send()
         wake.send()
-        try? await Task.sleep(for: .milliseconds(200))
-        #expect(work.finished == 3, "nothing runs after stop")
+        await mainQueueDrained()
+        #expect(scheduler.isIdle)
+        #expect(work.started == 3, "nothing runs after stop")
     }
 
     @Test func triggersWhileRunningCoalesceIntoOneFollowUp() async {
@@ -70,12 +97,12 @@ struct RetentionSchedulerTests {
         hourly.send()
         wake.send()
         scheduler.trigger()
-        try? await Task.sleep(for: .milliseconds(200))
+        // Every trigger has reached the scheduler: they are folded into the follow-up.
+        await mainQueueDrained()
         #expect(work.started == 1, "no second run while the first is in flight")
         work.release()
-        #expect(await eventually { await work.finished == 2 })
-        try? await Task.sleep(for: .milliseconds(200))
-        #expect(work.finished == 2)
+        #expect(await eventually { await MainActor.run { work.finished == 2 && scheduler.isIdle } })
+        #expect(work.started == 2, "one follow-up for three triggers, and nothing after it")
         #expect(work.maxConcurrent == 1)
     }
 

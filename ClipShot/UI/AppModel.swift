@@ -183,6 +183,7 @@ final class AppModel {
     @ObservationIgnored let edits: EditSession
     @ObservationIgnored private let trasher: any Trashing
     @ObservationIgnored private let undoLifetime: Duration
+    @ObservationIgnored private let timerClock: any TimerClock
     @ObservationIgnored private let locateTrash: AppDependencies.LocateTrash
     @ObservationIgnored private let makePreviewHost: @MainActor (AppModel) -> AnyObject?
     @ObservationIgnored let openMarkup: @MainActor (URL, @escaping @MainActor (MarkupResult) -> Void) -> Void
@@ -263,8 +264,9 @@ final class AppModel {
         makePreviewHost = d.makePreviewHost
         openMarkup = d.openMarkup
         undoLifetime = d.undoLifetime
+        timerClock = d.timerClock
         locateTrash = d.locateTrash
-        previews = FloatingPreviews(lifetime: d.previewLifetime)
+        previews = FloatingPreviews(lifetime: d.previewLifetime, clock: d.timerClock)
         let settings = CaptureSettings(prefs: d.screencapturePrefs, home: d.home, backup: d.backup, log: d.log)
         self.settings = settings
         coordinator = CopyCoordinator(
@@ -1203,9 +1205,10 @@ extension AppModel {
         noteGeneration += 1
         let note = ActionNote(failure: failure, generation: noteGeneration)
         actionNote = note
-        let lifetime = undoLifetime
+        let clock = timerClock
+        let end = clock.now + undoLifetime
         Task { [weak self] in
-            try? await Task.sleep(for: lifetime)
+            try? await clock.sleep(until: end)
             guard let self, self.actionNote == note else { return }
             self.actionNote = nil
         }
@@ -1280,9 +1283,11 @@ extension AppModel {
         undoable = trashed
         guard let trashed else { return }
         let generation = undoGeneration
-        let lifetime = undoLifetime
+        let clock = timerClock
+        // Counted from the trash, not from when the task first runs.
+        let end = clock.now + undoLifetime
         Task { [weak self] in
-            try? await Task.sleep(for: lifetime)
+            try? await clock.sleep(until: end)
             guard let self, self.undoGeneration == generation else { return }
             self.undoable = nil
             self.previews.endUndo(file: trashed.file)

@@ -365,9 +365,11 @@ struct RecentTests {
         #expect(await eventually { await self.names(h.model.recent) == ["Screenshot 1.png", "Earlier.png"] })
     }
 
+    /// On a manual clock, so "not yet over" is checked a moment before the end, exactly.
     @Test func undoShownFiveSeconds() async throws {
         #expect(AppModel.defaultUndoLifetime == .seconds(5))
-        let h = try ModelHarness(undoLifetime: .milliseconds(400))
+        let clock = ManualTimerClock()
+        let h = try ModelHarness(timerClock: clock)
         defer { h.tearDown() }
         let files = try await tracked(h, [("A.png", 40), ("B.png", 30), ("C.png", 20)])
         #expect(await h.start())
@@ -375,15 +377,19 @@ struct RecentTests {
 
         // One Undo at a time: a second trash replaces the first one's.
         try await h.model.trash(files[0])
-        try await Task.sleep(for: .milliseconds(250))
+        clock.advance(by: .milliseconds(2_500))
         try await h.model.trash(files[1])
         #expect(h.model.undoable?.original == files[1].url)
-        // The first one's time is up, the second's is not.
-        try await Task.sleep(for: .milliseconds(250))
+        // The first one's time is up; its timer wakes and must not end the second's.
+        clock.advance(by: .milliseconds(2_500))
+        #expect(await eventually { clock.waiting == 1 }, "only the second's timer still waits")
         #expect(h.model.undoable?.original == files[1].url)
+        clock.advance(by: .milliseconds(2_499))
+        #expect(h.model.undoable?.original == files[1].url, "a moment before its 5 s")
 
         // After its time, Undo is gone.
-        #expect(await eventually(timeout: .seconds(2)) { await h.model.undoable == nil })
+        clock.advance(by: .milliseconds(1))
+        #expect(await eventually { await h.model.undoable == nil })
         #expect(await h.model.undoTrash() == false)
         #expect(!RT.exists(files[1].url))
         #expect(!RT.exists(files[0].url))

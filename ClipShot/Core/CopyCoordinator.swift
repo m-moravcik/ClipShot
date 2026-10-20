@@ -90,6 +90,8 @@ final class CopyCoordinator {
     /// No pass running or queued and no rescan left: what a test waits for before it says
     /// that nothing happened.
     var isIdle: Bool { !passInFlight && !passQueued && !seeding && rescanDeadlines.isEmpty && rescanTask == nil }
+    /// No prefs read running or queued (the folder refresh of `start()` and the poll).
+    var refreshIdle: Bool { !refreshInFlight && !refreshQueued }
     /// Fresh screenshots already sent to the ledger, with the time they were sent.
     private var recorded: [FileKey: Date] = [:]
     /// Versions of files open in Markup already sent to `followEdit`, with the time.

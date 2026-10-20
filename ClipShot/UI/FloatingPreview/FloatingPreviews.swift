@@ -98,15 +98,18 @@ final class FloatingPreviews {
     @ObservationIgnored var onChange: (() -> Void)?
 
     @ObservationIgnored private let lifetime: Duration
-    @ObservationIgnored private var deadlines: [UUID: ContinuousClock.Instant] = [:]
+    @ObservationIgnored private let clock: any TimerClock
+    /// When each preview on its own clock leaves, on `clock`.
+    @ObservationIgnored private var deadlines: [UUID: Duration] = [:]
     /// Time left for previews under the pointer; their clock is stopped.
     @ObservationIgnored private var paused: [UUID: Duration] = [:]
     /// Later displays seen before the main display's preview was ready.
     @ObservationIgnored private var pendingExtras: [CaptureFile] = []
     @ObservationIgnored private var timer: Task<Void, Never>?
 
-    init(lifetime: Duration = defaultLifetime) {
+    init(lifetime: Duration = defaultLifetime, clock: any TimerClock = SystemTimerClock()) {
         self.lifetime = lifetime
+        self.clock = clock
     }
 
     isolated deinit {
@@ -124,7 +127,7 @@ final class FloatingPreviews {
             for old in visible.prefix(overflow) { dismiss(old.id, .timeout) }
         }
         items.append(item)
-        deadlines[item.id] = .now + lifetime
+        deadlines[item.id] = clock.now + lifetime
         reschedule()
         onChange?()
     }
@@ -143,11 +146,11 @@ final class FloatingPreviews {
     func setHovering(_ id: UUID, _ hovering: Bool) {
         if hovering {
             guard let deadline = deadlines[id] else { return }
-            paused[id] = max(deadline - .now, .zero)
+            paused[id] = max(deadline - clock.now, .zero)
             deadlines[id] = nil
         } else {
             guard let left = paused.removeValue(forKey: id) else { return }
-            deadlines[id] = .now + max(left, Self.afterHover)
+            deadlines[id] = clock.now + max(left, Self.afterHover)
         }
         reschedule()
     }
@@ -195,7 +198,7 @@ final class FloatingPreviews {
         guard let index = items.firstIndex(where: { $0.id == id }), items[index].exit == nil else { return }
         items[index].failure = failure
         guard paused[id] == nil else { return }
-        deadlines[id] = max(deadlines[id] ?? .now, .now + lifetime)
+        deadlines[id] = max(deadlines[id] ?? clock.now, clock.now + lifetime)
         reschedule()
     }
 
@@ -223,15 +226,15 @@ final class FloatingPreviews {
             timer = nil
             return
         }
-        timer = Task { [weak self] in
-            try? await Task.sleep(until: next, clock: .continuous)
+        timer = Task { [weak self, clock] in
+            try? await clock.sleep(until: next)
             guard !Task.isCancelled else { return }
             self?.expire()
         }
     }
 
     private func expire() {
-        let now = ContinuousClock.now
+        let now = clock.now
         let due = deadlines.filter { $0.value <= now }.map(\.key)
         if due.isEmpty {
             reschedule()

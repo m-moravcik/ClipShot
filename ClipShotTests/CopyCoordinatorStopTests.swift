@@ -75,8 +75,13 @@ struct CopyCoordinatorStopTests {
         #expect(prefs.synchronizeCount == 1, "everything waits behind the stalled stop()")
 
         events.open()
-        #expect(await eventually { await coordinator.watchedFolder?.path == folder.path })
-        try await Task.sleep(for: .milliseconds(300))
+        // C has published its folder and no prefs read is running or queued (the poll is an
+        // hour away), so the count below is final.
+        #expect(await eventually {
+            await MainActor.run {
+                coordinator.watchedFolder?.path == folder.path && coordinator.refreshIdle && coordinator.isIdle
+            }
+        })
         #expect(prefs.synchronizeCount == 2, "C read once; B's queued read was skipped")
         #expect(coordinator.watchError == nil)
     }

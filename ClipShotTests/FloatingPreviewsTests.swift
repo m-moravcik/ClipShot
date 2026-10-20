@@ -57,20 +57,32 @@ struct FloatingPreviewsTests {
         #expect(copied().isEmpty, "another app's copy: nothing says Copied")
     }
 
+    /// On a manual clock: nothing leaves a moment before its time, so the checks that a
+    /// preview is still there are facts, not races with the real clock.
     @Test func previewLeavesAfterItsLifetimeUnlessHovered() async throws {
-        let previews = FloatingPreviews(lifetime: .milliseconds(300))
+        let clock = ManualTimerClock()
+        let previews = FloatingPreviews(lifetime: .seconds(5), clock: clock)
         let shots = try files(2)
         previews.show(shots[0], image: nil)
         previews.show(shots[1], image: nil)
         let hovered = try #require(previews.visible.last)
+
+        clock.advance(by: .milliseconds(4_500))
         previews.setHovering(hovered.id, true)
-        try await Task.sleep(for: .milliseconds(700))
-        #expect(previews.visible.map(\.file) == [shots[1]], "the other one timed out")
+        clock.advance(by: .milliseconds(499))
+        #expect(previews.visible.count == 2, "a moment before its 5 s, the other one is still there")
+        clock.advance(by: .milliseconds(1))
+        #expect(await eventually { await previews.visible.map { $0.file } == [shots[1]] }, "the other one timed out")
+
+        // Hovered with 0.5 s left: once the pointer leaves it stays `afterHover` (1.5 s).
+        clock.advance(by: .seconds(60))
+        #expect(previews.visible.count == 1, "no clock runs while the pointer is over it")
         previews.setHovering(hovered.id, false)
-        // Stays at least `afterHover` once the pointer leaves.
-        try await Task.sleep(for: .milliseconds(500))
+        clock.advance(by: FloatingPreviews.afterHover - .milliseconds(1))
         #expect(previews.visible.count == 1)
-        #expect(await eventually(timeout: .seconds(3)) { await previews.items.isEmpty })
+        clock.advance(by: .milliseconds(1))
+        #expect(await eventually { await previews.visible.isEmpty })
+        #expect(await eventually { await previews.items.isEmpty })
     }
 
     /// I1: hover offers Copy again on the preview whose screenshot is not the one on the

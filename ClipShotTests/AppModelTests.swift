@@ -110,7 +110,8 @@ final class ModelHarness {
         onboardingShown: Bool = true, previewModeApplied: Bool = true, previewLifetime: Duration = .seconds(5),
         hasTrash: Bool = true, undoLifetime: Duration = AppModel.defaultUndoLifetime,
         relaunching previous: ModelHarness? = nil,
-        locateTrash: @escaping AppDependencies.LocateTrash = AppDependencies.systemTrash
+        locateTrash: @escaping AppDependencies.LocateTrash = AppDependencies.systemTrash,
+        timerClock: (any TimerClock)? = nil
     ) throws {
         let fm = FileManager.default
         home = try previous?.home ?? Fixtures.makeDir()
@@ -169,6 +170,7 @@ final class ModelHarness {
         deps.previewLifetime = previewLifetime
         deps.undoLifetime = undoLifetime
         deps.locateTrash = locateTrash
+        if let timerClock { deps.timerClock = timerClock }
         deps.openMarkup = { url, done in
             box.harness?.markups.append(url)
             done(box.harness?.markupResult ?? .closed)

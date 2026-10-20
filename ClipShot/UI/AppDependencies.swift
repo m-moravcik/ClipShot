@@ -105,6 +105,8 @@ struct AppDependencies {
     var previewLifetime: Duration = FloatingPreviews.defaultLifetime
     /// How long Undo is offered after a move to the Trash (Addendum A6).
     var undoLifetime: Duration = AppModel.defaultUndoLifetime
+    /// The clock of the preview lifetimes, the Undo offer and the failure notes.
+    var timerClock: any TimerClock = SystemTimerClock()
     /// Where Show Trash looks for the Trash.
     var locateTrash: LocateTrash = systemTrash
 

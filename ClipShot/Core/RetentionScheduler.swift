@@ -69,6 +69,9 @@ final class RetentionScheduler {
     /// Resumed when the follow-up run ends: they asked after the run in flight began.
     private var next: [CheckedContinuation<Void, Never>] = []
 
+    /// No run in flight or queued: tests wait on it before saying that nothing else ran.
+    var isIdle: Bool { !running }
+
     init(hourly: AnyPublisher<Void, Never>, wake: AnyPublisher<Void, Never>) {
         self.hourly = hourly
         self.wake = wake
