@@ -9091,6 +9091,47 @@
         }
       }
     },
+    "Watch the menu bar" : {
+      "comment" : "Welcome tour step 2, under Waiting for a screenshot: ClipShot's menu bar icon confirms each copy",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Watch the menu bar"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sleduj lištu"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sleduj lištu"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Achte auf die Menüleiste"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mira la barra de menús"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regardez la barre des menus"
+          }
+        }
+      }
+    },
     "Welcome to ClipShot" : {
       "localizations" : {
         "en" : {

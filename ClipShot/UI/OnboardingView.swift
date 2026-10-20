@@ -136,6 +136,7 @@ struct OnboardingView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var tour: WelcomeTour
+    @Namespace private var dotSpace
 
     /// A tour other than a fresh one exists for the render harness, which shows each step.
     init(tour: WelcomeTour = WelcomeTour()) {
@@ -191,17 +192,30 @@ struct OnboardingView: View {
         .padding(.top, Design.Spacing.l)
     }
 
+    /// The current step's dot is a capsule that slides to the next step and stretches into
+    /// its place, connecting the steps. Reduce Motion: the dots only change colour.
     private var dots: some View {
         HStack(spacing: 6) {
             ForEach(WelcomeTour.Step.allCases, id: \.self) { step in
-                Circle()
-                    .fill(step == tour.step ? Color.accentColor : Color.secondary.opacity(0.3))
-                    .frame(width: 6, height: 6)
+                let current = step == tour.step
+                Capsule()
+                    .fill(reduceMotion && current ? Color.accentColor : Color.secondary.opacity(0.3))
+                    .frame(width: current && !reduceMotion ? Self.currentDotWidth : 6, height: 6)
+                    .matchedGeometryEffect(id: step, in: dotSpace)
             }
         }
-        .animation(Design.Motion.quick, value: tour.step)
+        .overlay {
+            if !reduceMotion {
+                Capsule()
+                    .fill(Color.accentColor)
+                    .matchedGeometryEffect(id: tour.step, in: dotSpace, isSource: false)
+            }
+        }
+        .animation(reduceMotion ? Design.Motion.quick : Design.Motion.dots, value: tour.step)
         .accessibilityHidden(true)
     }
+
+    static let currentDotWidth: CGFloat = 14
 
     /// Back and the primary button side by side, or stacked at full width (primary first)
     /// when a translation makes them wider than the popover.
@@ -256,19 +270,41 @@ struct OnboardingView: View {
 // MARK: - Steps
 
 /// The icon, title and body every step starts with.
+///
+/// A step's symbol draws itself in as the step appears; a new symbol on the same step
+/// (folder access granted: the folder becomes the viewfinder) replaces it with the symbol
+/// effect, and the words crossfade. `breathing` makes the symbol breathe, an invitation while
+/// the step waits for the user. Reduce Motion: the symbol is simply there, and swaps by
+/// crossfading.
 private struct StepHeader: View {
     /// Nil shows the app's own icon: the welcome step introduces the app.
     let symbol: String?
     let title: LocalizedStringResource
     let text: LocalizedStringResource
+    var breathing = false
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.offscreenCapture) private var offscreenCapture
+    /// The symbol has drawn itself in. Set a moment after the step appears, so the draw-on
+    /// runs once the step's own slide has settled.
+    @State private var drawn = false
+
+    /// Draws in on appearing, and breathes; the render harness and Reduce Motion show it
+    /// drawn at once, and still.
+    private var drawsOn: Bool { !reduceMotion && !offscreenCapture }
 
     var body: some View {
         VStack(spacing: 10) {
-            Group {
+            ZStack {
                 if let symbol {
-                    Image(systemName: symbol)
-                        .font(.system(size: 36))
-                        .foregroundStyle(.tint)
+                    if drawn || !drawsOn {
+                        Image(systemName: symbol)
+                            .font(.system(size: 36))
+                            .foregroundStyle(.tint)
+                            .contentTransition(reduceMotion ? .opacity : .symbolEffect(.replace))
+                            .symbolEffect(.breathe, isActive: breathing && drawsOn)
+                            .transition(.symbolEffect(.drawOn))
+                    }
                 } else {
                     // The icon art carries its own margin, so it is drawn larger than the
                     // symbols to look the same size, as in the siblings.
@@ -285,14 +321,21 @@ private struct StepHeader: View {
                 .font(.headline)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
+                .contentTransition(.opacity)
                 .accessibilityAddTraits(.isHeader)
             Text(text)
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
+                .contentTransition(.opacity)
         }
         .frame(maxWidth: .infinity)
+        .task {
+            guard drawsOn, symbol != nil, !drawn else { return }
+            do { try await Task.sleep(for: Design.Motion.drawOnDelay) } catch { return }
+            withAnimation(Design.Motion.quick) { drawn = true }
+        }
     }
 }
 
@@ -313,19 +356,22 @@ private struct FolderStep: View {
     @State private var bounce = 0
     /// The delay before the next bump; cancelled when the step goes away or a newer copy lands.
     @State private var bounceTask: Task<Void, Never>?
+    /// When the first copy ever burst into a celebration, while it plays.
+    @State private var burst: Date?
+    /// Ends the celebration; cancelled when the step goes away.
+    @State private var burstTask: Task<Void, Never>?
 
     var body: some View {
-        ZStack {
+        // One header for both halves of the step: access granted, the folder turns into the
+        // viewfinder and the words crossfade, rather than one header fading out for another.
+        VStack(spacing: Design.Spacing.l) {
+            StepHeader(
+                symbol: model.isWatching ? "camera.viewfinder" : "folder",
+                title: model.isWatching ? Copy.Onboarding.tryTitle : Copy.Onboarding.folderTitle,
+                text: model.isWatching ? Copy.Onboarding.tryBody(model.previewMode) : Copy.Onboarding.folderBody,
+                breathing: model.isWatching && state == .waiting)
             if model.isWatching {
-                VStack(spacing: Design.Spacing.l) {
-                    StepHeader(
-                        symbol: "camera.viewfinder", title: Copy.Onboarding.tryTitle,
-                        text: Copy.Onboarding.tryBody(model.previewMode))
-                    tryResult
-                }
-                .transition(.opacity)
-            } else {
-                StepHeader(symbol: "folder", title: Copy.Onboarding.folderTitle, text: Copy.Onboarding.folderBody)
+                tryResult
                     .transition(.opacity)
             }
         }
@@ -337,15 +383,30 @@ private struct FolderStep: View {
             guard TrySuccessMotion.bounces(
                 copiesBefore: before, copiesNow: now, showsResult: state.showsResult, reduceMotion: reduceMotion)
             else { return }
+            let celebrates = TrySuccessMotion.celebrates(
+                copiesBefore: before, copiesNow: now, showsResult: state.showsResult, reduceMotion: reduceMotion)
             bounceTask?.cancel()
             bounceTask = Task {
                 do { try await Task.sleep(for: Design.Motion.successBounceDelay) } catch { return }
                 bounce += 1
+                if celebrates { celebrate() }
             }
         }
         .onDisappear {
             bounceTask?.cancel()
             bounceTask = nil
+            burstTask?.cancel()
+            burstTask = nil
+        }
+    }
+
+    /// The burst plays for its length, then goes, and its timeline with it.
+    private func celebrate() {
+        burst = Date()
+        burstTask?.cancel()
+        burstTask = Task {
+            do { try await Task.sleep(for: .seconds(Design.Motion.celebration)) } catch { return }
+            burst = nil
         }
     }
 
@@ -356,7 +417,7 @@ private struct FolderStep: View {
             case .copied(let file):
                 CopiedResult(
                     file: file, thumbnail: model.thumbnails[file],
-                    bounce: bounce)
+                    bounce: bounce, burst: burst)
                     .transition(.opacity)
             case .attention(let attention):
                 // The try can not work until this is fixed, so say why here, with the row's
@@ -367,13 +428,23 @@ private struct FolderStep: View {
                 PausedResult()
                     .transition(.opacity)
             case .waiting:
+                // No spinner: ClipShot is idle, waiting for the user. The viewfinder above
+                // breathes, and Peg, as the menu bar draws it, waits where the copy will show.
                 HStack(spacing: Design.Spacing.m) {
-                    ProgressView().controlSize(.small)
-                    Text(Copy.Onboarding.waiting)
-                        .font(Design.Typography.note)
-                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(Copy.Onboarding.waiting)
+                            .font(Design.Typography.body)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(Copy.Onboarding.watchMenuBar)
+                            .font(Design.Typography.note)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    TourPeg()
                 }
-                .frame(maxWidth: .infinity, minHeight: Design.Layout.thumbnailSize.height)
+                .frame(minHeight: Design.Layout.thumbnailSize.height)
+                .padding(.horizontal, Design.Spacing.l)
                 .padding(.vertical, Design.Spacing.m)
                 .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.cardFill))
                 .accessibilityElement(children: .combine)
@@ -390,6 +461,112 @@ enum TrySuccessMotion {
     static func bounces(copiesBefore: Int, copiesNow: Int, showsResult: Bool, reduceMotion: Bool) -> Bool {
         copiesNow > copiesBefore && showsResult && !reduceMotion
     }
+
+    /// The first copy ever, once per install: the count of copies goes from none to one.
+    /// A replayed tour, or a second try, has copies already and never celebrates.
+    static func celebrates(copiesBefore: Int, copiesNow: Int, showsResult: Bool, reduceMotion: Bool) -> Bool {
+        copiesBefore == 0 && bounces(copiesBefore: copiesBefore, copiesNow: copiesNow, showsResult: showsResult,
+                                     reduceMotion: reduceMotion)
+    }
+}
+
+/// Peg, the menu bar icon, at twice its size: it plays every frame the menu bar plays (the
+/// same poses, from the model, in step by construction), so Try it shows what the icon up
+/// there just did. Reduce Motion: the menu bar's held copied pose, then rest.
+private struct TourPeg: View {
+    @Environment(AppModel.self) private var model
+
+    static let scale: CGFloat = 2
+
+    var body: some View {
+        Image(nsImage: Peg.image(model.iconPose, scale: Self.scale))
+            .renderingMode(.template)
+            .foregroundStyle(.primary)
+            .frame(width: Peg.canvas.width * Self.scale, height: Peg.canvas.height * Self.scale)
+            .accessibilityHidden(true)
+    }
+}
+
+/// The first copy ever: small cards, in the template ink and a few in the check's green,
+/// burst from the check, fall and fade. Pure, so its course can be tested.
+enum Celebration {
+    struct Particle: Equatable {
+        /// Direction of travel, in radians, 0 to the right, counter-clockwise.
+        let angle: Double
+        /// Points per second.
+        let speed: Double
+        /// Turns per second.
+        let spin: Double
+        let size: CGSize
+        let green: Bool
+    }
+
+    struct Frame: Equatable {
+        /// From the burst's centre, y down.
+        let offset: CGSize
+        let rotation: Double
+        let opacity: Double
+    }
+
+    static let count = 14
+    /// The square the cards fly in, centred on the check.
+    static let side: CGFloat = 240
+    /// Points per second squared, downwards.
+    static let gravity: Double = 260
+
+    /// Spread around the upper half, deterministic: every first copy looks the same.
+    static let particles: [Particle] = (0..<count).map { i in
+        let u = Double(i) / Double(count - 1)
+        let wobble = sin(Double(i) * 2.3)
+        return Particle(
+            angle: .pi * (0.05 + 0.9 * u) + 0.12 * wobble,
+            speed: 75 + 40 * abs(cos(Double(i) * 1.7)),
+            spin: (i.isMultiple(of: 2) ? 1 : -1) * (0.8 + 0.6 * abs(wobble)),
+            size: CGSize(width: i % 3 == 0 ? 5 : 6, height: i % 3 == 0 ? 4 : 4.5),
+            green: i % 4 == 1)
+    }
+
+    /// Where `particle` is `t` seconds into the burst; nil before it and once it is over.
+    static func frame(_ particle: Particle, at t: TimeInterval) -> Frame? {
+        guard t >= 0, t < Design.Motion.celebration else { return nil }
+        let u = t / Design.Motion.celebration
+        return Frame(
+            offset: CGSize(width: cos(particle.angle) * particle.speed * t,
+                           height: -sin(particle.angle) * particle.speed * t + gravity * t * t / 2),
+            rotation: particle.spin * 360 * t,
+            opacity: 1 - u * u)
+    }
+}
+
+/// The burst, drawn per display frame while it plays; the parent removes it when it is over.
+private struct CelebrationBurst: View {
+    let start: Date
+
+    /// Room for every card's whole course (`Celebration` keeps them inside it).
+    static let side = Celebration.side
+
+    var body: some View {
+        TimelineView(.animation) { context in
+            Canvas { canvas, size in
+                let t = context.date.timeIntervalSince(start)
+                let centre = CGPoint(x: size.width / 2, y: size.height / 2)
+                for particle in Celebration.particles {
+                    guard let frame = Celebration.frame(particle, at: t) else { continue }
+                    var card = canvas
+                    card.opacity = frame.opacity * (particle.green ? 1 : 0.6)
+                    card.translateBy(x: centre.x + frame.offset.width, y: centre.y + frame.offset.height)
+                    card.rotate(by: .degrees(frame.rotation))
+                    let rect = CGRect(x: -particle.size.width / 2, y: -particle.size.height / 2,
+                                      width: particle.size.width, height: particle.size.height)
+                    card.fill(Path(roundedRect: rect, cornerRadius: 1),
+                              with: particle.green ? .color(.green) : .foreground)
+                }
+            }
+        }
+        .frame(width: Self.side, height: Self.side)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
 }
 
 extension WelcomeTour.TryState {
@@ -399,12 +576,15 @@ extension WelcomeTour.TryState {
     }
 }
 
-/// The try's result: the screenshot's thumbnail and "Copied".
+/// The try's result: the screenshot's thumbnail, "Copied", and Peg playing the copy as
+/// the menu bar does.
 private struct CopiedResult: View {
     let file: CaptureFile
     let thumbnail: CGImage?
     /// Changes once per copy (see `FolderStep`); the check bounces on each change.
     let bounce: Int
+    /// The first copy ever is celebrated from the check while this is set.
+    var burst: Date?
 
     var body: some View {
         HStack(spacing: Design.Spacing.m) {
@@ -418,8 +598,14 @@ private struct CopiedResult: View {
                     .foregroundStyle(.green)
                     .symbolEffect(
                         .bounce, options: .nonRepeating.speed(Design.Motion.successBounceSpeed), value: bounce)
+                    .overlay {
+                        if let burst { CelebrationBurst(start: burst) }
+                    }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            // The celebration flies over its neighbours.
+            .zIndex(1)
+            TourPeg()
         }
         .padding(.horizontal, Design.Spacing.l)
         .padding(.vertical, Design.Spacing.m)

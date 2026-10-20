@@ -431,6 +431,9 @@ enum Copy {
         }
         static let waiting = LocalizedStringResource(
             "Waiting for a screenshot…", comment: "Welcome tour step 2: no screenshot copied yet")
+        static let watchMenuBar = LocalizedStringResource(
+            "Watch the menu bar",
+            comment: "Welcome tour step 2, under Waiting for a screenshot: ClipShot's menu bar icon confirms each copy")
         static let copied = LocalizedStringResource(
             "Copied. Paste it anywhere with ⌘V.", comment: "Welcome tour step 2: the first screenshot is on the clipboard")
 

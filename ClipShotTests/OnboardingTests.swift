@@ -349,6 +349,40 @@ struct OnboardingTests {
         #expect(Design.Motion.successBounceSpeed > 1, "faster than the system bounce, so it stays short")
     }
 
+    /// The first copy ever is celebrated, once per install: never on a later copy, a replayed
+    /// tour (copies already counted), without the result on show, or with Reduce Motion.
+    @Test func firstCopyEverIsCelebratedOnce() {
+        #expect(TrySuccessMotion.celebrates(copiesBefore: 0, copiesNow: 1, showsResult: true, reduceMotion: false))
+        #expect(!TrySuccessMotion.celebrates(copiesBefore: 1, copiesNow: 2, showsResult: true, reduceMotion: false))
+        #expect(!TrySuccessMotion.celebrates(copiesBefore: 7, copiesNow: 8, showsResult: true, reduceMotion: false),
+                "a replayed tour")
+        #expect(!TrySuccessMotion.celebrates(copiesBefore: 0, copiesNow: 1, showsResult: false, reduceMotion: false))
+        #expect(!TrySuccessMotion.celebrates(copiesBefore: 0, copiesNow: 1, showsResult: true, reduceMotion: true))
+        #expect(!TrySuccessMotion.celebrates(copiesBefore: 0, copiesNow: 0, showsResult: true, reduceMotion: false))
+    }
+
+    /// The burst is small and short: a dozen or so cards, gone by its length, fading as they
+    /// go, every card inside the square drawn for it, and nothing left after it ends.
+    @Test func celebrationIsSmallShortAndEnds() {
+        #expect((12...16).contains(Celebration.particles.count))
+        #expect(Design.Motion.celebration <= 1.5, "a celebration lasts at most about 1.5 s")
+        #expect(Celebration.particles.contains { $0.green } && Celebration.particles.contains { !$0.green })
+        for particle in Celebration.particles {
+            #expect(Celebration.frame(particle, at: -0.01) == nil)
+            #expect(Celebration.frame(particle, at: Design.Motion.celebration) == nil)
+            var last = 1.0
+            for step in 0..<90 {
+                let t = Double(step) / 100
+                guard let frame = Celebration.frame(particle, at: t) else { continue }
+                #expect(frame.opacity <= last)
+                last = frame.opacity
+                let reach = Celebration.side / 2 - 4
+                #expect(abs(frame.offset.width) <= reach && abs(frame.offset.height) <= reach,
+                        "t \(t): a card at \(frame.offset) leaves the burst's square")
+            }
+        }
+    }
+
     /// The copy count the bounce follows goes up in the same main-actor step as the flash
     /// starts and the result appears.
     @Test func copyCountFlashAndResultChangeTogether() async throws {
