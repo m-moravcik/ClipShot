@@ -20,8 +20,6 @@ enum Design {
     enum Layout {
         static let popoverWidth: CGFloat = 300
         static let popoverMaxHeight: CGFloat = 600
-        static let rowVerticalPadding: CGFloat = 4
-        static let chipMinWidth: CGFloat = 24
         /// A 13pt line plus 4 + 4 is 24pt, the height of a native menu item on
         /// macOS 26 (measured with `NSMenu.size`), as Eject Guard uses too.
         static let footerRowVerticalPadding: CGFloat = 4
@@ -38,7 +36,6 @@ enum Design {
         static let cardTitle: Font = .system(size: 13, weight: .semibold)
         static let cardSubtitle: Font = .system(size: 11).monospacedDigit()
         static let badge: Font = .system(size: 9, weight: .bold)
-        static let navTitle: Font = .system(size: 13, weight: .semibold)
         static let footer: Font = .system(size: 11)
         /// Outcome notes and other secondary annotations under a control.
         ///
@@ -46,8 +43,6 @@ enum Design {
         /// meaning, and these sizes were being rendered in `.secondary` and
         /// `.tertiary`, which takes the contrast down with them.
         static let note: Font = .system(size: 11)
-        /// All-caps section labels ("PROFILES", "ENTRIES").
-        static let sectionHeader: Font = .system(size: 10, weight: .semibold, design: .rounded)
         /// Inline buttons and pickers inside the popover.
         static let control: Font = .system(size: 12, weight: .medium)
         /// Sentences in popover rows, such as attention messages: a size down from menu rows
@@ -63,7 +58,6 @@ enum Design {
         static let cardFillHover = Color.secondary.opacity(0.18)
         static let chipFill = Color.secondary.opacity(0.16)
         static let rowSelectedFill = Color.accentColor.opacity(0.12)
-        static let rowSelectedTint = Color.accentColor
         static let separator = Color.secondary.opacity(0.15)
         /// Between rows inside a card, which already sits on `cardFill`.
         static let rowSeparator = Color.secondary.opacity(0.12)
