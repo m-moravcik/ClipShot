@@ -66,7 +66,7 @@ struct PreviewStack: View {
                 files.markup(file)
                 previews.dismiss(id, .close)
             },
-            copy: { files.copy(file) },
+            copy: { await files.copy(file) },
             reveal: { files.reveal(file) },
             trash: { files.trash(file, id) },
             undo: { files.undo(file, id) },
@@ -83,7 +83,8 @@ struct PreviewStack: View {
 @MainActor
 struct PreviewFileActions {
     let markup: @MainActor (CaptureFile) -> Void
-    let copy: @MainActor (CaptureFile) -> Void
+    /// Copies the file again; true once it is on the clipboard.
+    let copy: @MainActor (CaptureFile) async -> Bool
     let reveal: @MainActor (CaptureFile) -> Void
     /// Moves the file to the Trash; the preview with that id then offers Undo, or says why not.
     let trash: @MainActor (CaptureFile, UUID) -> Void
@@ -95,8 +96,8 @@ struct PreviewFileActions {
         PreviewFileActions(
             markup: { [weak model] in model?.markup($0) },
             copy: { [weak model] file in
-                guard let model else { return }
-                Task { await model.copyAgain(file: file) }
+                guard let model else { return false }
+                return await model.copyAgain(file: file)
             },
             reveal: { [weak model] in model?.reveal($0) },
             trash: { [weak model] file, id in

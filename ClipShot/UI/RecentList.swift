@@ -236,6 +236,8 @@ struct RecentRow: View {
     @FocusState private var focus: Focus?
     @State private var showCheck = false
     @State private var checkTask: Task<Void, Never>?
+    /// The picture is being dragged into another app: it ghosts while the file is in hand.
+    @State private var inHand = false
 
     /// `hovering` is for the render harness, which draws the thumbnail's hover state.
     init(file: CaptureFile, image: CGImage?, position: Int, count: Int, onClipboard: Bool, hovering: Bool = false) {
@@ -325,9 +327,13 @@ struct RecentRow: View {
     private var thumbnail: some View {
         ZStack {
             CaptureThumbnail(image: image, size: Self.thumbnailSize)
+                .opacity(inHand ? Design.Motion.dragGhostOpacity : 1)
+                .animation(Design.Motion.quick, value: inHand)
             CardInteraction(
                 file: file, image: image, toolTip: String(localized: Copy.Preview.markupHint),
-                onClick: markup, onHover: { hovering = $0 }, onDraggedOut: {}, menu: menuItems)
+                onClick: markup, onHover: { hovering = $0 },
+                onDragBegan: { inHand = true }, onDragEnded: { _ in inHand = false },
+                onDraggedOut: {}, menu: menuItems)
                 .accessibilityHidden(true)
             if hovering || focus == .thumbnail {
                 Image(systemName: "pencil.tip.crop.circle.fill")

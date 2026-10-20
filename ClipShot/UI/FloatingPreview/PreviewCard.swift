@@ -42,16 +42,26 @@ enum PreviewCardMetrics {
         return -limit * (1 - 1 / (-translation / 120 + 1))
     }
 
+    /// Past this share of its width, letting go dismisses the preview whatever the speed.
+    static let dismissFraction: CGFloat = 0.4
+
+    /// The swipe has gone far enough that letting go now dismisses the preview: the card
+    /// says so before the release (a tilt, a fade, a trackpad tick).
+    static func pastDismissPoint(_ translation: CGFloat, width: CGFloat) -> Bool {
+        translation > width * dismissFraction
+    }
+
     /// A release that should fling the preview away rather than spring it back.
     static func flings(translation: CGFloat, velocity: CGFloat, width: CGFloat) -> Bool {
-        translation > width * 0.4 || (velocity > 450 && translation > 8)
+        pastDismissPoint(translation, width: width) || (velocity > 450 && translation > 8)
     }
 }
 
 /// What a preview's buttons, menu and gestures do. Built by `PreviewStack` from the model.
 struct PreviewActions {
     var markup: () -> Void
-    var copy: () -> Void
+    /// Copy again; true once the screenshot is on the clipboard.
+    var copy: () async -> Bool
     var reveal: () -> Void
     var trash: () -> Void
     /// Undo on a preview that moved its screenshot to the Trash.
@@ -68,7 +78,7 @@ extension PreviewActions {
     /// Does nothing: for the render harness.
     static var inert: PreviewActions {
         PreviewActions(
-            markup: {}, copy: {}, reveal: {}, trash: {}, undo: {}, close: {}, swipedAway: {}, draggedOut: {},
+            markup: {}, copy: { false }, reveal: {}, trash: {}, undo: {}, close: {}, swipedAway: {}, draggedOut: {},
             hover: { _ in }, clipboardChanged: { true })
     }
 }
@@ -92,6 +102,10 @@ struct PreviewCard: View {
     @State private var dragX: CGFloat = 0
     @State private var landed = false
     @State private var badgeBounce = 0
+    /// The wait before the badge's next bounce, or a Copy again; cancelled when the card goes.
+    @State private var bounceTask: Task<Void, Never>?
+    /// The screenshot is being dragged into another app: the card ghosts while it is in hand.
+    @State private var inHand = false
 
     /// `hovering` and `imageScale` exist for the render harness, which draws the hover state
     /// and animation key frames.
@@ -139,6 +153,8 @@ struct PreviewCard: View {
                 onHover: hoverChanged,
                 onSwipeChanged: { dragX = PreviewCardMetrics.rubberBand($0) },
                 onSwipeEnded: swipeEnded,
+                onDragBegan: { inHand = true },
+                onDragEnded: { _ in inHand = false },
                 onDraggedOut: actions.draggedOut,
                 menu: menuItems)
                 .padding(-PreviewCardMetrics.hoverOverhang)
@@ -146,19 +162,46 @@ struct PreviewCard: View {
             overlays
         }
         .frame(width: size.width, height: size.height)
+        // Past the point where letting go dismisses it, the card tips and fades a little, and
+        // comes back if the pointer does; a Force Touch trackpad ticks as it crosses.
+        // Hover lifts it towards the pointer. Both scoped to their own animation, so the
+        // swipe itself keeps following the pointer frame by frame.
+        .animation(Design.Motion.swipeCommit) { content in
+            content
+                .rotationEffect(.degrees(pastDismissPoint && !reduceMotion ? Design.Motion.swipeCommitAngle : 0),
+                                anchor: .bottomLeading)
+                .opacity(pastDismissPoint ? Design.Motion.swipeCommitOpacity : 1)
+        }
+        .animation(Design.Motion.hover) { content in
+            content.offset(y: hovering && !reduceMotion ? -Design.Motion.hoverLift : 0)
+        }
         .offset(x: dragX)
         .opacity(reduceMotion && dragX > 0 ? Double(max(0.3, 1 - dragX / size.width)) : 1)
+        .animation(Design.Motion.quick) { content in
+            content.opacity(inHand ? Design.Motion.dragGhostOpacity : 1)
+        }
+        .onChange(of: pastDismissPoint) { _, past in
+            if past { NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now) }
+        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(Copy.Preview.accessibility))
         .accessibilityHint(Text(Copy.Preview.markupHint))
         .accessibilityAddTraits(.isImage)
         .accessibilityAction { actions.markup() }
-        .accessibilityAction(named: Text(Copy.Preview.copy)) { actions.copy() }
+        .accessibilityAction(named: Text(Copy.Preview.copy)) { copy() }
         .accessibilityAction(named: Text(Copy.Preview.editWithMarkup)) { actions.markup() }
         .accessibilityAction(named: Text(Copy.Action.showInFinder)) { actions.reveal() }
         .accessibilityAction(named: Text(Copy.Retention.moveToTrash)) { actions.trash() }
         .accessibilityAction(named: Text(Copy.Preview.close)) { actions.close() }
         .onAppear(perform: arrived)
+        .onDisappear {
+            bounceTask?.cancel()
+            bounceTask = nil
+        }
+    }
+
+    private var pastDismissPoint: Bool {
+        PreviewCardMetrics.pastDismissPoint(dragX, width: size.width)
     }
 
     private var picture: some View {
@@ -180,7 +223,11 @@ struct PreviewCard: View {
         .clipShape(shape)
         .overlay(shape.strokeBorder(Color.primary.opacity(0.18), lineWidth: 0.5))
         .background(shape.fill(Color(nsColor: .windowBackgroundColor)))
-        .shadow(color: .black.opacity(0.28), radius: 10, y: 4)
+        // Hover: the card lifts (see `card`) and its shadow spreads. Reduce Motion keeps the
+        // shadow, which is not movement.
+        .animation(Design.Motion.hover) { content in
+            content.shadow(color: .black.opacity(0.28), radius: hovering ? 14 : 10, y: hovering ? 6 : 4)
+        }
     }
 
     private var overlays: some View {
@@ -205,10 +252,13 @@ struct PreviewCard: View {
                     .opacity(showsCopied ? 1 : 0)
                     .animation(Design.Motion.quick, value: showsCopied)
             }
+            // Pops in when the capture turns out to cover more displays (it can, after the
+            // preview arrived), and counts up in place.
             if item.extraDisplays > 0 {
                 ExtraDisplaysChip(count: item.extraDisplays)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .padding(6)
+                    .transition(reduceMotion ? .opacity : .scale(scale: 0.6, anchor: .topTrailing).combined(with: .opacity))
             }
             if hovering {
                 // The picture is the Markup button, as in the popover's list.
@@ -226,6 +276,7 @@ struct PreviewCard: View {
         }
         .animation(Design.Motion.quick, value: hovering)
         .animation(Design.Motion.quick, value: item.failure)
+        .animation(reduceMotion ? Design.Motion.quick : Design.Motion.chip, value: item.extraDisplays)
     }
 
     private var hoverButtons: some View {
@@ -250,8 +301,26 @@ struct PreviewCard: View {
             return
         }
         withAnimation(Design.Motion.land) { landed = true }
-        Task {
-            try? await Task.sleep(for: Design.Motion.badgeDelay)
+        bounceBadge()
+    }
+
+    /// The badge bounces as Peg's clamp bites in the menu bar. Reduce Motion: no bounce.
+    private func bounceBadge() {
+        guard !reduceMotion else { return }
+        bounceTask?.cancel()
+        bounceTask = Task {
+            do { try await Task.sleep(for: Design.Motion.badgeDelay) } catch { return }
+            badgeBounce += 1
+        }
+    }
+
+    /// Copy again, from the hover button, the menu or VoiceOver: once the screenshot is on the
+    /// clipboard, the Copied badge bounces again, in step with the menu bar.
+    private func copy() {
+        bounceTask?.cancel()
+        bounceTask = Task {
+            guard await actions.copy(), !Task.isCancelled, !reduceMotion else { return }
+            do { try await Task.sleep(for: Design.Motion.badgeDelay) } catch { return }
             badgeBounce += 1
         }
     }
@@ -263,7 +332,7 @@ struct PreviewCard: View {
     }
 
     private func copyAgain() {
-        actions.copy()
+        copy()
         offerCopy = false
     }
 
@@ -288,7 +357,7 @@ struct PreviewCard: View {
 
     private func menuItems() -> [CardMenuItem] {
         [
-            CardMenuItem(title: Copy.Preview.copy, action: actions.copy),
+            CardMenuItem(title: Copy.Preview.copy, action: { copy() }),
             CardMenuItem(title: Copy.Preview.editWithMarkup, action: actions.markup),
             CardMenuItem(title: Copy.Action.showInFinder, action: actions.reveal),
             CardMenuItem(title: Copy.Retention.moveToTrash, action: actions.trash, separatorBefore: true),
@@ -392,6 +461,7 @@ private struct ExtraDisplaysChip: View {
     var body: some View {
         Text(verbatim: "+\(count.formatted())")
             .font(.system(size: 11, weight: .semibold).monospacedDigit())
+            .contentTransition(.numericText(value: Double(count)))
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(Capsule().fill(.regularMaterial))

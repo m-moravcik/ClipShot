@@ -27,6 +27,10 @@ struct CardInteraction: NSViewRepresentable {
     /// nil: no swipe, a movement in any direction is a file drag.
     var onSwipeChanged: ((CGFloat) -> Void)?
     var onSwipeEnded: (_ translation: CGFloat, _ velocity: CGFloat) -> Void = { _, _ in }
+    /// A file drag started: the screenshot is in hand.
+    var onDragBegan: () -> Void = {}
+    /// The file drag ended; true when another app took the file.
+    var onDragEnded: (_ dropped: Bool) -> Void = { _ in }
     let onDraggedOut: () -> Void
     let menu: () -> [CardMenuItem]
 
@@ -49,6 +53,8 @@ struct CardInteraction: NSViewRepresentable {
         view.onHover = onHover
         view.onSwipeChanged = onSwipeChanged
         view.onSwipeEnded = onSwipeEnded
+        view.onDragBegan = onDragBegan
+        view.onDragEnded = onDragEnded
         view.onDraggedOut = onDraggedOut
         view.menuItems = menu
     }
@@ -72,6 +78,8 @@ final class CardInteractionView: NSView, NSDraggingSource {
     var onHover: (Bool) -> Void = { _ in }
     var onSwipeChanged: ((CGFloat) -> Void)?
     var onSwipeEnded: (CGFloat, CGFloat) -> Void = { _, _ in }
+    var onDragBegan: () -> Void = {}
+    var onDragEnded: (Bool) -> Void = { _ in }
     var onDraggedOut: () -> Void = {}
     var menuItems: () -> [CardMenuItem] = { [] }
 
@@ -172,9 +180,14 @@ final class CardInteractionView: NSView, NSDraggingSource {
         dragProvider = provider
         item.setDataProvider(provider, forTypes: [.png])
         let dragging = NSDraggingItem(pasteboardWriter: item)
-        let contents = image.map { NSImage(cgImage: $0, size: cardRect.size) }
-        dragging.setDraggingFrame(cardRect, contents: contents)
+        if let image {
+            let lifted = DragLift.lifted(image, frame: cardRect)
+            dragging.setDraggingFrame(lifted.frame, contents: lifted.image)
+        } else {
+            dragging.setDraggingFrame(cardRect, contents: nil)
+        }
         beginDraggingSession(with: [dragging], event: event, source: self)
+        onDragBegan()
     }
 
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
@@ -184,7 +197,47 @@ final class CardInteractionView: NSView, NSDraggingSource {
     func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
         dragProvider?.dragEnded()
         dragProvider = nil
+        onDragEnded(!operation.isEmpty)
         if !operation.isEmpty { onDraggedOut() }
+    }
+}
+
+/// The picture a file drag carries: the screenshot lifted off its card, a little larger and
+/// raised, with a soft shadow under it, so the file reads as picked up and in hand.
+enum DragLift {
+    /// How much larger the picture is in hand, and how far above its card it starts.
+    static let scale: CGFloat = 1.04
+    static let raise: CGFloat = 3
+    static let shadowRadius: CGFloat = 8
+    static let shadowOffset: CGFloat = 4
+    static let cornerRadius: CGFloat = 6
+
+    /// The drag image of `image` for a card at `frame` (in the view's coordinates, y up), and
+    /// the frame to start the drag from: the card's, grown by the lift and the room the
+    /// shadow needs.
+    @MainActor
+    static func lifted(_ image: CGImage, frame: NSRect) -> (image: NSImage, frame: NSRect) {
+        let picture = NSSize(width: frame.width * scale, height: frame.height * scale)
+        let margin = shadowRadius + shadowOffset
+        let size = NSSize(width: picture.width + 2 * margin, height: picture.height + 2 * margin)
+        let drawn = NSImage(size: size, flipped: false) { _ in
+            let rect = NSRect(x: margin, y: margin, width: picture.width, height: picture.height)
+            let path = NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius)
+            NSGraphicsContext.saveGraphicsState()
+            let shadow = NSShadow()
+            shadow.shadowColor = NSColor.black.withAlphaComponent(0.35)
+            shadow.shadowBlurRadius = shadowRadius
+            shadow.shadowOffset = NSSize(width: 0, height: -shadowOffset)
+            shadow.set()
+            NSColor.windowBackgroundColor.setFill()
+            path.fill()
+            NSGraphicsContext.restoreGraphicsState()
+            path.addClip()
+            NSImage(cgImage: image, size: picture).draw(in: rect)
+            return true
+        }
+        let origin = NSPoint(x: frame.midX - size.width / 2, y: frame.midY - size.height / 2 + raise)
+        return (drawn, NSRect(origin: origin, size: size))
     }
 }
 
