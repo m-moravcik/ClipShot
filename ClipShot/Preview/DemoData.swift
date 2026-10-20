@@ -69,7 +69,6 @@ final class DemoScene {
             wake: never,
             makeFlashTimer: { _, _, _ in DemoFlashTimer() },
             reduceMotion: { false },
-            playSound: {},
             announce: { _ in },
             workspace: DemoWorkspace(),
             screencaptureUIRunning: { false },

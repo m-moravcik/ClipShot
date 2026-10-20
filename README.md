@@ -147,8 +147,9 @@ puts it back where it was.
 
 ### Settings
 
-- **General**: launch at login, copy to clipboard, a sound on each copy, and
-  replay the welcome tour.
+- **General**: launch at login, copy to clipboard and replay the welcome tour.
+  There is no copy sound: macOS's own shutter sound already confirms each
+  screenshot, and the menu bar icon shows every copy.
 - **Capture**: the folder macOS saves screenshots to, the preview, and Restore
   previous settings.
 - **Retention**: cleanup (below).

@@ -80,9 +80,12 @@ final class ModelHarness {
     let workspace = RecordingWorkspace()
     let logFile: URL
     private(set) var timers: [ManualFlashTimer] = []
-    private(set) var sounds = 0
     private(set) var announcements = 0
     private(set) var loginReconciles = 0
+    /// What `setLoginItem` was asked, in order.
+    private(set) var loginItemSets: [Bool] = []
+    /// What the system says about the login item when reconciled with no stored intent.
+    var systemLoginItem = false
     var reduceMotion = false
     var screencaptureUIRunning = false
     /// Real run-loop timers for the flash, each counting its ticks, instead of manual ones.
@@ -141,15 +144,17 @@ final class ModelHarness {
                 return timer
             },
             reduceMotion: { box.harness?.reduceMotion ?? false },
-            playSound: { box.harness?.sounds += 1 },
             announce: { _ in box.harness?.announcements += 1 },
             workspace: workspace,
             screencaptureUIRunning: { box.harness?.screencaptureUIRunning ?? false },
             reconcileLoginItem: { intent in
                 box.harness?.loginReconciles += 1
-                return intent ?? false
+                return intent ?? box.harness?.systemLoginItem ?? false
             },
-            setLoginItem: { _ in true },
+            setLoginItem: { enabled in
+                box.harness?.loginItemSets.append(enabled)
+                return true
+            },
             log: Log(fileURL: logFile), logFile: logFile,
             appVersion: "0.9.0 (1)", osVersion: "Version 26.0 (Build 25A1)")
         deps.edits = edits
@@ -207,7 +212,17 @@ struct AppModelTests {
         // Onboarding step 2.
         #expect(await h.start())
         #expect(h.events.starts == 1)
+        // A first tour does not reconcile at Start copying: its end decides (LoginItem).
+        #expect(h.loginReconciles == 0)
+    }
+
+    @Test func aLaunchAfterTheTourReconcilesTheLoginItem() async throws {
+        let h = try ModelHarness(onboardingShown: true)
+        defer { h.tearDown() }
+        h.preferences.launchAtLoginIntent = true
+        h.model.launch()
         #expect(h.loginReconciles == 1)
+        #expect(h.preferences.launchAtLoginIntent == true)
     }
 
     @Test func displayPathWritesTheModelsHomeAsTilde() throws {
@@ -237,16 +252,6 @@ struct AppModelTests {
         #expect(h.preferences.totals.copied == 1)
         #expect(h.model.lastCopied?.url.lastPathComponent == "Screenshot 1.png")
         #expect(h.announcements >= 1)
-        #expect(h.sounds == 0, "copy sound is off by default")
-    }
-
-    @Test func copySoundPlaysOnlyWhenOn() async throws {
-        let h = try ModelHarness()
-        defer { h.tearDown() }
-        h.preferences.copySound = true
-        #expect(await h.start())
-        try h.shoot("Screenshot 1.png")
-        #expect(await eventually { await h.sounds == 1 })
     }
 
     @Test func markupTipAfterThirdCopyOnce() async throws {

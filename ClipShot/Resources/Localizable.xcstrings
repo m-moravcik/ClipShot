@@ -6860,46 +6860,6 @@
         }
       }
     },
-    "Play a sound when copied" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Play a sound when copied"
-          }
-        },
-        "sk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Prehrať zvuk pri kopírovaní"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Přehrát zvuk při kopírování"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Beim Kopieren einen Ton abspielen"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reproducir un sonido al copiar"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Émettre un son lors de la copie"
-          }
-        }
-      }
-    },
     "Preview" : {
       "comment" : "Settings > Capture: what shows after a screenshot (ClipShot, macOS or None)",
       "localizations" : {
@@ -8515,46 +8475,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ce n’est pas un dossier."
-          }
-        }
-      }
-    },
-    "The menu bar icon shows every copy, with or without the sound." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The menu bar icon shows every copy, with or without the sound."
-          }
-        },
-        "sk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ikona na lište ukáže každé kopírovanie, so zvukom aj bez neho."
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ikona na liště ukáže každé kopírování, se zvukem i bez něj."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Das Symbol in der Menüleiste zeigt jede Kopie, mit oder ohne Ton."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "El icono de la barra de menús muestra cada copia, con o sin sonido."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "L’icône de la barre des menus signale chaque copie, avec ou sans son."
           }
         }
       }

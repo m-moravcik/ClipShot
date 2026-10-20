@@ -24,7 +24,6 @@ final class Preferences {
     @ObservationIgnored private let defaults: any PreferenceStore
 
     var copyEnabled: Bool { didSet { defaults.set(copyEnabled, forKey: Key.copyEnabled) } }
-    var copySound: Bool { didSet { defaults.set(copySound, forKey: Key.copySound) } }
     var retention: RetentionPolicy { didSet { store(retention, Key.retention) } }
     var onboardingShown: Bool { didSet { defaults.set(onboardingShown, forKey: Key.onboardingShown) } }
     var launchAtLoginIntent: Bool? {
@@ -51,7 +50,6 @@ final class Preferences {
     init(store defaults: any PreferenceStore = UserDefaults.standard) {
         self.defaults = defaults
         copyEnabled = defaults.object(forKey: Key.copyEnabled) as? Bool ?? true
-        copySound = defaults.object(forKey: Key.copySound) as? Bool ?? false
         retention = Self.load(RetentionPolicy.self, Key.retention, defaults) ?? .default
         onboardingShown = defaults.object(forKey: Key.onboardingShown) as? Bool ?? false
         launchAtLoginIntent = defaults.object(forKey: Key.launchAtLoginIntent) as? Bool
@@ -64,7 +62,6 @@ final class Preferences {
 
     private enum Key {
         static let copyEnabled = "clipshot.copyEnabled"
-        static let copySound = "clipshot.copySound"
         static let retention = "clipshot.retention"
         static let onboardingShown = "clipshot.onboardingShown"
         static let launchAtLoginIntent = "clipshot.launchAtLoginIntent"

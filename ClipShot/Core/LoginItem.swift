@@ -17,6 +17,25 @@ enum LoginItem {
         case adoptSystemState(enabled: Bool)
     }
 
+    /// What the welcome tour's switch shows before the user has chosen: on (owner
+    /// decision 2026-10-20). ClipShot copies only while it runs, so after a restart
+    /// without it every screenshot would silently stop reaching the clipboard.
+    static let tourDefault = true
+
+    /// Whether watching reconciles at its start. Not during a first tour: nothing is
+    /// stored yet, and adopting the system's "off" there would turn the tour's switch,
+    /// which starts on, off before the user sees it. The tour's end decides instead.
+    static func reconcilesAtStart(storedIntent: Bool?, onboardingShown: Bool) -> Bool {
+        storedIntent != nil || onboardingShown
+    }
+
+    /// What ending the tour stores when the user did not touch the switch: the tour's
+    /// default when the switch was on screen (step 3), else nil, meaning take the
+    /// system's word as for any launch. A stored choice is kept.
+    static func intentAtTourEnd(storedIntent: Bool?, switchShown: Bool) -> Bool? {
+        storedIntent ?? (switchShown ? tourDefault : nil)
+    }
+
     static func reconciliation(storedIntent: Bool?, systemEnabled: Bool) -> Reconciliation {
         // No record yet: this is the first launch after the intent key shipped.
         // Take the system's word for it rather than flipping the setting under

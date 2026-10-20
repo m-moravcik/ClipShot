@@ -236,8 +236,6 @@ enum Copy {
         static let clipboard = LocalizedStringResource("Clipboard", comment: "Settings section header")
         static let copyNote = LocalizedStringResource(
             "Every new screenshot goes to the clipboard as an image. The file stays where macOS saves it.")
-        static let copySound = LocalizedStringResource("Play a sound when copied")
-        static let copySoundNote = LocalizedStringResource("The menu bar icon shows every copy, with or without the sound.")
         static let replayTour = LocalizedStringResource("Replay welcome tour")
         static let replayNote = LocalizedStringResource(
             "The tour opens the next time you click ClipShot in the menu bar.",

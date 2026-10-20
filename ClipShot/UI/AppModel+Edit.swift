@@ -51,7 +51,6 @@ extension AppModel {
             guard let self, self.preferences.copyEnabled, let png, self.pasteboard.writePNG(png) else { return }
             self.changeCountAfterCopy = self.pasteboard.changeCount
             self.startFlash()
-            if self.preferences.copySound { self.playSound() }
             self.announce(Copy.screenshotCopied)
         }
     }

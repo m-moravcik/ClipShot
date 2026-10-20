@@ -157,6 +157,78 @@ struct OnboardingTests {
         #expect(h.model.isWatching)
     }
 
+    // MARK: - Launch at login (owner decision 2026-10-20: on by default in the tour)
+
+    /// Walks a fresh tour to step 3: Next, Start copying, Next.
+    private func toStep3(_ h: ModelHarness) async -> WelcomeTour {
+        var tour = WelcomeTour()
+        tour.advance(h.model)
+        tour.advance(h.model)
+        _ = await eventually { await h.model.watchedFolder?.path == h.folder.path }
+        tour.advance(h.model)
+        return tour
+    }
+
+    @Test func launchAtLoginStartsOnAndDoneRegistersIt() async throws {
+        let h = try ModelHarness(onboardingShown: false)
+        defer { h.tearDown() }
+        var tour = await toStep3(h)
+        #expect(tour.step == .tidy)
+        #expect(h.model.launchAtLogin, "the switch starts on")
+        #expect(h.loginItemSets.isEmpty, "nothing registered before the user has seen it")
+        #expect(h.loginReconciles == 0, "Start copying did not adopt the system's off")
+        tour.advance(h.model) // Done
+        #expect(h.loginItemSets == [true])
+        #expect(h.preferences.launchAtLoginIntent == true)
+        #expect(h.model.launchAtLogin)
+    }
+
+    @Test func switchingItOffInTheTourIsKept() async throws {
+        let h = try ModelHarness(onboardingShown: false)
+        defer { h.tearDown() }
+        var tour = await toStep3(h)
+        h.model.setLaunchAtLogin(false)
+        tour.advance(h.model) // Done
+        #expect(h.loginItemSets == [false])
+        #expect(h.preferences.launchAtLoginIntent == false)
+        #expect(!h.model.launchAtLogin)
+    }
+
+    @Test func skipOnStep3RegistersWhatTheSwitchShowed() async throws {
+        let h = try ModelHarness(onboardingShown: false)
+        defer { h.tearDown() }
+        let tour = await toStep3(h)
+        tour.skip(h.model)
+        #expect(h.loginItemSets == [true])
+        #expect(h.preferences.launchAtLoginIntent == true)
+    }
+
+    /// A tour skipped before step 3 never showed the switch: the system's state is taken,
+    /// as at any launch, and nothing is registered.
+    @Test(arguments: [WelcomeTour.Step.welcome, .folder])
+    func skipBeforeStep3KeepsTheSystemsState(at step: WelcomeTour.Step) throws {
+        let h = try ModelHarness(onboardingShown: false)
+        defer { h.tearDown() }
+        WelcomeTour(step: step).skip(h.model)
+        #expect(h.loginItemSets.isEmpty)
+        #expect(h.loginReconciles == 1)
+        #expect(h.preferences.launchAtLoginIntent == false)
+    }
+
+    /// A replayed tour shows and keeps the stored choice.
+    @Test func aReplayedTourKeepsTheStoredChoice() async throws {
+        let h = try ModelHarness(onboardingShown: true)
+        defer { h.tearDown() }
+        h.preferences.launchAtLoginIntent = false
+        h.model.launch()
+        h.model.replayOnboarding()
+        #expect(!h.model.launchAtLogin)
+        var tour = WelcomeTour(step: .tidy)
+        tour.advance(h.model) // Done
+        #expect(h.loginItemSets.isEmpty)
+        #expect(h.preferences.launchAtLoginIntent == false)
+    }
+
     @Test(arguments: WelcomeTour.Step.allCases)
     func skipRecordsTheTourAndStartsWatching(at step: WelcomeTour.Step) async throws {
         let h = try ModelHarness(onboardingShown: false)

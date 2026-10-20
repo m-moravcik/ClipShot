@@ -80,7 +80,6 @@ struct AppDependencies {
     var wake: AnyPublisher<Void, Never>
     var makeFlashTimer: MakeFlashTimer
     var reduceMotion: @MainActor () -> Bool
-    var playSound: @MainActor () -> Void
     var announce: @MainActor (LocalizedStringResource) -> Void
     var workspace: any WorkspaceActions
     /// Whether the per-capture `screencaptureui` process is alive; a native setting written
@@ -131,7 +130,6 @@ struct AppDependencies {
             wake: RetentionScheduler.wakeNotifications(),
             makeFlashTimer: { SystemFlashTimer(interval: $0, tolerance: $1, tick: $2) },
             reduceMotion: { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion },
-            playSound: { _ = NSSound(named: "Pop")?.play() },
             announce: { AccessibilityNotification.Announcement(String(localized: $0)).post() },
             workspace: SystemWorkspace(),
             screencaptureUIRunning: { ScreencaptureUI.isRunning() },

@@ -115,7 +115,8 @@ final class AppModel {
         !preferences.markupTipShown && preferences.totals.copied >= Self.markupTipAfterCopies
     }
 
-    var launchAtLogin: Bool { preferences.launchAtLoginIntent ?? false }
+    /// The stored choice; before there is one (a first tour), the tour's default, on.
+    var launchAtLogin: Bool { preferences.launchAtLoginIntent ?? LoginItem.tourDefault }
 
     // MARK: - Collaborators
 
@@ -130,7 +131,6 @@ final class AppModel {
     @ObservationIgnored private let statusInterval: Duration
     @ObservationIgnored private let makeFlashTimer: AppDependencies.MakeFlashTimer
     @ObservationIgnored private let reduceMotion: @MainActor () -> Bool
-    @ObservationIgnored let playSound: @MainActor () -> Void
     @ObservationIgnored let announce: @MainActor (LocalizedStringResource) -> Void
     @ObservationIgnored let workspace: any WorkspaceActions
     @ObservationIgnored private let screencaptureUIRunning: @MainActor () -> Bool
@@ -201,7 +201,6 @@ final class AppModel {
         statusInterval = d.statusInterval
         makeFlashTimer = d.makeFlashTimer
         reduceMotion = d.reduceMotion
-        playSound = d.playSound
         announce = d.announce
         workspace = d.workspace
         screencaptureUIRunning = d.screencaptureUIRunning
@@ -256,7 +255,10 @@ final class AppModel {
     func startWatching() {
         guard !isWatching else { return }
         isWatching = true
-        preferences.launchAtLoginIntent = reconcileLoginItem(preferences.launchAtLoginIntent)
+        if LoginItem.reconcilesAtStart(
+            storedIntent: preferences.launchAtLoginIntent, onboardingShown: preferences.onboardingShown) {
+            preferences.launchAtLoginIntent = reconcileLoginItem(preferences.launchAtLoginIntent)
+        }
         observedPolicy = preferences.retention
         coordinator.isEnabled = preferences.copyEnabled
         coordinator.start()
@@ -290,9 +292,18 @@ final class AppModel {
     }
 
     /// Done or Skip in the welcome tour: the only place that records it as shown. Watching
-    /// starts too, as it would at the next launch.
-    func finishOnboarding() {
+    /// starts too, as it would at the next launch. Launch at login, when the user has not
+    /// chosen: registered when its switch was on screen (step 3, where it starts on),
+    /// else the system's state is taken, as at any launch.
+    func finishOnboarding(launchAtLoginShown: Bool = false) {
         startWatching()
+        if preferences.launchAtLoginIntent == nil {
+            if let intent = LoginItem.intentAtTourEnd(storedIntent: nil, switchShown: launchAtLoginShown) {
+                setLaunchAtLogin(intent)
+            } else {
+                preferences.launchAtLoginIntent = reconcileLoginItem(nil)
+            }
+        }
         preferences.onboardingShown = true
     }
 
@@ -357,7 +368,6 @@ final class AppModel {
         preferences.totals.copied += 1
         clearCopyFailure()
         startFlash()
-        if preferences.copySound { playSound() }
         announce(Copy.screenshotCopied)
     }
 

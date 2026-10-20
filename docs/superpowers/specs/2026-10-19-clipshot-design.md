@@ -155,7 +155,8 @@ UI. It does not capture anything itself.
   window wins. README and onboarding mention this as a feature.
 - Toggle: on by default.
 - Feedback: the menu bar icon briefly shows a "copied" state (about 2.4 s, Task 12f).
-  Optional sound off by default. No notification banners.
+  No sound (Addendum B): macOS's own shutter sound already confirms the capture.
+  No notification banners.
 
 ### Native settings
 
@@ -247,7 +248,7 @@ UI. It does not capture anything itself.
 ### Settings (470x400 TabView, `.formStyle(.grouped)`)
 
 - **General:** launch at login (SMAppService with reconcile), copy to
-  clipboard, copy sound, replay welcome tour.
+  clipboard, replay welcome tour. (No copy sound, Addendum B.)
 - **Capture:** save folder, floating thumbnail (with the trade-off: off means
   the file, and so the clipboard, is ready instantly), destination guard
   status, Restore previous settings.
@@ -454,3 +455,12 @@ period. The popover row (above) uses the same sentence shape.
 
 - **Version:** the first public release is **0.9.0**; screen recordings come
   in 1.0 (they were "v1.1" above).
+- **No copy sound.** The setting is gone: macOS's own shutter sound already
+  confirms the capture, and a second sound clashed with it.
+- **Launch at login is on by default in the tour.** Step 3 shows the switch on,
+  visible, one click to turn off; leaving step 3 (Done, or Skip there) registers
+  it. A tour skipped before step 3 never showed the switch, so it registers
+  nothing and the system's state is kept. The user's choice
+  is stored on its own and the system registration is repaired from it at each
+  launch, so a replaced app bundle does not silently drop it (the siblings'
+  pattern).

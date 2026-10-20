@@ -79,7 +79,7 @@ struct WelcomeTour: Equatable {
             // A replayed tour already watches: "Try it" starts as soon as step 2 shows.
             if step == .folder, model.isWatching { beginTry(model) }
         case .done:
-            model.finishOnboarding()
+            model.finishOnboarding(launchAtLoginShown: true)
         }
     }
 
@@ -89,10 +89,11 @@ struct WelcomeTour: Equatable {
         step = Step(rawValue: step.rawValue - 1) ?? .welcome
     }
 
-    /// Skip is always there, on every step.
+    /// Skip is always there, on every step. On step 3 the launch at login switch was on
+    /// screen, so it counts as seen.
     @MainActor
     func skip(_ model: AppModel) {
-        model.finishOnboarding()
+        model.finishOnboarding(launchAtLoginShown: step == .tidy)
     }
 
     @MainActor

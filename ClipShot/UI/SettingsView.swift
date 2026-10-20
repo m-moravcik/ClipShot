@@ -135,10 +135,6 @@ struct GeneralSettings: View {
                     Text(Copy.copyToClipboard)
                     Text(Copy.General.copyNote)
                 }
-                Toggle(isOn: $preferences.copySound) {
-                    Text(Copy.General.copySound)
-                    Text(Copy.General.copySoundNote)
-                }
             } header: {
                 Text(Copy.General.clipboard)
             }

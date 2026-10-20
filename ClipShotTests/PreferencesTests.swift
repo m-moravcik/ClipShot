@@ -12,7 +12,6 @@ struct PreferencesTests {
         withDefaults { defaults in
             let p = Preferences(store: defaults)
             #expect(p.copyEnabled)
-            #expect(!p.copySound)
             #expect(p.retention == .default)
             #expect(!p.onboardingShown)
             #expect(p.launchAtLoginIntent == nil)
@@ -26,7 +25,6 @@ struct PreferencesTests {
         withDefaults { defaults in
             let p = Preferences(store: defaults)
             p.copyEnabled = false
-            p.copySound = true
             p.retention = RetentionPolicy(enabled: true, days: 14, confirmed: nil)
             p.onboardingShown = true
             p.launchAtLoginIntent = true
@@ -37,7 +35,6 @@ struct PreferencesTests {
 
             let q = Preferences(store: defaults)
             #expect(!q.copyEnabled)
-            #expect(q.copySound)
             #expect(q.retention.enabled && q.retention.days == 14)
             #expect(q.onboardingShown)
             #expect(q.launchAtLoginIntent == true)
@@ -54,9 +51,10 @@ struct PreferencesTests {
             #expect(Preferences(store: defaults).launchAtLoginIntent == false)
             p.launchAtLoginIntent = nil
             #expect(Preferences(store: defaults).launchAtLoginIntent == nil)
-            p.copySound = true
+            p.markupTipShown = true
             let keys = defaults.keys.filter { $0.hasPrefix("clipshot.") }
-            #expect(keys.contains("clipshot.copySound"))
+            #expect(keys.contains("clipshot.markupTipShown"))
+            #expect(!keys.contains("clipshot.copySound"), "the copy sound setting is gone")
         }
     }
 
