@@ -36,14 +36,19 @@ struct CopiedFlashTests {
         #expect(abs(CopiedFlash.opacity(phase: 13) - 0.5) < 1e-9)
     }
 
-    @Test func reduceMotionHoldsFullOpacityForTheWholeRun() {
+    /// Reduce Motion: one plain hold, drawn at once, that the single timer tick ends.
+    @Test func reduceMotionIsOneHoldEndedByOneTick() {
+        #expect(abs(CopiedFlash.holdDuration - CopiedFlash.interval * Double(CopiedFlash.steps - 1)) < 1e-9)
+        #expect(CopiedFlash(reduceMotion: true).timerInterval == CopiedFlash.holdDuration)
+        #expect(CopiedFlash().timerInterval == CopiedFlash.interval)
         var flash = CopiedFlash(reduceMotion: true)
         flash.restart()
-        for _ in 0..<(CopiedFlash.steps - 1) {
-            #expect(CopiedFlash.opacity(phase: flash.tick(), reduceMotion: true) == 1)
-        }
+        let hold = flash.tick()
+        #expect(hold > 0)
+        #expect(CopiedFlash.opacity(phase: hold, reduceMotion: true) == 1)
         let last = flash.tick()
         #expect(last == 0)
         #expect(CopiedFlash.opacity(phase: last, reduceMotion: true) == 0)
+        #expect(flash.tick() == 0)
     }
 }

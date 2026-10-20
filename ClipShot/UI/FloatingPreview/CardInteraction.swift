@@ -73,6 +73,8 @@ final class CardInteractionView: NSView, NSDraggingSource {
     var menuItems: () -> [CardMenuItem] = { [] }
 
     private var gesture = Gesture.idle
+    /// The PNG provider of the drag in progress, told when the drag ends.
+    private var dragProvider: DragImageProvider?
     /// Recent swipe positions, for the release velocity.
     private var samples: [(time: TimeInterval, x: CGFloat)] = []
     private var tracking: NSTrackingArea?
@@ -162,7 +164,10 @@ final class CardInteractionView: NSView, NSDraggingSource {
         guard let file else { return }
         let item = NSPasteboardItem()
         item.setString(file.url.absoluteString, forType: .fileURL)
-        item.setDataProvider(DragImageProvider.start(for: file.url), forTypes: [.png])
+        let provider = DragImageProvider.start(for: file.url)
+        dragProvider?.dragEnded()
+        dragProvider = provider
+        item.setDataProvider(provider, forTypes: [.png])
         let dragging = NSDraggingItem(pasteboardWriter: item)
         let contents = image.map { NSImage(cgImage: $0, size: cardRect.size) }
         dragging.setDraggingFrame(cardRect, contents: contents)
@@ -174,6 +179,8 @@ final class CardInteractionView: NSView, NSDraggingSource {
     }
 
     func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
+        dragProvider?.dragEnded()
+        dragProvider = nil
         if !operation.isEmpty { onDraggedOut() }
     }
 }
@@ -196,9 +203,15 @@ final class ClosureMenuItem: NSMenuItem {
 
 /// The PNG of a dragged screenshot, converted on a background thread as the drag starts
 /// (a HEIC or JPEG conversion never stalls the drag) and given to the receiving app when it
-/// asks. Kept alive until the pasteboard is done with it.
+/// asks. Kept alive until the pasteboard is done with it, and at most `lingerAfterDrag`
+/// after the drag ended, since a pasteboard does not always say it is done.
 final class DragImageProvider: NSObject, NSPasteboardItemDataProvider, Sendable {
     private static let live = Mutex<[ObjectIdentifier: DragImageProvider]>([:])
+    /// A drop reads the data before its drag ends; this only bounds a late reader.
+    static let lingerAfterDrag: Duration = .seconds(30)
+
+    /// Providers still registered; for tests.
+    static var liveCount: Int { live.withLock { $0.count } }
 
     private let url: URL
     private let prepared = Mutex<Data?>(nil)
@@ -224,6 +237,19 @@ final class DragImageProvider: NSObject, NSPasteboardItemDataProvider, Sendable 
     }
 
     func pasteboardFinishedWithDataProvider(_ pasteboard: NSPasteboard) {
+        release()
+    }
+
+    /// The drag is over: the provider goes after `linger`, unless the pasteboard let it go
+    /// already.
+    func dragEnded(linger: Duration = lingerAfterDrag) {
+        Task.detached { [self] in
+            try? await Task.sleep(for: linger)
+            release()
+        }
+    }
+
+    private func release() {
         _ = Self.live.withLock { $0.removeValue(forKey: ObjectIdentifier(self)) }
     }
 }

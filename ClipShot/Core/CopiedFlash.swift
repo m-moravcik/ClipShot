@@ -5,9 +5,15 @@ import Foundation
 /// A MenuBarExtra label is a static image, so the icon is redrawn by a timer that calls
 /// `tick()` every `interval` seconds. Phase 0 is off, 1-3 fade in, 4-11 hold, 12-15 fade
 /// out. The 15th tick is the end of the flash and reports 0.
+///
+/// With Reduce Motion there is nothing to animate: the first phase is a plain hold, and a
+/// single tick after `holdDuration` ends it, so the menu bar is not redrawn 14 times with
+/// the same picture.
 struct CopiedFlash: Sendable {
     static let steps = 15
     static let interval = 0.1
+    /// The whole flash, `interval` times the 14 phases after the first.
+    static let holdDuration = 1.4
 
     let reduceMotion: Bool
     private var ticks = 0
@@ -15,6 +21,9 @@ struct CopiedFlash: Sendable {
     init(reduceMotion: Bool = false) {
         self.reduceMotion = reduceMotion
     }
+
+    /// How often the timer driving this flash ticks.
+    var timerInterval: TimeInterval { reduceMotion ? Self.holdDuration : Self.interval }
 
     mutating func restart() {
         ticks = 1
@@ -24,7 +33,7 @@ struct CopiedFlash: Sendable {
     mutating func tick() -> Int {
         guard ticks > 0 else { return 0 }
         let phase = ticks
-        ticks = phase + 1 < Self.steps ? phase + 1 : 0
+        ticks = !reduceMotion && phase + 1 < Self.steps ? phase + 1 : 0
         return phase
     }
 

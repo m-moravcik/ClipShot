@@ -97,9 +97,10 @@ struct SwitchRow: View {
 /// A small bordered-looking button whose title wraps. Used only where a native push button,
 /// which keeps its title on one line, would truncate a long translation.
 ///
-/// It draws its own keyboard focus ring: a custom style gets none from the system. Callers
-/// add `.focusEffectDisabled()` so a system effect, where one is drawn, never doubles it.
-struct WrappingButtonStyle: ButtonStyle {
+/// It draws its own keyboard focus ring: a custom style gets none from the system. Applied
+/// only through `wrappingButtonStyle()`, which also turns the system focus effect off, so no
+/// call site can end up with two rings.
+private struct WrappingButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         WrappingButton(configuration: configuration)
     }
@@ -130,6 +131,13 @@ struct WrappingButtonStyle: ButtonStyle {
                 .opacity(isEnabled ? 1 : 0.5)
                 .contentShape(Rectangle())
         }
+    }
+}
+
+extension View {
+    /// `WrappingButtonStyle` with the system focus effect off: the style draws its own ring.
+    func wrappingButtonStyle() -> some View {
+        buttonStyle(WrappingButtonStyle()).focusEffectDisabled()
     }
 }
 

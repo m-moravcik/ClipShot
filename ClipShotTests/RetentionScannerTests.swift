@@ -17,7 +17,7 @@ struct RetentionScannerTests {
         let canonical = RT.file(scan.folder.appendingPathComponent("a.png"))
         let forged = RetentionScan(
             folder: scan.folder, days: 30, expired: [canonical], expiredBytes: 0,
-            skippedUnmarkedImages: 0, olderNotTracked: 0, olderNotTrackedBytes: 0, pending: 0)
+            skippedUnmarkedImages: 0, olderNotTrackedFiles: [], pending: 0)
         let trasher = try FakeTrasher()
         let result = try await RT.runner(trasher, try RT.ledger()).run(forged, now: now)
         #expect(result.moved == 0)
@@ -33,10 +33,14 @@ struct RetentionScannerTests {
         let policy = RT.policy(dir)
         let ledger = try RT.ledger()
 
-        let adoptable = RetentionScanner.adoptable(folder: dir, ledger: await ledger.entries(), now: now, policy: policy)
+        let preview = try #require(RT.scan(dir, policy: policy, ledger: await ledger.entries(), now: now).success)
+        #expect(preview.olderNotTrackedFiles.map(\.url.lastPathComponent) == ["a.png"])
+        let adoptable = RetentionScanner.stillAdoptable(
+            preview.olderNotTrackedFiles, ledger: await ledger.entries(), now: now, days: policy.days)
         #expect(adoptable.map(\.url.lastPathComponent) == ["a.png"])
         await ledger.adopt(adoptable)
-        #expect(RetentionScanner.adoptable(folder: dir, ledger: await ledger.entries(), now: now, policy: policy).isEmpty)
+        #expect(RetentionScanner.stillAdoptable(
+            preview.olderNotTrackedFiles, ledger: await ledger.entries(), now: now, days: policy.days).isEmpty)
 
         let scan = try #require(RT.scan(dir, policy: policy, ledger: await ledger.entries(), now: now).success)
         #expect(scan.expired.map(\.url.lastPathComponent) == ["a.png"])

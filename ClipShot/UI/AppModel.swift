@@ -143,6 +143,7 @@ final class AppModel {
     @ObservationIgnored let edits: EditSession
     @ObservationIgnored let trasher: any Trashing
     @ObservationIgnored let undoLifetime: Duration
+    @ObservationIgnored private let locateTrash: AppDependencies.LocateTrash
     @ObservationIgnored private let makePreviewHost: @MainActor (AppModel) -> AnyObject?
     @ObservationIgnored let openMarkup: @MainActor (URL, @escaping @MainActor (MarkupResult) -> Void) -> Void
     @ObservationIgnored private let pass: RetentionPass
@@ -161,7 +162,11 @@ final class AppModel {
     @ObservationIgnored private var recentGeneration = 0
     /// Thumbnail decodes in flight, so overlapping refreshes share them.
     @ObservationIgnored private var decoding: [CaptureFile: Task<CGImage?, Never>] = [:]
-    /// Files on show whose thumbnail could not be decoded; not tried again.
+    /// The strip's files the user adopted for cleanup, which never move up into the card.
+    @ObservationIgnored private var recentAdopted: Set<CaptureFile> = []
+    /// Files on show whose thumbnail could not be decoded; not tried again. Keyed by the file's
+    /// version: `CaptureFile` equality covers the resource ID, size and modification date, so
+    /// a file that was still being written is decoded again once it changes.
     @ObservationIgnored private var undecodable: Set<CaptureFile> = []
     /// Names the Undo on offer, so the timer of a replaced one does not end the newer one.
     @ObservationIgnored var undoGeneration = 0
@@ -207,6 +212,7 @@ final class AppModel {
         makePreviewHost = d.makePreviewHost
         openMarkup = d.openMarkup
         undoLifetime = d.undoLifetime
+        locateTrash = d.locateTrash
         previews = FloatingPreviews(lifetime: d.previewLifetime)
         let settings = CaptureSettings(prefs: d.screencapturePrefs, home: d.home, backup: d.backup, log: d.log)
         self.settings = settings
@@ -381,7 +387,7 @@ final class AppModel {
 
     /// The thumbnails of `files`: from the cache, or decoded off the main actor. A decode
     /// already running for a file (from an earlier refresh) is awaited, not repeated, and a
-    /// file that could not be decoded is not tried again while it is on show.
+    /// file version that could not be decoded is not tried again while it is on show.
     private func thumbnails(for files: [CaptureFile]) async -> [CaptureFile: CGImage] {
         var pending: [(CaptureFile, Task<CGImage?, Never>)] = []
         var images: [CaptureFile: CGImage] = [:]
@@ -417,6 +423,7 @@ final class AppModel {
         undecodable.formIntersection(keep)
         if cache != thumbnails { thumbnails = cache }
         if recent != shots.recent { recent = shots.recent }
+        recentAdopted = shots.adopted
         let card = shots.card.map {
             LatestCapture(file: $0, thumbnail: cache[$0], isLastCopied: shots.cardIsLastCopied)
         }
@@ -424,16 +431,17 @@ final class AppModel {
     }
 
     /// `file` left the folder (moved to the Trash): it leaves the card and the strip at once,
-    /// the strip's newest moving up into the card, before the folder is read again.
+    /// the strip's newest screenshot ClipShot saw moving up into the card, before the folder
+    /// is read again. An adopted older file stays in the strip, as the next read keeps it.
     func screenshotLeft(_ file: CaptureFile) {
         let path = file.url.standardizedFileURL.path
         recent.removeAll { $0.url.standardizedFileURL.path == path }
         if latest?.file.url.standardizedFileURL.path == path {
-            if recent.isEmpty {
-                latest = nil
-            } else {
-                let next = recent.removeFirst()
+            if let index = recent.firstIndex(where: { !recentAdopted.contains($0) }) {
+                let next = recent.remove(at: index)
                 latest = LatestCapture(file: next, thumbnail: thumbnails[next], isLastCopied: false)
+            } else {
+                latest = nil
             }
         }
         refreshRecent()
@@ -458,11 +466,17 @@ final class AppModel {
     }
 
     /// One timer per flash: a copy during the flash restarts the phases on the same timer.
+    /// With Reduce Motion the flash is one hold on a single timer, so a copy during it
+    /// starts the hold again on a fresh timer.
     func startFlash() {
+        if flashTimer != nil, flash.reduceMotion {
+            flashTimer?.invalidate()
+            flashTimer = nil
+        }
         if flashTimer == nil {
             flashReduceMotion = reduceMotion()
             flash = CopiedFlash(reduceMotion: flashReduceMotion)
-            flashTimer = makeFlashTimer(CopiedFlash.interval, Self.flashTolerance) { [weak self] in
+            flashTimer = makeFlashTimer(flash.timerInterval, Self.flashTolerance) { [weak self] in
                 self?.tickFlash()
             }
         }
@@ -510,13 +524,20 @@ final class AppModel {
         workspace.open(Self.privacySettingsURL)
     }
 
-    /// Opens the Trash of the screenshot folder's volume.
-    func showTrash() async {
+    /// Opens the Trash of the screenshot folder's volume, or the home Trash when that one
+    /// cannot be found. False when no Trash could be opened, so Settings says so instead of
+    /// doing nothing.
+    @discardableResult
+    func showTrash() async -> Bool {
         let folder = screenshotFolder ?? home
-        let trash = await Task.detached(priority: .userInitiated) {
-            try? FileManager.default.url(for: .trashDirectory, in: .userDomainMask, appropriateFor: folder, create: false)
-        }.value
-        if let trash { workspace.open(trash) }
+        let locate = locateTrash
+        let trash = await Task.detached(priority: .userInitiated) { locate(folder) ?? locate(nil) }.value
+        guard let trash else {
+            let log = log
+            Task { await log.error("show trash: no trash found") }
+            return false
+        }
+        return workspace.open(trash)
     }
 
     func openFolder() {
@@ -655,20 +676,20 @@ final class AppModel {
     }
 
     /// Adds the older screenshots the preview counted (expired, never seen by ClipShot) to the
-    /// ledger, after the user confirmed "Also clean up N older screenshots". They then go with
-    /// the next run. Returns how many were adopted; 0 when there is no preview or the folder
-    /// is no longer the one it showed.
+    /// ledger, after the user confirmed "Also clean up N older screenshots". Only those files,
+    /// and only while they still qualify, so the count adopted never exceeds the count shown.
+    /// They then go with the next run. Returns how many were adopted; 0 when there is no
+    /// preview or the folder is no longer the one it showed.
     @discardableResult
     func adoptOlderScreenshots() async -> Int {
         guard isWatching, case .success(let scan) = retentionPreview, scan.olderNotTracked > 0 else { return 0 }
         let entries = await ledger.entries()
         let settings = settings
         let now = clock()
-        // The age limit the user saw in the preview.
-        let policy = RetentionPolicy(enabled: true, days: scan.days, confirmed: nil)
         let files = await Task.detached(priority: .userInitiated) { () -> [CaptureFile]? in
             guard CaptureSettings.realPath(settings.folder()) == scan.folder.path else { return nil }
-            return RetentionScanner.adoptable(folder: scan.folder, ledger: entries, now: now, policy: policy)
+            // The age limit the user saw in the preview.
+            return RetentionScanner.stillAdoptable(scan.olderNotTrackedFiles, ledger: entries, now: now, days: scan.days)
         }.value
         guard isWatching, let files else {
             refreshPreview()

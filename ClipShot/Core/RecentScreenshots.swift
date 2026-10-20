@@ -15,6 +15,9 @@ struct RecentScreenshots: Equatable, Sendable {
     var cardIsLastCopied = false
     /// The previous screenshots from the ledger, newest first, without the card's.
     var recent: [CaptureFile]
+    /// The files in `recent` the user adopted for cleanup: the strip lists them, the card
+    /// never shows them.
+    var adopted: Set<CaptureFile> = []
 
     /// Reads the files. Everything shown is a direct child of `folder`, the folder being
     /// watched, so every action on it (Move to Trash above all) applies and nothing from an
@@ -31,6 +34,7 @@ struct RecentScreenshots: Equatable, Sendable {
         }
         let cardIsLastCopied = card != nil
         var recent: [CaptureFile] = []
+        var adopted: Set<CaptureFile> = []
         let cardPath = card.map { FolderGuard.canonicalPath($0.url) }
         let newestFirst = ledger.sorted { ($0.created, $0.path) > ($1.created, $1.path) }
         for entry in newestFirst where entry.path != cardPath && inFolder(entry.path) {
@@ -39,10 +43,11 @@ struct RecentScreenshots: Equatable, Sendable {
                 card = file
             } else if recent.count < count {
                 recent.append(file)
+                if entry.adopted { adopted.insert(file) }
             }
             if card != nil && recent.count == count { break }
         }
-        return RecentScreenshots(card: card, cardIsLastCopied: cardIsLastCopied, recent: recent)
+        return RecentScreenshots(card: card, cardIsLastCopied: cardIsLastCopied, recent: recent, adopted: adopted)
     }
 
     /// The file at `url` now, if it is still the same one.

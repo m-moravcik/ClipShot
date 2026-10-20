@@ -12,6 +12,7 @@ struct MenuContent: View {
     @Environment(UpdateStatus.self) private var updateStatus
     @Environment(\.updater) private var updater
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.offscreenCapture) private var offscreenCapture
     @State private var attentionsExpanded = false
 
     var body: some View {
@@ -36,20 +37,23 @@ struct MenuContent: View {
     private var main: some View {
         // One scroll view whatever the height, so the rows keep their identity (and state, such
         // as Copy again's checkmark) when a long translation takes the popover past its cap. It
-        // scrolls only then. The header is its top bar: rows scrolling under it soften into the
-        // edge, as macOS 26 draws content under bars. At the bottom they run under the footer's
-        // separator, the edge a native menu or list has. (A bar there too renders the scroll view
-        // black in the offscreen harness, which the README pictures come from.)
+        // scrolls only then. The header is its top bar and the footer its bottom bar: rows
+        // scrolling under either soften into the edge, as macOS 26 draws content under bars.
+        // The footer keeps its separator, the line a native menu draws above its last items.
+        //
+        // An edge bar renders the scroll view black when drawn offscreen with
+        // `cacheDisplay`, so for the render harness (`offscreenCapture`) the footer sits
+        // below the scroll view instead, and the separator alone marks the edge.
         VStack(spacing: 0) {
-            ScrollView { middle }
-                .scrollBounceBehavior(.basedOnSize)
-                .scrollEdgeEffectStyle(.soft, for: .top)
-                .safeAreaBar(edge: .top, spacing: 0) {
-                    PopoverHeader()
-                        .padding(.bottom, Design.Spacing.m)
-                }
-            FooterSeparator()
-            FooterBar()
+            // Fixed for the process: the branch never flips while the popover is open.
+            if offscreenCapture {
+                scroll.scrollEdgeEffectStyle(.soft, for: .top)
+                footer
+            } else {
+                scroll
+                    .scrollEdgeEffectStyle(.soft, for: .vertical)
+                    .safeAreaBar(edge: .bottom, spacing: 0) { footer }
+            }
         }
         .animation(reduceMotion ? nil : Design.Motion.layout, value: model.attentions)
         .animation(reduceMotion ? nil : Design.Motion.layout, value: attentionsExpanded)
@@ -61,6 +65,22 @@ struct MenuContent: View {
         }
         // A screenshot deleted in Finder since the last look leaves the card and the strip.
         .onAppear { model.refreshRecent() }
+    }
+
+    private var scroll: some View {
+        ScrollView { middle }
+            .scrollBounceBehavior(.basedOnSize)
+            .safeAreaBar(edge: .top, spacing: 0) {
+                PopoverHeader()
+                    .padding(.bottom, Design.Spacing.m)
+            }
+    }
+
+    private var footer: some View {
+        VStack(spacing: 0) {
+            FooterSeparator()
+            FooterBar()
+        }
     }
 
     private var middle: some View {
@@ -565,4 +585,11 @@ private struct MenuRow: View {
         .onHover { isHovering = $0 }
         .accessibilityLabel(Text(label))
     }
+}
+
+extension EnvironmentValues {
+    /// The view is drawn offscreen through `NSHostingView.cacheDisplay` (the render harness),
+    /// which draws a scroll view with a bottom edge bar black. Views that use one fall back to
+    /// a plain layout.
+    @Entry var offscreenCapture = false
 }

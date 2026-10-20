@@ -43,10 +43,23 @@ private struct Note<Action: View>: View {
     let text: LocalizedStringResource
     var systemImage: String?
     var tint: Color?
-    @ViewBuilder var action: Action
+    /// Set by the initialiser: false for the plain note, which has no action to lay out.
+    private let hasAction: Bool
+    private let action: Action
+
+    init(
+        text: LocalizedStringResource, systemImage: String? = nil, tint: Color? = nil,
+        @ViewBuilder action: () -> Action
+    ) {
+        self.text = text
+        self.systemImage = systemImage
+        self.tint = tint
+        hasAction = true
+        self.action = action()
+    }
 
     var body: some View {
-        if Action.self == EmptyView.self {
+        if !hasAction {
             HStack(alignment: .firstTextBaseline, spacing: Design.Spacing.s) {
                 icon
                 message
@@ -85,7 +98,11 @@ private struct Note<Action: View>: View {
 
 extension Note where Action == EmptyView {
     init(text: LocalizedStringResource, systemImage: String? = nil, tint: Color? = nil) {
-        self.init(text: text, systemImage: systemImage, tint: tint) { EmptyView() }
+        self.text = text
+        self.systemImage = systemImage
+        self.tint = tint
+        hasAction = false
+        action = EmptyView()
     }
 }
 
@@ -179,6 +196,10 @@ struct CaptureSettingsPane: View {
 
     private var folderSection: some View {
         Section {
+            // The most urgent thing in the pane, so it leads, as the first row of the section
+            // about where screenshots are saved. Not a section of its own: the gap one adds
+            // pushed Restore out of the window in German and Spanish.
+            if model.destination != .file { destinationGuard }
             HStack(spacing: Design.Spacing.m) {
                 Image(systemName: "folder.fill")
                     .font(.system(size: 18))
@@ -211,6 +232,20 @@ struct CaptureSettingsPane: View {
                     .buttonStyle(.link)
                     .font(Design.Typography.note)
             }
+        }
+    }
+
+    /// Screenshots go somewhere other than a file: nothing reaches the folder, so nothing is
+    /// copied. Shown above everything else, with its fix.
+    private var destinationGuard: some View {
+        Note(
+            text: AttentionPresentation.of(.destinationNotFile, destination: model.destination).message,
+            systemImage: "exclamationmark.triangle.fill", tint: .orange
+        ) {
+            Button {
+                changed = .destination
+                Task { await model.fixDestination() }
+            } label: { Text(Copy.Action.saveToFile) }
         }
     }
 
@@ -253,18 +288,8 @@ struct CaptureSettingsPane: View {
                 } icon: {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
                 }
-            } else {
-                Note(
-                    text: AttentionPresentation.of(.destinationNotFile, destination: model.destination).message,
-                    systemImage: "exclamationmark.triangle.fill", tint: .orange
-                ) {
-                    Button {
-                        changed = .destination
-                        Task { await model.fixDestination() }
-                    } label: { Text(Copy.Action.saveToFile) }
-                }
+                appliesNote(.destination)
             }
-            appliesNote(.destination)
 
             let restoreText = VStack(alignment: .leading, spacing: 2) {
                 Text(Copy.Capture.restore)
@@ -362,7 +387,16 @@ struct RetentionSettings: View {
     @State private var customPeriod = false
     @State private var cleanUpOffer: Offer?
     @State private var adoptOffer: Offer?
+    /// The last Clean up now: nil before one, `.some(nil)` when nothing ran.
     @State private var cleanUpOutcome: RetentionResult??
+    /// Show Trash found no Trash it could open.
+    @State private var trashNotOpened: Bool
+
+    /// The render harness passes an outcome to draw the pane right after Clean up now.
+    init(cleanUpOutcome: RetentionResult?? = nil, trashNotOpened: Bool = false) {
+        _cleanUpOutcome = State(initialValue: cleanUpOutcome)
+        _trashNotOpened = State(initialValue: trashNotOpened)
+    }
 
     private var mode: RetentionMode {
         .of(isWatching: model.isWatching, policy: model.preferences.retention,
@@ -421,6 +455,7 @@ struct RetentionSettings: View {
 
     private func setEnabled(_ on: Bool) {
         cleanUpOutcome = nil
+        trashNotOpened = false
         if on {
             pendingEnable = true
             model.refreshPreview()
@@ -547,20 +582,37 @@ struct RetentionSettings: View {
                 }
             }
             HStack {
+                // Crossfades in next to the button rather than popping in. Show Trash sits
+                // under the outcome, so a long translation wraps the text, never the button.
                 if let outcome = cleanUpOutcome {
-                    if let result = outcome, result.moved > 0 {
-                        Note(text: Copy.Retention.moved(result.moved, result.movedBytes.formatted(.byteCount(style: .file))))
-                        Button { Task { await model.showTrash() } } label: { Text(Copy.Retention.showTrash) }
-                            .buttonStyle(.link)
-                    } else {
-                        Note(text: Copy.Retention.nothingMoved)
+                    VStack(alignment: .leading, spacing: Design.Spacing.xs) {
+                        if let result = outcome, result.moved > 0 {
+                            Note(text: Copy.Retention.moved(result.moved, result.movedBytes.formatted(.byteCount(style: .file))))
+                            if !trashNotOpened {
+                                Button { showTrash() } label: {
+                                    Text(Copy.Retention.showTrash)
+                                        .multilineTextAlignment(.leading)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                                .buttonStyle(.link)
+                                .font(Design.Typography.note)
+                            }
+                        } else {
+                            Note(text: Copy.Retention.nothingMoved)
+                        }
                     }
+                    .transition(.opacity)
                 }
-                Spacer()
+                Spacer(minLength: Design.Spacing.m)
                 Button {
                     if let scan { cleanUpOffer = Offer(count: scan.expired.count, bytes: scan.expiredBytes) }
                 } label: { Text(Copy.Retention.cleanUpNow) }
                     .disabled((scan?.expired.isEmpty ?? true))
+                    .fixedSize()
+            }
+            if trashNotOpened {
+                Note(text: Copy.Retention.trashNotOpened, systemImage: "exclamationmark.triangle.fill", tint: .orange)
+                    .transition(.opacity)
             }
         case .off, .notWatching, .refused:
             EmptyView()
@@ -577,7 +629,18 @@ struct RetentionSettings: View {
     private func cleanUp() {
         Task {
             let result = await model.cleanUpNow()
-            cleanUpOutcome = .some(result)
+            withAnimation(Design.Motion.outcome) {
+                cleanUpOutcome = .some(result)
+                trashNotOpened = false
+            }
+        }
+    }
+
+    /// Show Trash: when no Trash could be opened, the link gives way to a note that says so.
+    private func showTrash() {
+        Task {
+            let opened = await model.showTrash()
+            withAnimation(Design.Motion.outcome) { trashNotOpened = !opened }
         }
     }
 }

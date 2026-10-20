@@ -361,6 +361,9 @@ enum Copy {
         }
         static let nothingMoved = LocalizedStringResource("Nothing to move.")
         static let showTrash = LocalizedStringResource("Show Trash")
+        static let trashNotOpened = LocalizedStringResource(
+            "Could not open the Trash. Open it from the Dock.",
+            comment: "Settings > Retention, after Show Trash found no Trash it could open")
     }
 
     // MARK: - Welcome tour

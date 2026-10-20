@@ -93,7 +93,7 @@ struct RetentionRunnerTests {
         RetentionScan(
             folder: folder, days: days, expired: expired,
             expiredBytes: expired.reduce(0) { $0 + $1.size },
-            skippedUnmarkedImages: 0, olderNotTracked: 0, olderNotTrackedBytes: 0, pending: 0)
+            skippedUnmarkedImages: 0, olderNotTrackedFiles: [], pending: 0)
     }
 
     @Test func runnerSkipsForgedScanOfBroadFolder() async throws {

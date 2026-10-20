@@ -43,8 +43,13 @@ final class ManualFlashTimer: FlashTimer {
 final class RecordingWorkspace: WorkspaceActions {
     private(set) var revealed: [URL] = []
     private(set) var opened: [URL] = []
+    /// What `open` reports: false is a URL no app could open.
+    var opens = true
     func reveal(_ url: URL) { revealed.append(url) }
-    func open(_ url: URL) { opened.append(url) }
+    func open(_ url: URL) -> Bool {
+        opened.append(url)
+        return opens
+    }
 }
 
 @MainActor
@@ -67,6 +72,8 @@ final class ModelHarness {
     let events = CountingEventSource()
     let pasteboard = RecordingPasteboard()
     let ledger: ScreenshotLedger
+    /// Where the ledger lives, so a relaunch reads the same one.
+    let ledgerURL: URL
     let trasher: FakeTrasher
     let hourly = PassthroughSubject<Void, Never>()
     let wake = PassthroughSubject<Void, Never>()
@@ -89,13 +96,17 @@ final class ModelHarness {
     let model: AppModel
 
     /// `previewModeApplied`: true is an install that already applied its default Preview mode,
-    /// so starting does not write `show-thumbnail`; false is a fresh install.
+    /// so starting does not write `show-thumbnail`; false is a fresh install. `relaunching`:
+    /// the same home, folder and ledger as an earlier harness, as after a quit and relaunch;
+    /// nothing else carries over.
     init(
         onboardingShown: Bool = true, previewModeApplied: Bool = true, previewLifetime: Duration = .seconds(5),
-        hasTrash: Bool = true, undoLifetime: Duration = AppModel.defaultUndoLifetime
+        hasTrash: Bool = true, undoLifetime: Duration = AppModel.defaultUndoLifetime,
+        relaunching previous: ModelHarness? = nil,
+        locateTrash: @escaping AppDependencies.LocateTrash = AppDependencies.systemTrash
     ) throws {
         let fm = FileManager.default
-        home = try Fixtures.makeDir()
+        home = try previous?.home ?? Fixtures.makeDir()
         folder = home.appendingPathComponent("Shots", isDirectory: true)
         try fm.createDirectory(at: folder, withIntermediateDirectories: true)
         prefs = FakeScreencapturePreferences(["location": folder.path])
@@ -104,7 +115,8 @@ final class ModelHarness {
         preferences.previewModeApplied = previewModeApplied
         edits = EditSession()
         backupURL = home.appendingPathComponent("prefs-backup.plist")
-        ledger = try RT.ledger()
+        ledgerURL = try previous?.ledgerURL ?? Fixtures.makeDir().appendingPathComponent("ledger.json")
+        ledger = ScreenshotLedger(fileURL: ledgerURL, log: try RT.testLog())
         trasher = try FakeTrasher()
         logFile = try Fixtures.makeDir().appendingPathComponent("clipshot.log")
         let box = Box()
@@ -143,6 +155,7 @@ final class ModelHarness {
         deps.edits = edits
         deps.previewLifetime = previewLifetime
         deps.undoLifetime = undoLifetime
+        deps.locateTrash = locateTrash
         deps.openMarkup = { url, done in
             box.harness?.markups.append(url)
             done(box.harness?.markupResult ?? .closed)
@@ -414,8 +427,32 @@ struct AppModelTests {
         #expect(prefs.synchronizeCount == reads, "no poll reads the prefs after release")
     }
 
-    /// Reduce Motion: the copied symbol holds at full opacity for the whole flash, with no
-    /// fade, and once the flash ends no timer ticks on, on the real run loop.
+    /// Reduce Motion: one 1.4 s timer instead of fourteen 0.1 s ticks. Its single tick ends
+    /// the hold; a copy during the hold starts the whole hold again on a fresh timer.
+    @Test func reduceMotionFlashIsOneTimerThatTicksOnce() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        h.reduceMotion = true
+        #expect(await h.start())
+        try h.shoot("Screenshot 1.png", size: 17)
+        #expect(await eventually { await h.model.flashPhase > 0 })
+        let timer = try #require(h.timer)
+        #expect(timer.interval == CopiedFlash.holdDuration)
+        #expect(CopiedFlash.opacity(phase: h.model.flashPhase, reduceMotion: true) == 1)
+
+        try h.shoot("Screenshot 2.png", size: 18)
+        #expect(await eventually { await h.timers.count == 2 })
+        #expect(timer.invalidated, "the earlier hold's timer does not cut the new one short")
+        let second = try #require(h.timer)
+        #expect(h.model.flashPhase > 0)
+        second.fire()
+        #expect(h.model.flashPhase == 0)
+        #expect(second.invalidated)
+        #expect(h.model.iconState == .idle)
+    }
+
+    /// Reduce Motion on the real run loop: the copied symbol holds at full opacity for the
+    /// whole flash, the timer ticks once, and nothing ticks after the flash ends.
     @Test func reduceMotionFlashIsAPlainHoldAndNoTimerOutlivesIt() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }
@@ -437,12 +474,13 @@ struct AppModelTests {
         for phase in phases {
             #expect(CopiedFlash.opacity(phase: phase, reduceMotion: true) == 1, "phase \(phase) is not a plain hold")
         }
+        // The flash ended by the timer's own tick, and the model invalidated it then: the
+        // count is exact however late the run loop fired it.
         let ticks = try #require(h.systemFlashTicks.first)
         #expect(h.systemFlashTicks.count == 1)
-        #expect(ticks.count == CopiedFlash.steps - 1, "one tick per phase after the first, then the end")
-        let after = ticks.count
+        #expect(ticks.count == 1, "one tick ends the hold")
         try? await Task.sleep(for: .milliseconds(400))
-        #expect(ticks.count == after, "no timer runs after the flash ends")
+        #expect(ticks.count == 1, "no timer runs after the flash ends")
     }
 
     @Test func releasedSystemFlashTimerStopsTicking() async {

@@ -11,11 +11,14 @@ struct RetentionScan: Equatable, Sendable {
     let expiredBytes: Int64
     /// Image files in the folder that are not screenshots (no marker, quarantined, downloaded).
     let skippedUnmarkedImages: Int
-    /// Expired screenshots that are not in the ledger (taken before ClipShot, or renamed).
-    let olderNotTracked: Int
-    let olderNotTrackedBytes: Int64
+    /// Expired screenshots that are not in the ledger (taken before ClipShot, or renamed),
+    /// oldest first: exactly what "Also clean up N older screenshots" offers to adopt.
+    let olderNotTrackedFiles: [CaptureFile]
     /// Expired ledger screenshots left for the next run because of the cap.
     let pending: Int
+
+    var olderNotTracked: Int { olderNotTrackedFiles.count }
+    var olderNotTrackedBytes: Int64 { olderNotTrackedFiles.reduce(0) { $0 + $1.size } }
 }
 
 /// Reads the folder and decides what is expired. Never mutates anything.
@@ -41,8 +44,7 @@ enum RetentionScanner {
         }
         let index = Dictionary(grouping: ledger, by: \.path)
         var tracked: [CaptureFile] = []
-        var untracked = 0
-        var untrackedBytes: Int64 = 0
+        var untracked: [CaptureFile] = []
         var skipped = 0
         for file in contents(of: resolved) {
             guard file.isScreenshot else {
@@ -53,15 +55,13 @@ enum RetentionScanner {
             if index[file.url.path]?.contains(where: { $0.resourceID == file.resourceID }) == true {
                 tracked.append(file)
             } else {
-                untracked += 1
-                untrackedBytes += file.size
+                untracked.append(file)
             }
         }
         guard policy.enabled else {
             return .success(RetentionScan(
                 folder: resolved, days: policy.days, expired: [], expiredBytes: 0,
-                skippedUnmarkedImages: skipped, olderNotTracked: untracked, olderNotTrackedBytes: untrackedBytes,
-                pending: 0))
+                skippedUnmarkedImages: skipped, olderNotTrackedFiles: oldestFirst(untracked), pending: 0))
         }
         guard let confirmed = policy.confirmed, confirmed.path == resolved.path,
               confirmed == ConfirmedFolder.of(resolved)
@@ -72,20 +72,23 @@ enum RetentionScanner {
         return .success(RetentionScan(
             folder: resolved, days: policy.days, expired: batch,
             expiredBytes: batch.reduce(0) { $0 + $1.size },
-            skippedUnmarkedImages: skipped, olderNotTracked: untracked, olderNotTrackedBytes: untrackedBytes,
+            skippedUnmarkedImages: skipped, olderNotTrackedFiles: oldestFirst(untracked),
             pending: tracked.count - batch.count))
     }
 
-    /// Expired screenshots not in the ledger, for the one-time "Also clean up N older
-    /// screenshots" offer. Adopting them is the user's explicit choice after a preview.
-    static func adoptable(folder: URL, ledger: [LedgerEntry], now: Date, policy: RetentionPolicy) -> [CaptureFile] {
-        let resolved = URL(fileURLWithPath: CaptureSettings.realPath(folder), isDirectory: true)
+    /// Of the older screenshots a preview counted (`RetentionScan.olderNotTrackedFiles`), the
+    /// ones that still qualify: the same file at the same path, still a screenshot, still
+    /// expired and still not in the ledger. Adopting them is the user's explicit choice after
+    /// that preview, so a file that appeared since is never added.
+    static func stillAdoptable(_ counted: [CaptureFile], ledger: [LedgerEntry], now: Date, days: Int) -> [CaptureFile] {
         let index = Dictionary(grouping: ledger, by: \.path)
-        let files = contents(of: resolved).filter { file in
-            file.isScreenshot && isExpired(file.created, days: policy.days, now: now)
-                && index[file.url.path]?.contains(where: { $0.resourceID == file.resourceID }) != true
+        return counted.compactMap { seen in
+            guard let file = CaptureFile.inspect(seen.url), file.resourceID == seen.resourceID,
+                  file.isScreenshot, isExpired(file.created, days: days, now: now),
+                  index[file.url.path]?.contains(where: { $0.resourceID == file.resourceID }) != true
+            else { return nil }
+            return file
         }
-        return oldestFirst(files)
     }
 
     /// Direct children only. `CaptureFile.inspect` drops directories, symlinks, dot files,

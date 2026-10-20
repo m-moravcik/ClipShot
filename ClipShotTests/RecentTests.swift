@@ -228,6 +228,83 @@ struct RecentTests {
         #expect(h.model.latest?.isLastCopied == true)
     }
 
+    /// After a relaunch nothing has been copied yet, but the card is not empty: it shows the
+    /// newest screenshot in the ledger, with Copy (the card fallback).
+    @Test func relaunchShowsTheLatestScreenshotFromTheLedger() async throws {
+        let first = try ModelHarness()
+        #expect(await first.start())
+        try first.shoot("Screenshot 1.png", size: 17)
+        try first.shoot("Screenshot 2.png", size: 18)
+        #expect(await eventually { await first.model.latest?.file.url.lastPathComponent == "Screenshot 2.png" })
+        #expect(await eventually { await first.ledger.entries().count == 2 })
+        first.tearDown()
+
+        let relaunched = try ModelHarness(relaunching: first)
+        defer { relaunched.tearDown() }
+        #expect(relaunched.model.lastCopied == nil)
+        #expect(await relaunched.start())
+        #expect(await eventually { await relaunched.model.latest?.file.url.lastPathComponent == "Screenshot 2.png" })
+        #expect(relaunched.model.latest?.isLastCopied == false, "the card offers Copy, not Copy again")
+        #expect(relaunched.model.latest?.thumbnail != nil)
+        #expect(names(relaunched.model.recent) == ["Screenshot 1.png"])
+        #expect(relaunched.pasteboard.writes.isEmpty, "a relaunch copies nothing")
+    }
+
+    /// The card's file goes to the Trash: the strip's newest screenshot ClipShot saw moves up
+    /// at once, never an adopted older file, not even until the next refresh corrects it.
+    @Test func trashedCardIsReplacedByAnObservedScreenshotOnly() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        try await tracked(h, [("Seen.png", 40)])
+        try await tracked(h, [("Adopted.png", 20)], adopted: true)
+        try await tracked(h, [("Card.png", 10)])
+        #expect(await h.start())
+        #expect(await eventually { await h.model.recent.count == 2 })
+        let card = try #require(h.model.latest?.file)
+        #expect(card.url.lastPathComponent == "Card.png")
+        #expect(names(h.model.recent) == ["Adopted.png", "Seen.png"])
+
+        try await h.model.trash(card)
+        #expect(h.model.latest?.file.url.lastPathComponent == "Seen.png", "at once, skipping the adopted file")
+        #expect(names(h.model.recent) == ["Adopted.png"])
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(h.model.latest?.file.url.lastPathComponent == "Seen.png")
+        #expect(names(h.model.recent) == ["Adopted.png"])
+
+        // Only adopted files left: the card empties at once, the strip keeps them.
+        let seen = try #require(h.model.latest?.file)
+        try await h.model.trash(seen)
+        #expect(h.model.latest == nil)
+        #expect(names(h.model.recent) == ["Adopted.png"])
+    }
+
+    /// A thumbnail that could not be decoded while the file was still being written is tried
+    /// again once the file changes: the failure belongs to that version of the file (same
+    /// resource ID, size and modification date), not to its path.
+    @Test func undecodableThumbnailIsRetriedWhenTheFileChanges() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        let png = Fixtures.pngImage(size: 24)
+        let url = try Fixtures.write(named: "Writing.png", contents: Data(), in: h.folder)
+        let partial = try #require(CaptureFile.inspect(url))
+        await h.ledger.record(partial)
+        #expect(await h.start())
+        #expect(await eventually { await h.model.latest?.file.url.lastPathComponent == "Writing.png" })
+        h.model.refreshRecent()
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(h.model.latest?.thumbnail == nil, "a file not written yet has no thumbnail")
+
+        // The rest of the file lands in place: the same file, a new version.
+        let handle = try FileHandle(forWritingTo: url)
+        try handle.seek(toOffset: 0)
+        try handle.write(contentsOf: png)
+        try handle.close()
+        let complete = try #require(CaptureFile.inspect(url))
+        #expect(complete.resourceID == partial.resourceID)
+        h.model.refreshRecent()
+        #expect(await eventually { await h.model.latest?.thumbnail != nil })
+    }
+
     /// After a folder change the card never shows a file from the old folder.
     @Test func cardFollowsTheWatchedFolder() async throws {
         let h = try ModelHarness()

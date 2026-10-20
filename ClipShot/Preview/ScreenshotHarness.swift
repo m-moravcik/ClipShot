@@ -94,6 +94,23 @@ enum ScreenshotHarness {
                 try shots.write(render(WindowShadow(window: window, scheme: scheme)), "settings-\(tab.name)", scheme)
             }
         }
+        // Retention just after Clean up now: the outcome beside the button, with Show Trash;
+        // then Show Trash finding no Trash it could open; then a run that moved nothing.
+        let cleaned = RetentionResult(moved: 12, movedBytes: 38_400_000, failed: 0, at: now)
+        let outcomes: [(String, RetentionResult??, Bool)] = [
+            ("settings-retention-cleaned", .some(cleaned), false),
+            ("settings-retention-trash-not-opened", .some(cleaned), true),
+            ("settings-retention-nothing-moved", .some(nil), false),
+        ]
+        for scheme in ColorScheme.allCases {
+            for (name, outcome, trashNotOpened) in outcomes {
+                let window = capture(SettingsWindow(
+                    tab: .retention, scheme: scheme, cleanUpOutcome: outcome, trashNotOpened: trashNotOpened)
+                    .harnessEnvironment(scene.model, updater: updater), scheme: scheme)
+                try shots.write(render(WindowShadow(window: window, scheme: scheme)), name, scheme)
+            }
+        }
+
         // Just after Move to Trash on the strip's newest: Undo for 5 s, the gap closed. The
         // demo Trash refuses every move, so the file goes to a demo Trash folder by hand.
         if let moved = scene.model.recent.first {
@@ -256,7 +273,7 @@ enum ScreenshotHarness {
         DemoScene.wait { scene.model.previews.visible.count == 1 }
         guard let single = scene.model.previews.visible.first else { fail("no preview") }
         for scheme in ColorScheme.allCases {
-            try shots.write(capture(PreviewDesktop(scheme: scheme) { PreviewStack() }
+            try shots.write(capture(PreviewDesktop(scheme: scheme) { PreviewStack(previews: scene.model.previews, files: .model(scene.model)) }
                 .harnessEnvironment(scene.model), scheme: scheme), "preview", scheme)
             try shots.write(capture(PreviewDesktop(scheme: scheme, height: PreviewCardMetrics.maxSize.height + PreviewCardMetrics.margin * 2 + 20) {
                 PreviewCard(item: single, actions: .inert, hovering: true)
@@ -279,7 +296,7 @@ enum ScreenshotHarness {
         }
         DemoScene.settle(0.6)
         for scheme in ColorScheme.allCases {
-            try shots.write(capture(PreviewDesktop(scheme: scheme) { PreviewStack() }
+            try shots.write(capture(PreviewDesktop(scheme: scheme) { PreviewStack(previews: scene.model.previews, files: .model(scene.model)) }
                 .harnessEnvironment(scene.model), scheme: scheme), "preview-stack", scheme)
         }
 
@@ -479,6 +496,7 @@ private extension View {
             .environment(SettingsRouter())
             .environment(updateStatus)
             .environment(\.updater, updater)
+            .environment(\.offscreenCapture, true)
     }
 }
 
@@ -523,6 +541,9 @@ private struct SettingsWindow: View {
     let scheme: ColorScheme
     /// General right after "Replay welcome tour".
     var replayed = false
+    /// Retention right after Clean up now, and when Show Trash found no Trash.
+    var cleanUpOutcome: RetentionResult?? = nil
+    var trashNotOpened = false
 
     private var dark: Bool { scheme == .dark }
 
@@ -590,7 +611,7 @@ private struct SettingsWindow: View {
         switch tab {
         case .general: GeneralSettings(replayRequested: replayed)
         case .capture: CaptureSettingsPane()
-        case .retention: RetentionSettings()
+        case .retention: RetentionSettings(cleanUpOutcome: cleanUpOutcome, trashNotOpened: trashNotOpened)
         case .about: AboutSettings()
         }
     }
@@ -863,6 +884,16 @@ private struct MenuBarStatesSheet: View {
               glyph: .black, label: .black),
     ]
 
+    /// Measured from the glyph as drawn, so the numbers stay true when the frame or the
+    /// symbol size changes.
+    private static let title: String = {
+        let frame = StatusIconArt.frame
+        let idle = glyph(Cell(id: "idle", title: "", detail: "", state: .idle, phase: 0), color: .black, scale: 1)
+        let ink = GlyphInk.size(idle)
+        return "ClipShot menu bar states - \(Int(StatusIconArt.glyphSize)) pt template symbol (idle: \(ink.width) x \(ink.height) px at 1x) "
+            + "in a fixed \(Int(frame.width)) x \(Int(frame.height)) pt frame, the height the menu bar draws unscaled"
+    }()
+
     private static let column: CGFloat = 52
     /// The sheet renders at 2x for legible labels; glyph images are framed at their pixel
     /// size divided by this, so each glyph pixel is one sheet pixel.
@@ -870,7 +901,7 @@ private struct MenuBarStatesSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(verbatim: "ClipShot menu bar states - 15 pt template symbol in a fixed 22 x 16 pt frame, the height the menu bar draws unscaled")
+            Text(verbatim: Self.title)
                 .font(.system(size: 15, weight: .semibold))
             Text(verbatim: "Order: idle, paused, attention, copied with Reduce Motion; then the copied flash phases 1-14 (opacity of the check, the camera fades out as it fades in) and 15 = end, back to idle. Zoom rows are the 1x pixels enlarged 3x.")
                 .font(.system(size: 11))
@@ -953,7 +984,7 @@ private struct MenuBarOpticalSheet: View {
         let items: [Item]
     }
 
-    static let scale: CGFloat = 2
+    static let scale = GlyphInk.scale
 
     private static func groups(_ color: Color) -> [Cluster] {
         let states: [(String, StatusIconState, Int)] = [
@@ -978,50 +1009,11 @@ private struct MenuBarOpticalSheet: View {
     }
 
     private static func item(_ name: String, _ view: some View, _ color: Color) -> Item {
-        let image = menuBarImage(view.foregroundStyle(color))
-        let ink = inkSize(image)
+        guard let image = GlyphInk.menuBarImage(view.foregroundStyle(color)) else {
+            ScreenshotHarness.fail("glyph render failed")
+        }
+        let ink = GlyphInk.size(image)
         return Item(id: name, caption: "\(name)\n\(ink.width) x \(ink.height) px", image: image)
-    }
-
-    /// The label at 2x, fitted into the menu bar's height as AppKit fits a status item image.
-    static func menuBarImage(_ view: some View) -> CGImage {
-        let renderer = ImageRenderer(content: view)
-        renderer.scale = scale
-        guard let image = renderer.cgImage else { ScreenshotHarness.fail("glyph render failed") }
-        let limit = Int(StatusIconArt.menuBarHeight * scale)
-        guard image.height > limit else { return image }
-        let width = Int((CGFloat(image.width) * CGFloat(limit) / CGFloat(image.height)).rounded())
-        guard let context = CGContext(
-            data: nil, width: width, height: limit, bitsPerComponent: 8, bytesPerRow: 0,
-            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
-        else { ScreenshotHarness.fail("could not allocate a bitmap") }
-        context.interpolationQuality = .high
-        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: limit))
-        guard let scaled = context.makeImage() else { ScreenshotHarness.fail("could not scale a glyph") }
-        return scaled
-    }
-
-    /// The bounding box of the pixels that are more than faintly drawn.
-    static func inkSize(_ image: CGImage) -> (width: Int, height: Int) {
-        let width = image.width, height = image.height
-        var pixels = [UInt8](repeating: 0, count: width * height * 4)
-        let drawn: Bool = pixels.withUnsafeMutableBytes { buffer in
-            guard let context = CGContext(
-                data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
-                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
-            else { return false }
-            context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
-            return true
-        }
-        guard drawn else { return (0, 0) }
-        var minX = width, minY = height, maxX = -1, maxY = -1
-        for y in 0..<height {
-            for x in 0..<width where pixels[(y * width + x) * 4 + 3] > 40 {
-                minX = min(minX, x); maxX = max(maxX, x)
-                minY = min(minY, y); maxY = max(maxY, y)
-            }
-        }
-        return maxX < 0 ? (0, 0) : (maxX - minX + 1, maxY - minY + 1)
     }
 
     var body: some View {

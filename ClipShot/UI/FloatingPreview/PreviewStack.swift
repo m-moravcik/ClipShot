@@ -10,13 +10,17 @@ import SwiftUI
 /// - leaving: on time it slides back to the edge, Close shrinks away, Move to Trash shrinks
 ///   and drops; neighbours close the gap with the stack spring.
 /// Reduce Motion: every one of these is a crossfade.
+///
+/// It gets the previews and what a preview does to its screenshot, not the model: the model
+/// owns the panel this view lives in, so holding the model here would keep it alive.
 struct PreviewStack: View {
-    @Environment(AppModel.self) private var model
+    let previews: FloatingPreviews
+    let files: PreviewFileActions
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .trailing, spacing: PreviewCardMetrics.spacing) {
-            ForEach(model.previews.items) { item in
+            ForEach(previews.items) { item in
                 PreviewCard(item: item, actions: actions(for: item))
                     .transition(transition(for: item))
             }
@@ -27,7 +31,7 @@ struct PreviewStack: View {
         .padding([.bottom, .trailing], PreviewCardMetrics.screenInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         // Reduce Motion: no layout movement; the cards' own crossfades carry the change.
-        .animation(reduceMotion ? nil : Design.Motion.stack, value: model.previews.items.map(\.id))
+        .animation(reduceMotion ? nil : Design.Motion.stack, value: previews.items.map(\.id))
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(Copy.Preview.panel))
     }
@@ -53,25 +57,50 @@ struct PreviewStack: View {
     }
 
     private func actions(for item: PreviewItem) -> PreviewActions {
-        let previews = model.previews
+        let previews = previews
+        let files = files
         let file = item.file
         let id = item.id
         return PreviewActions(
-            markup: { [model] in
-                model.markup(file)
+            markup: {
+                files.markup(file)
                 previews.dismiss(id, .close)
             },
-            copy: { [model] in Task { await model.copyAgain(file: file) } },
-            reveal: { [model] in model.reveal(file) },
-            trash: { [model] in
-                Task {
-                    do { try await model.trash(file) } catch { NSSound.beep() }
-                }
-            },
+            copy: { files.copy(file) },
+            reveal: { files.reveal(file) },
+            trash: { files.trash(file) },
             close: { previews.dismiss(id, .close) },
             swipedAway: { previews.dismiss(id, .swipe) },
             draggedOut: { previews.dismiss(id, .close) },
             hover: { previews.setHovering(id, $0) },
-            clipboardChanged: { [model] in model.clipboardChangedSinceCopy })
+            clipboardChanged: { files.clipboardChanged() })
+    }
+}
+
+/// What a floating preview does to its screenshot, through the model, which it holds weakly:
+/// once the model is gone, they do nothing.
+@MainActor
+struct PreviewFileActions {
+    let markup: @MainActor (CaptureFile) -> Void
+    let copy: @MainActor (CaptureFile) -> Void
+    let reveal: @MainActor (CaptureFile) -> Void
+    let trash: @MainActor (CaptureFile) -> Void
+    let clipboardChanged: @MainActor () -> Bool
+
+    static func model(_ model: AppModel) -> PreviewFileActions {
+        PreviewFileActions(
+            markup: { [weak model] in model?.markup($0) },
+            copy: { [weak model] file in
+                guard let model else { return }
+                Task { await model.copyAgain(file: file) }
+            },
+            reveal: { [weak model] in model?.reveal($0) },
+            trash: { [weak model] file in
+                guard let model else { return }
+                Task {
+                    do { try await model.trash(file) } catch { NSSound.beep() }
+                }
+            },
+            clipboardChanged: { [weak model] in model?.clipboardChangedSinceCopy ?? true })
     }
 }

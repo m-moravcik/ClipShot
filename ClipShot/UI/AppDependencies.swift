@@ -37,13 +37,16 @@ final class SystemFlashTimer: FlashTimer {
 @MainActor
 protocol WorkspaceActions: AnyObject {
     func reveal(_ url: URL)
-    func open(_ url: URL)
+    /// False when no app could open `url`.
+    @discardableResult
+    func open(_ url: URL) -> Bool
 }
 
 @MainActor
 final class SystemWorkspace: WorkspaceActions {
     func reveal(_ url: URL) { NSWorkspace.shared.activateFileViewerSelecting([url]) }
-    func open(_ url: URL) { NSWorkspace.shared.open(url) }
+    @discardableResult
+    func open(_ url: URL) -> Bool { NSWorkspace.shared.open(url) }
 }
 
 /// Everything the model reaches outside the process through. `live()` for the app; tests
@@ -52,6 +55,13 @@ struct AppDependencies {
     typealias MakeFlashTimer = @MainActor (
         _ interval: TimeInterval, _ tolerance: TimeInterval, _ tick: @escaping @MainActor @Sendable () -> Void
     ) -> any FlashTimer
+    /// The Trash for files on the volume of `folder`; nil `folder` is the home Trash. nil
+    /// when there is none. Called off the main actor.
+    typealias LocateTrash = @Sendable (_ folder: URL?) -> URL?
+
+    static let systemTrash: LocateTrash = { folder in
+        try? FileManager.default.url(for: .trashDirectory, in: .userDomainMask, appropriateFor: folder, create: false)
+    }
 
     var preferences: Preferences
     var screencapturePrefs: any ScreencapturePreferences
@@ -94,6 +104,8 @@ struct AppDependencies {
     var previewLifetime: Duration = FloatingPreviews.defaultLifetime
     /// How long Undo is offered after a move to the Trash (Addendum A6).
     var undoLifetime: Duration = AppModel.defaultUndoLifetime
+    /// Where Show Trash looks for the Trash.
+    var locateTrash: LocateTrash = systemTrash
 
     @MainActor
     static func live() -> AppDependencies {

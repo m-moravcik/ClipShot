@@ -331,7 +331,9 @@ private struct FolderStep: View {
         ZStack {
             switch state {
             case .copied(let file):
-                CopiedResult(file: file, thumbnail: model.latest?.file == file ? model.latest?.thumbnail : nil)
+                CopiedResult(
+                    file: file, thumbnail: model.latest?.file == file ? model.latest?.thumbnail : nil,
+                    flashing: model.flashPhase > 0)
                     .transition(.opacity)
             case .attention(let attention):
                 // The try can not work until this is fixed, so say why here, with the row's
@@ -359,10 +361,23 @@ private struct FolderStep: View {
     }
 }
 
+/// When Try it's success check bounces: once, with the menu bar flash of that copy, and
+/// never with Reduce Motion (the result's crossfade stays).
+enum TrySuccessMotion {
+    static func bounces(reduceMotion: Bool, flashing: Bool) -> Bool {
+        flashing && !reduceMotion
+    }
+}
+
 /// The try's result: the thumbnail and "Copied", as the latest card shows it.
 private struct CopiedResult: View {
     let file: CaptureFile
     let thumbnail: CGImage?
+    /// The menu bar flash of this copy is on: the result has just appeared.
+    let flashing: Bool
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var bounce = 0
 
     var body: some View {
         HStack(spacing: Design.Spacing.m) {
@@ -374,6 +389,8 @@ private struct CopiedResult: View {
             } icon: {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(.green)
+                    .symbolEffect(
+                        .bounce, options: .nonRepeating.speed(Design.Motion.successBounceSpeed), value: bounce)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -381,6 +398,12 @@ private struct CopiedResult: View {
         .padding(.vertical, Design.Spacing.m)
         .background(RoundedRectangle(cornerRadius: Design.Radius.card).fill(Design.Palette.cardFill))
         .accessibilityElement(children: .contain)
+        .task(id: file) {
+            guard TrySuccessMotion.bounces(reduceMotion: reduceMotion, flashing: flashing) else { return }
+            try? await Task.sleep(for: Design.Motion.successBounceDelay)
+            guard !Task.isCancelled else { return }
+            bounce += 1
+        }
     }
 }
 
@@ -410,8 +433,7 @@ private struct PausedResult: View {
                     .controlSize(.small)
                     .fixedSize()
                 turnOn
-                    .buttonStyle(WrappingButtonStyle())
-                    .focusEffectDisabled()
+                    .wrappingButtonStyle()
             }
             .padding(.leading, Design.Layout.iconColumn + Design.Spacing.s)
         }

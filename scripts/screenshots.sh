@@ -8,6 +8,7 @@
 # Writes, in -light and -dark: popover, popover-paused, popover-attention, popover-full
 # (every row at once, so long translations reach the height cap), attention-* (one per
 # attention row), settings-{general,capture,retention,about}, settings-general-replayed,
+# settings-retention-{cleaned,trash-not-opened,nothing-moved} (just after Clean up now),
 # settings-capture-attention (the destination guard), onboarding-* (every tour step, and
 # Try it blocked by an attention), hero (popover under the menu bar, README) and banner
 # (1920x1080). Plus icon.png, menubar-states.png and menubar-optical-size.png (the states

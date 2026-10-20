@@ -56,12 +56,18 @@ final class PreviewPanelController {
         if !panel.isVisible { panel.orderFrontRegardless() }
     }
 
+    /// The panel's view: the previews and their actions, never the model itself, which owns
+    /// this controller and so the panel (the actions hold it weakly).
+    static func content(for model: AppModel) -> some View {
+        PreviewStack(previews: model.previews, files: .model(model))
+    }
+
     private func makePanel(_ model: AppModel) -> PreviewPanel {
         let panel = PreviewPanel(
             contentRect: NSRect(origin: .zero, size: Self.panelSize),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered, defer: true)
-        let hosting = FirstMouseHostingView(rootView: PreviewRoot(model: WeakModelBox(model)))
+        let hosting = FirstMouseHostingView(rootView: Self.content(for: model))
         hosting.sizingOptions = []
         panel.contentView = hosting
         return panel
@@ -98,24 +104,4 @@ private final class FirstMouseHostingView<Content: View>: NSHostingView<Content>
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     // Buttons and gestures need no keyboard focus, so a click leaves it with the user's app.
     override var needsPanelToBecomeKey: Bool { false }
-}
-
-/// The model, held weakly, so the panel's view does not keep it alive.
-@MainActor
-private final class WeakModelBox {
-    weak var value: AppModel?
-
-    init(_ value: AppModel) {
-        self.value = value
-    }
-}
-
-private struct PreviewRoot: View {
-    let model: WeakModelBox
-
-    var body: some View {
-        if let model = model.value {
-            PreviewStack().environment(model)
-        }
-    }
 }

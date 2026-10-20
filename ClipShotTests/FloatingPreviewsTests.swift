@@ -1,4 +1,6 @@
+import AppKit
 import Foundation
+import SwiftUI
 import Testing
 @testable import ClipShot
 
@@ -118,5 +120,49 @@ struct FloatingPreviewsTests {
         #expect(!h.model.clipboardChangedSinceCopy)
         h.pasteboard.changeCount += 1
         #expect(h.model.clipboardChangedSinceCopy, "another app copied something")
+    }
+
+    /// The model owns the panel controller, which owns the panel: the panel's view must not
+    /// hold the model, or the model could never be released while the panel exists.
+    @Test func previewPanelViewDoesNotKeepTheModelAlive() async throws {
+        let ref = WeakModel()
+        var hosting: NSView?
+        do {
+            let h = try ModelHarness()
+            let shot = try #require(try files(1).first)
+            h.model.previews.show(shot, image: nil)
+            let view = NSHostingView(rootView: PreviewPanelController.content(for: h.model))
+            view.frame = CGRect(origin: .zero, size: PreviewPanelController.panelSize)
+            view.layoutSubtreeIfNeeded()
+            #expect(view.fittingSize.height > 0)
+            hosting = view
+            ref.value = h.model
+        }
+        for _ in 0..<50 where ref.value != nil { try? await Task.sleep(for: .milliseconds(100)) }
+        #expect(ref.value == nil, "the panel's view keeps no model alive")
+        withExtendedLifetime(hosting) {}
+    }
+
+    /// A dragged screenshot's PNG provider stays registered while the receiving app may ask
+    /// for the data, and no longer: when the pasteboard is done with it, or shortly after the
+    /// drag ended when the pasteboard never says so.
+    @Test func dragImageProvidersDoNotOutliveTheirDrag() async throws {
+        let shot = try #require(try files(1).first)
+        let before = DragImageProvider.liveCount
+
+        let finished = DragImageProvider.start(for: shot.url)
+        #expect(DragImageProvider.liveCount == before + 1)
+        let board = NSPasteboard.withUniqueName()
+        defer { board.releaseGlobally() }
+        finished.pasteboardFinishedWithDataProvider(board)
+        #expect(DragImageProvider.liveCount == before)
+
+        // The pasteboard never reports it is done: the end of the drag bounds it.
+        let abandoned = DragImageProvider.start(for: shot.url)
+        #expect(DragImageProvider.liveCount == before + 1)
+        abandoned.dragEnded(linger: .milliseconds(100))
+        #expect(DragImageProvider.liveCount == before + 1, "the drop may still read it")
+        #expect(await eventually { DragImageProvider.liveCount == before })
+        #expect(DragImageProvider.lingerAfterDrag <= .seconds(60))
     }
 }

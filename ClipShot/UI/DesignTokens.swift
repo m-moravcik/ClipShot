@@ -76,6 +76,9 @@ enum Design {
         static let quick: Animation = .easeInOut(duration: 0.18)
         static let layout: Animation = .smooth(duration: 0.2)
         static let number: Animation = .smooth(duration: 0.25)
+        /// An outcome that appears next to the control that caused it, such as Clean up now's
+        /// "Moved N screenshots": a crossfade, so it does not pop in. Also under Reduce Motion.
+        static let outcome: Animation = quick
 
         // The floating preview (Addendum A3): playful, each with a job, all settled within
         // about 0.45 s. Reduce Motion replaces every one of them with `quick` crossfades.
@@ -99,6 +102,14 @@ enum Design {
         static let drop: Animation = .easeIn(duration: dropDuration)
         /// Moments after the copy the badge bounces, with the menu bar flash.
         static let badgeDelay: Duration = .milliseconds(120)
+
+        // The tour's Try it: the first real copy is the strongest moment in the app.
+
+        /// The success check bounces once as the menu bar flash fades in (its first three
+        /// phases, 0.3 s), so the two read as one event. Reduce Motion: no bounce.
+        static let successBounceDelay: Duration = .milliseconds(150)
+        /// Faster than the system bounce, so the peak stays well under half a second.
+        static let successBounceSpeed: Double = 1.5
 
         // The popover's recent screenshots (A5, A6). Reduce Motion: `quick` crossfades.
 

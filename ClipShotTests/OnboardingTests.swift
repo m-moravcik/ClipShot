@@ -218,4 +218,19 @@ struct OnboardingTests {
         #expect(RetentionPeriod.of(days: 14, customRequested: true) == .custom)
         #expect(RetentionPeriod.of(days: 45, customRequested: false) == .custom)
     }
+
+    /// Try it's success check bounces once, only while the menu bar flash for that copy is
+    /// on (so reopening the popover later does not bounce it again), never with Reduce
+    /// Motion, and it starts while the flash fades in.
+    @Test func trySuccessBouncesOnceWithTheFlash() {
+        #expect(TrySuccessMotion.bounces(reduceMotion: false, flashing: true))
+        #expect(!TrySuccessMotion.bounces(reduceMotion: false, flashing: false))
+        #expect(!TrySuccessMotion.bounces(reduceMotion: true, flashing: true))
+        // It lands as the flash finishes fading in.
+        let fadeIn = CopiedFlash.interval * 3
+        let delay = Double(Design.Motion.successBounceDelay.components.attoseconds) / 1e18
+            + Double(Design.Motion.successBounceDelay.components.seconds)
+        #expect(delay > 0 && delay < fadeIn)
+        #expect(Design.Motion.successBounceSpeed > 1, "faster than the system bounce, so it stays short")
+    }
 }

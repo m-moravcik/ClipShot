@@ -238,7 +238,7 @@ struct DemoTrasher: Trashing {
 @MainActor
 final class DemoWorkspace: WorkspaceActions {
     func reveal(_ url: URL) {}
-    func open(_ url: URL) {}
+    func open(_ url: URL) -> Bool { true }
 }
 
 /// Never ticks: the harness draws the flash phases itself.

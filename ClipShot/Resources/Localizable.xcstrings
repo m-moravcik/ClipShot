@@ -4180,6 +4180,47 @@
         }
       }
     },
+    "Could not open the Trash. Open it from the Dock." : {
+      "comment" : "Settings > Retention, after Show Trash found no Trash it could open",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not open the Trash. Open it from the Dock."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kôš sa nepodarilo otvoriť. Otvor ho z Docku."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Koš se nepodařilo otevřít. Otevři ho z Docku."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Papierkorb ließ sich nicht öffnen. Öffne ihn im Dock."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo abrir la Papelera. Ábrela desde el Dock."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible d’ouvrir la Corbeille. Ouvrez-la depuis le Dock."
+          }
+        }
+      }
+    },
     "Custom" : {
       "comment" : "Retention period: any number of days",
       "localizations" : {

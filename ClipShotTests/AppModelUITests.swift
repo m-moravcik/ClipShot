@@ -36,6 +36,32 @@ struct AppModelUITests {
         #expect(h.trasher.trashed == ["old.png"])
     }
 
+    /// The confirmed count is the count the user saw: a qualifying file that appears between
+    /// the preview and the confirmation is not adopted, nor is a counted one replaced since.
+    @Test func adoptOnlyTheFilesThePreviewCounted() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        let now = Date()
+        let kept = try RT.shot("old 1.png", in: h.folder, age: 40 * RT.day, now: now)
+        let replaced = try RT.shot("old 2.png", in: h.folder, age: 45 * RT.day, now: now)
+        h.preferences.retention = RT.policy(h.folder)
+        #expect(await h.start())
+        h.model.refreshPreview()
+        #expect(await eventually { await h.model.retentionPreview?.success?.olderNotTracked == 2 })
+
+        // After the preview: a new qualifying file, and a counted one replaced by another.
+        let late = try RT.shot("late.png", in: h.folder, age: 50 * RT.day, now: now)
+        let moved = Fixtures.stagingDir.appendingPathComponent("old 2-\(UUID()).png")
+        try FileManager.default.moveItem(at: replaced, to: moved)
+        try RT.shot("old 2.png", in: h.folder, age: 45 * RT.day, now: now)
+
+        #expect(await h.model.adoptOlderScreenshots() == 1)
+        let entries = await h.ledger.entries()
+        #expect(entries.map { ($0.path as NSString).lastPathComponent } == ["old 1.png"])
+        #expect(await h.ledger.contains(path: FolderGuard.canonicalPath(kept), resourceID: RT.file(kept).resourceID))
+        #expect(await !h.ledger.contains(path: FolderGuard.canonicalPath(late), resourceID: RT.file(late).resourceID))
+    }
+
     @Test func adoptOlderScreenshotsNeedsAPreview() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }
@@ -194,7 +220,38 @@ struct AppModelUITests {
         h.model.openPrivacySettings()
         #expect(h.workspace.opened.last?.absoluteString
             == "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders")
-        await h.model.showTrash()
+        #expect(await h.model.showTrash())
         #expect(h.workspace.opened.last?.lastPathComponent == ".Trash")
+    }
+
+    /// Show Trash after Clean up now: the folder's own Trash, else the home Trash, and false
+    /// when neither can be opened, so Settings can say so instead of doing nothing.
+    @Test func showTrashFallsBackToTheHomeTrashAndReportsFailure() async throws {
+        let volumeTrash = URL(fileURLWithPath: "/Volumes/Shots/.Trashes/501", isDirectory: true)
+        let homeTrash = URL(fileURLWithPath: "/Users/someone/.Trash", isDirectory: true)
+
+        let both = try ModelHarness(locateTrash: { $0 == nil ? homeTrash : volumeTrash })
+        defer { both.tearDown() }
+        #expect(await both.start())
+        #expect(await both.model.showTrash())
+        #expect(both.workspace.opened == [volumeTrash], "the Trash of the screenshot folder's volume first")
+
+        let homeOnly = try ModelHarness(locateTrash: { $0 == nil ? homeTrash : nil })
+        defer { homeOnly.tearDown() }
+        #expect(await homeOnly.start())
+        #expect(await homeOnly.model.showTrash())
+        #expect(homeOnly.workspace.opened == [homeTrash])
+
+        let none = try ModelHarness(locateTrash: { _ in nil })
+        defer { none.tearDown() }
+        #expect(await none.start())
+        #expect(await !none.model.showTrash())
+        #expect(none.workspace.opened.isEmpty)
+
+        let refused = try ModelHarness(locateTrash: { _ in homeTrash })
+        defer { refused.tearDown() }
+        refused.workspace.opens = false
+        #expect(await refused.start())
+        #expect(await !refused.model.showTrash())
     }
 }
