@@ -153,7 +153,7 @@ UI. It does not capture anything itself.
   original then edited); if it writes twice, the later write within the
   window wins. README and onboarding mention this as a feature.
 - Toggle: on by default.
-- Feedback: the menu bar icon briefly shows a "copied" state (about 1.5 s).
+- Feedback: the menu bar icon briefly shows a "copied" state (about 2.4 s, Task 12f).
   Optional sound off by default. No notification banners.
 
 ### Native settings

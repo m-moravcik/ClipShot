@@ -8,12 +8,12 @@ struct CopiedFlashTests {
         #expect(flash.tick() == 0)
     }
 
-    /// 1.5 s at 30 fps: 45 frames, then the tick that ends it.
+    /// 2.4 s at 30 fps: 72 frames, then the tick that ends it.
     @Test func timingComesFromTheMotionTokens() {
         #expect(CopiedFlash.interval == 1 / Design.Motion.menuBarFrameRate)
         #expect(CopiedFlash.duration == Design.Motion.menuBarCopy)
         #expect(CopiedFlash.holdDuration == Design.Motion.menuBarHold)
-        #expect(CopiedFlash.steps == 46)
+        #expect(CopiedFlash.steps == 73)
         #expect(abs(Double(CopiedFlash.steps - 1) * CopiedFlash.interval - CopiedFlash.duration) < 1e-9,
                 "the tick that ends the animation comes `duration` after the first frame")
         #expect(CopiedFlash.tolerance > 0 && CopiedFlash.tolerance < CopiedFlash.interval / 2,

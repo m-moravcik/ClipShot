@@ -104,13 +104,14 @@ enum Design {
         static let badgeDelay: Duration = .milliseconds(120)
 
         // The menu bar copy animation (`Peg`): every copy confirms itself in the menu bar,
-        // playful and clearly noticeable, and still over in 1.5 s. A MenuBarExtra label is
-        // a static image, so it is drawn frame by frame on a timer that runs only while it
-        // plays (`CopiedFlash`).
+        // playful and clearly noticeable: the new card is pinned slowly enough to follow in
+        // the corner of the eye, and it is all over in 2.4 s, as VibeRes's switch animation.
+        // A MenuBarExtra label is a static image, so it is drawn frame by frame on a timer
+        // that runs only while it plays (`CopiedFlash`).
 
         /// The whole animation, from the first frame back to rest.
-        static let menuBarCopy: TimeInterval = 1.5
-        /// Frames per second while it plays: smooth for small moves, 45 redraws per copy.
+        static let menuBarCopy: TimeInterval = 2.4
+        /// Frames per second while it plays: smooth for small moves, 72 redraws per copy.
         static let menuBarFrameRate: Double = 30
         /// Reduce Motion: the copied pose, held, with no movement.
         static let menuBarHold: TimeInterval = 1.4
@@ -119,7 +120,7 @@ enum Design {
 
         /// The success check bounces once as the new card slides in on the menu bar line
         /// (`Peg.Beat.slideIn`), so the two read as one event. Reduce Motion: no bounce.
-        static let successBounceDelay: Duration = .milliseconds(150)
+        static let successBounceDelay: Duration = .milliseconds(300)
         /// Faster than the system bounce, so the peak stays well under half a second.
         static let successBounceSpeed: Double = 1.5
 

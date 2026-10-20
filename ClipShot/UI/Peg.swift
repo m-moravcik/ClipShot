@@ -98,27 +98,33 @@ enum Peg {
 
     /// Beats of the copy animation, in seconds. It confirms the copy with some character:
     /// the peg opens, the last shot drops, the new one slides in along the line, gets pegged
-    /// with a squash, swings and bobs on the line, develops from the bottom and shows a
-    /// check; after a beat it fades back into a picture, at rest by `CopiedFlash.duration`.
+    /// with a clamp that lands with a little bounce, swings and bobs on the line, develops
+    /// from the bottom and shows a check, which holds; then it fades back into a picture, at
+    /// rest by `CopiedFlash.duration`. The pinning (slide, clamp, swing) is slow enough to
+    /// follow in the corner of the eye; the old shot's drop stays quick.
     enum Beat {
-        static let pegOpen = 0.0...0.08
-        static let oldDrop = 0.02...0.22
-        static let slideIn = 0.12...0.4
-        static let pegShut = 0.38...0.44
-        static let pegBite = 0.42...0.54
-        static let swing = 0.42...1.0
-        static let bob = 0.42...0.95
-        static let develop = 0.56...0.78
-        static let checkOn = 0.74...0.92
-        static let checkOff = 1.2...1.28
-        static let drain = 1.24...1.44
+        static let pegOpen = 0.0...0.14
+        static let oldDrop = 0.04...0.34
+        static let slideIn = 0.2...0.76
+        static let pegShut = 0.72...0.86
+        static let clampBounce = 0.84...1.2
+        static let swing = 0.84...1.9
+        static let bob = 0.84...1.8
+        static let develop = 1.0...1.3
+        static let checkOn = 1.26...1.5
+        static let checkOff = 2.0...2.1
+        static let drain = 2.04...2.3
     }
 
     static func pose(at t: TimeInterval) -> Pose {
         var p = Pose()
+        // Up to open, down to shut, then a little bounce as the clamp lands: it bites past
+        // its rest, squashing, and springs back.
+        let bounce = Curve.wobble(Curve.progress(t, Beat.clampBounce), cycles: 1.5)
         p.pegLift = 1.3 * Curve.easeOut(Curve.progress(t, Beat.pegOpen))
             * (1 - Curve.easeIn(Curve.progress(t, Beat.pegShut)))
-        p.pegSquash = 1 - 0.2 * Curve.bump(Curve.progress(t, Beat.pegBite))
+            - 0.9 * bounce
+        p.pegSquash = 1 - 0.3 * bounce
 
         let drop = Curve.progress(t, Beat.oldDrop)
         if drop < 1 {
