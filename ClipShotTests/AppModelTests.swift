@@ -382,8 +382,8 @@ struct AppModelTests {
         #expect(await eventually { await h.model.flashPhase == 1 })
         #expect(h.timers.count == 1)
         let timer = try #require(h.timer)
-        #expect(timer.interval == 0.1)
-        #expect(timer.tolerance == 0.025)
+        #expect(timer.interval == CopiedFlash.interval)
+        #expect(timer.tolerance == CopiedFlash.tolerance)
         #expect(h.model.iconState == .copied)
         timer.fire(5)
         #expect(h.model.flashPhase == 6)
@@ -427,7 +427,7 @@ struct AppModelTests {
         #expect(prefs.synchronizeCount == reads, "no poll reads the prefs after release")
     }
 
-    /// Reduce Motion: one 1.4 s timer instead of fourteen 0.1 s ticks. Its single tick ends
+    /// Reduce Motion: one 1.4 s timer instead of a tick per frame. Its single tick ends
     /// the hold; a copy during the hold starts the whole hold again on a fresh timer.
     @Test func reduceMotionFlashIsOneTimerThatTicksOnce() async throws {
         let h = try ModelHarness()
@@ -438,7 +438,7 @@ struct AppModelTests {
         #expect(await eventually { await h.model.flashPhase > 0 })
         let timer = try #require(h.timer)
         #expect(timer.interval == CopiedFlash.holdDuration)
-        #expect(CopiedFlash.opacity(phase: h.model.flashPhase, reduceMotion: true) == 1)
+        #expect(Peg.pose(state: .copied, phase: h.model.flashPhase, reduceMotion: true) == Peg.pose(.copied))
 
         try h.shoot("Screenshot 2.png", size: 18)
         #expect(await eventually { await h.timers.count == 2 })
@@ -451,8 +451,8 @@ struct AppModelTests {
         #expect(h.model.iconState == .idle)
     }
 
-    /// Reduce Motion on the real run loop: the copied symbol holds at full opacity for the
-    /// whole flash, the timer ticks once, and nothing ticks after the flash ends.
+    /// Reduce Motion on the real run loop: the copied pose holds, unmoving, for the whole
+    /// flash, the timer ticks once, and nothing ticks after the flash ends.
     @Test func reduceMotionFlashIsAPlainHoldAndNoTimerOutlivesIt() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }
@@ -472,7 +472,8 @@ struct AppModelTests {
         #expect(h.model.iconState == .idle)
         #expect(!phases.isEmpty)
         for phase in phases {
-            #expect(CopiedFlash.opacity(phase: phase, reduceMotion: true) == 1, "phase \(phase) is not a plain hold")
+            #expect(Peg.pose(state: .copied, phase: phase, reduceMotion: true) == Peg.pose(.copied),
+                    "phase \(phase) is not a plain hold")
         }
         // The flash ended by the timer's own tick, and the model invalidated it then: the
         // count is exact however late the run loop fired it.
@@ -481,6 +482,34 @@ struct AppModelTests {
         #expect(ticks.count == 1, "one tick ends the hold")
         try? await Task.sleep(for: .milliseconds(400))
         #expect(ticks.count == 1, "no timer runs after the flash ends")
+    }
+
+    /// The copy animation on the real run loop: one timer at the frame rate, one tick per
+    /// frame, the last tick ends it about `duration` after the copy, and nothing ticks after.
+    @Test func copyAnimationTicksOncePerFrameAndNoTimerOutlivesIt() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        h.systemFlashTimers = true
+        #expect(await h.start())
+        try h.shoot("Screenshot 1.png")
+        #expect(await eventually { await h.model.flashPhase > 0 })
+        let started = Date()
+        #expect(!h.model.flashReduceMotion)
+        let deadline = Date().addingTimeInterval(6)
+        while h.model.flashPhase != 0, Date() < deadline {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        let elapsed = Date().timeIntervalSince(started)
+        #expect(h.model.flashPhase == 0)
+        #expect(h.model.iconState == .idle)
+        #expect(elapsed > CopiedFlash.duration * 0.8, "ran \(elapsed) s")
+        // Phase 1 is drawn on the copy; the timer ticks for each later frame and once more to
+        // end it. The count is exact however late the run loop fired.
+        let ticks = try #require(h.systemFlashTicks.first)
+        #expect(h.systemFlashTicks.count == 1, "one timer for the whole animation")
+        #expect(ticks.count == CopiedFlash.steps - 1)
+        try? await Task.sleep(for: .milliseconds(300))
+        #expect(ticks.count == CopiedFlash.steps - 1, "no timer runs after the animation ends")
     }
 
     @Test func releasedSystemFlashTimerStopsTicking() async {

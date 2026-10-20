@@ -230,10 +230,10 @@ struct OnboardingTests {
                 "no copy: the popover reappearing, an attention clearing")
         #expect(!TrySuccessMotion.bounces(copiesBefore: 0, copiesNow: 1, showsResult: false, reduceMotion: false))
         #expect(!TrySuccessMotion.bounces(copiesBefore: 0, copiesNow: 1, showsResult: true, reduceMotion: true))
-        // It lands as the flash finishes fading in.
+        // It lands as the new card slides in on the menu bar line.
         let delay = Double(Design.Motion.successBounceDelay.components.attoseconds) / 1e18
             + Double(Design.Motion.successBounceDelay.components.seconds)
-        #expect(delay > 0 && delay < CopiedFlash.interval * 3)
+        #expect(Peg.Beat.slideIn.contains(delay))
         #expect(Design.Motion.successBounceSpeed > 1, "faster than the system bounce, so it stays short")
     }
 

@@ -1,19 +1,24 @@
 import Foundation
 
-/// Phase counter for the "screenshot copied" flash in the menu bar icon.
+/// Phase counter for the menu bar copy animation (`Peg.pose(at:)`).
 ///
 /// A MenuBarExtra label is a static image, so the icon is redrawn by a timer that calls
-/// `tick()` every `interval` seconds. Phase 0 is off, 1-3 fade in, 4-11 hold, 12-15 fade
-/// out. The 15th tick is the end of the flash and reports 0.
+/// `tick()` every `interval` seconds, and only while the animation plays. Phase 0 is off;
+/// phases 1...`steps - 1` are the frames, phase `p` at `time(phase:)` seconds; the tick
+/// after the last frame ends the animation and reports 0, `duration` after the first.
 ///
-/// With Reduce Motion there is nothing to animate: the first phase is a plain hold, and a
-/// single tick after `holdDuration` ends it, so the menu bar is not redrawn 14 times with
-/// the same picture.
+/// With Reduce Motion there is nothing to animate: the first phase is a plain hold of the
+/// copied pose, and a single tick after `holdDuration` ends it, so the menu bar is not
+/// redrawn 45 times with the same picture.
 struct CopiedFlash: Sendable {
-    static let steps = 15
-    static let interval = 0.1
-    /// The whole flash, `interval` times the 14 phases after the first.
-    static let holdDuration = 1.4
+    static let frameRate = Design.Motion.menuBarFrameRate
+    static let interval = 1 / frameRate
+    static let duration = Design.Motion.menuBarCopy
+    /// Ticks in one animation, counting the one that ends it.
+    static let steps = Int((duration * frameRate).rounded()) + 1
+    static let holdDuration = Design.Motion.menuBarHold
+    /// Lets the system coalesce the timer by a fraction of a frame, never by a whole one.
+    static let tolerance = interval / 8
 
     let reduceMotion: Bool
     private var ticks = 0
@@ -37,19 +42,8 @@ struct CopiedFlash: Sendable {
         return phase
     }
 
-    /// Opacity of the copied symbol. With Reduce Motion it is on or off, no fades.
-    static func opacity(phase: Int, reduceMotion: Bool = false) -> Double {
-        guard phase > 0, phase < steps else { return 0 }
-        if reduceMotion { return 1 }
-        switch phase {
-        case 1...3: return eased(Double(phase) / 4)
-        case 4...11: return 1
-        default: return eased(1 - Double(phase - 11) / 4)
-        }
-    }
-
-    /// Eject Guard's breath curve: 0.5 - 0.5 cos(pi u), 0 at u = 0 and 1 at u = 1.
-    private static func eased(_ u: Double) -> Double {
-        0.5 - 0.5 * cos(Double.pi * u)
+    /// Seconds into the animation at which phase `phase` is drawn; phase 1 is the start.
+    static func time(phase: Int) -> TimeInterval {
+        Double(max(0, phase - 1)) / frameRate
     }
 }

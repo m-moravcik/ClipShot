@@ -100,13 +100,25 @@ enum Design {
         /// Move to Trash: shrink and drop, accelerating like something falling.
         static let dropDuration: TimeInterval = 0.24
         static let drop: Animation = .easeIn(duration: dropDuration)
-        /// Moments after the copy the badge bounces, with the menu bar flash.
+        /// Moments after the copy the badge bounces, with the menu bar animation.
         static let badgeDelay: Duration = .milliseconds(120)
+
+        // The menu bar copy animation (`Peg`): every copy confirms itself in the menu bar,
+        // playful and clearly noticeable, and still over in 1.5 s. A MenuBarExtra label is
+        // a static image, so it is drawn frame by frame on a timer that runs only while it
+        // plays (`CopiedFlash`).
+
+        /// The whole animation, from the first frame back to rest.
+        static let menuBarCopy: TimeInterval = 1.5
+        /// Frames per second while it plays: smooth for small moves, 45 redraws per copy.
+        static let menuBarFrameRate: Double = 30
+        /// Reduce Motion: the copied pose, held, with no movement.
+        static let menuBarHold: TimeInterval = 1.4
 
         // The tour's Try it: the first real copy is the strongest moment in the app.
 
-        /// The success check bounces once as the menu bar flash fades in (its first three
-        /// phases, 0.3 s), so the two read as one event. Reduce Motion: no bounce.
+        /// The success check bounces once as the new card slides in on the menu bar line
+        /// (`Peg.Beat.slideIn`), so the two read as one event. Reduce Motion: no bounce.
         static let successBounceDelay: Duration = .milliseconds(150)
         /// Faster than the system bounce, so the peak stays well under half a second.
         static let successBounceSpeed: Double = 1.5

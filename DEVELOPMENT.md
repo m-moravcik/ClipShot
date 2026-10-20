@@ -102,9 +102,11 @@ keeps it in the ledger (`ScreenshotLedger.followEdit`).
 Every animation has a job (confirm the copy, show where a screenshot went,
 connect two states), uses springs, and settles within about 0.45 s. The tokens
 live in `Design.Motion`. With Reduce Motion every transition is an opacity
-crossfade. The menu bar "copied" flash is driven by a timer, because a
-`MenuBarExtra` label is rendered to a static image and symbol effects never run
-there.
+crossfade. The menu bar copy animation is the one longer moment (1.5 s,
+`Design.Motion.menuBarCopy`): a `MenuBarExtra` label reaches the status item as
+a static image and symbol effects never run there (spike F-menubar-anim), so it
+is drawn frame by frame by a 30 fps timer that runs only while it plays. With
+Reduce Motion it is a plain 1.4 s hold of the copied pose on a single timer.
 
 ## The ledger and retention
 
@@ -151,17 +153,27 @@ bundles and system locations.
 
 ## The menu bar icon
 
-Template SF Symbols with a distinct shape per state, in a fixed 22 x 16 pt frame
-so the status item never changes width and the menu bar never scales it down:
+ClipShot's own symbol, Peg: a picture pegged on a line, drawn in `UI/Peg.swift`
+with Core Graphics as one template image per pose, in a fixed 22 x 16 pt frame
+so the status item never changes width and the menu bar never scales it down.
+Each state has its own silhouette:
 
 | | |
 |---|---|
-| `camera.viewfinder` | Copying on. |
-| `checkmark.circle` | A copy just landed; it crossfades in and out over 1.5 s (a plain 1.4 s hold with Reduce Motion). |
-| `pause.rectangle` | Copying is off. |
-| `exclamationmark.triangle` | Something needs fixing. |
+| The picture on the line | Copying on. |
+| A solid card with a check | A copy just landed. |
+| A dashed, empty card | Copying is off. |
+| A tilted card with "!" | Something needs fixing. |
 
-`scripts/screenshots.sh` renders every state and every flash phase
+On every copy the peg opens, the last shot drops, the new one slides in along
+the line, gets pegged with a squash, swings and bobs, develops from the bottom
+and shows the check, then turns back into the picture: 45 frames in 1.5 s
+(`Peg.pose(at:)`, driven by `CopiedFlash`). With Reduce Motion the copied card
+is held for 1.4 s, no movement. The idle glyph is as tall as VibeRes's, no
+wider than Eject Guard's drive and drawn in the same stroke weight; tests pin
+all three.
+
+`scripts/screenshots.sh` renders every state and every frame of the animation
 (`menubar-states.png`), and the optical size next to VibeRes and Eject Guard
 (`menubar-optical-size.png`).
 
@@ -345,7 +357,7 @@ Swift Testing. Pure logic is tested; views are not, except their layout rules. T
 | `PreviewModeTests`, `EditSessionTests`, `TrashTests` | The mode follows the system thumbnail; the Markup exemption; only ledger files in the watched folder go to the Trash, and Undo puts them back. |
 | `UpdaterGateTests`, `SparkleConfigurationTests` | Ad-hoc and Homebrew copies never self-update; the feed and key are what releases expect. |
 | `LocalisationTests` | The l10n gate fails on the broken catalogs in `ClipShotTests/Fixtures/l10n`. |
-| `StatusIconStateTests`, `PopoverLayoutTests` | The menu bar label is never scaled and fits its frame; the popover's bottom soft scroll edge. |
+| `StatusIconStateTests`, `CopiedFlashTests`, `PopoverLayoutTests` | The menu bar label is never scaled and fits its frame; every state has its own silhouette; Peg matches the siblings' height, width and stroke; the copy animation starts and ends at rest, one timer tick per frame and none after; Reduce Motion holds the copied pose; the popover's bottom soft scroll edge. |
 
 Tests never touch real preferences (`make guards` refuses `UserDefaults` in
 tests) and use temporary folders.

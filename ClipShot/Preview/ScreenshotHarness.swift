@@ -1066,9 +1066,9 @@ private struct HeroScene: View {
     }
 }
 
-/// Every menu bar state and every phase of the copied flash, at 1x and 2x, on
-/// light and dark menu bars and on two wallpapers. The glyphs are drawn as the menu bar
-/// draws a template image: one colour, only the opacity varies.
+/// Every menu bar state and every frame of the copy animation, at 1x and 2x, on light and
+/// dark menu bars and on two wallpapers. The glyphs are drawn as the menu bar draws a
+/// template image: one colour, only the opacity varies.
 private struct MenuBarStatesSheet: View {
     private struct Cell: Identifiable {
         let id: String
@@ -1094,8 +1094,8 @@ private struct MenuBarStatesSheet: View {
             Cell(id: "copied-rm", title: "copied", detail: "Reduce Motion", state: .copied, phase: 1, reduceMotion: true),
         ]
         for phase in 1..<CopiedFlash.steps {
-            let percent = Int((CopiedFlash.opacity(phase: phase) * 100).rounded())
-            cells.append(Cell(id: "p\(phase)", title: "\(phase)", detail: "\(percent)%", state: .copied, phase: phase))
+            let time = String(format: "%.2f s", CopiedFlash.time(phase: phase))
+            cells.append(Cell(id: "p\(phase)", title: "\(phase)", detail: time, state: .copied, phase: phase))
         }
         cells.append(Cell(id: "end", title: "\(CopiedFlash.steps)", detail: "end", state: .idle, phase: 0))
         return cells
@@ -1124,11 +1124,11 @@ private struct MenuBarStatesSheet: View {
         let frame = StatusIconArt.frame
         let idle = glyph(Cell(id: "idle", title: "", detail: "", state: .idle, phase: 0), color: .black, scale: 1)
         let ink = GlyphInk.size(idle)
-        return "ClipShot menu bar states - \(Int(StatusIconArt.glyphSize)) pt template symbol (idle: \(ink.width) x \(ink.height) px at 1x) "
+        return "ClipShot menu bar states - Peg, a template image (idle: \(ink.width) x \(ink.height) px at 1x) "
             + "in a fixed \(Int(frame.width)) x \(Int(frame.height)) pt frame, the height the menu bar draws unscaled"
     }()
 
-    private static let column: CGFloat = 52
+    private static let column: CGFloat = 72
     /// The sheet renders at 2x for legible labels; glyph images are framed at their pixel
     /// size divided by this, so each glyph pixel is one sheet pixel.
     static let scale: CGFloat = 2
@@ -1137,7 +1137,7 @@ private struct MenuBarStatesSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(verbatim: Self.title)
                 .font(.system(size: 15, weight: .semibold))
-            Text(verbatim: "Order: idle, paused, attention, copied with Reduce Motion; then the copied flash phases 1-14 (opacity of the check, the camera fades out as it fades in) and 15 = end, back to idle. Zoom rows are the 1x pixels enlarged 3x.")
+            Text(verbatim: "Order: idle, paused, attention, copied (held as is with Reduce Motion); then every frame of the \(String(format: "%.1f", CopiedFlash.duration)) s copy animation at \(Int(CopiedFlash.frameRate)) fps (frame, seconds in) and the end, back to idle. Zoom rows are the 1x pixels enlarged 3x.")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1221,15 +1221,16 @@ private struct MenuBarOpticalSheet: View {
     static let scale = GlyphInk.scale
 
     private static func groups(_ color: Color) -> [Cluster] {
-        let states: [(String, StatusIconState, Int)] = [
-            ("idle", .idle, 0), ("paused", .paused, 0), ("attention", .attention, 0), ("copied", .copied, 6),
+        let states: [(String, StatusIconState)] = [
+            ("idle", .idle), ("paused", .paused), ("attention", .attention), ("copied", .copied),
         ]
         return [
-            Cluster(id: "ClipShot before (22 x 18 pt label)", items: states.map { name, state, phase in
-                item(name, StatusIconArt(state: state, phase: phase).frame(width: 22, height: 18), color)
-            }),
-            Cluster(id: "ClipShot now (22 x 16 pt label)", items: states.map { name, state, phase in
-                item(name, StatusIconArt(state: state, phase: phase), color)
+            Cluster(id: "ClipShot before (SF Symbol, 15 pt)", items: [
+                item("camera.\nviewfinder", Image(systemName: "camera.viewfinder").font(.system(size: 15))
+                    .frame(width: 22, height: 16), color),
+            ]),
+            Cluster(id: "ClipShot now: Peg (22 x 16 pt label)", items: states.map { name, state in
+                item(name, StatusIconArt(state: state, phase: 0), color)
             }),
             Cluster(id: "VibeRes", items: [
                 item("rectangle.on.\nrectangle.angled", Image(systemName: "rectangle.on.rectangle.angled"), color),
@@ -1254,7 +1255,7 @@ private struct MenuBarOpticalSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(verbatim: "Menu bar optical size - ClipShot beside VibeRes and Eject Guard")
                 .font(.system(size: 15, weight: .semibold))
-            Text(verbatim: "Each label is rendered at 2x and, when taller than 16 pt, scaled down to 16 pt as the menu bar does (the 22 x 18 pt label came out at 16/18 on a real menu bar). One glyph pixel per sheet pixel. Numbers: ink box in 2x pixels.")
+            Text(verbatim: "Each label is rendered at 2x and, when taller than 16 pt, scaled down to 16 pt as the menu bar does (a 22 x 18 pt label came out at 16/18 on a real menu bar). One glyph pixel per sheet pixel. Numbers: ink box in 2x pixels.")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

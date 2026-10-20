@@ -11,7 +11,6 @@ import Observation
 @MainActor
 @Observable
 final class AppModel {
-    static let flashTolerance: TimeInterval = 0.025
     static let markupTipAfterCopies = 3
     static let previewDebounce: Duration = .milliseconds(300)
     nonisolated static let defaultUndoLifetime: Duration = .seconds(5)
@@ -476,7 +475,7 @@ final class AppModel {
         if flashTimer == nil {
             flashReduceMotion = reduceMotion()
             flash = CopiedFlash(reduceMotion: flashReduceMotion)
-            flashTimer = makeFlashTimer(flash.timerInterval, Self.flashTolerance) { [weak self] in
+            flashTimer = makeFlashTimer(flash.timerInterval, CopiedFlash.tolerance) { [weak self] in
                 self?.tickFlash()
             }
         }

@@ -56,6 +56,11 @@ xcodegen generate >/dev/null
 xcodebuild -project ClipShot.xcodeproj -scheme ClipShot -configuration Debug \
     -destination 'platform=macOS' -derivedDataPath "$DERIVED" \
     CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO -quiet build
+# Icon Services caches an app's icon per bundle and keeps handing the old one to
+# NSWorkspace.icon(forFile:) and applicationIconImage after the icon changes, until the
+# bundle is registered again. Without this, icon.png and the tour kept the previous icon.
+touch "$APP"
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP"
 
 failed=()
 for LANG_CODE in "${LANGS[@]}"; do

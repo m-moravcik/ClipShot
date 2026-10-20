@@ -22,51 +22,35 @@ enum StatusIconState: Equatable, CaseIterable, Sendable {
 }
 
 /// The drawing, with nothing to observe, so it can be rendered offscreen and reviewed.
-/// Template image: only opacity varies, never colour. The copied state crossfades from
-/// the idle symbol to the copied one by `phase` (see `CopiedFlash`).
 ///
-/// Each state has its own outline, so it reads without colour and at a glance: the
-/// capture corners (idle, the app icon's marquee and the Screenshot app's camera), a
-/// circle (copied), a wide rounded rectangle (paused) and a triangle (attention).
+/// ClipShot's own symbol, `Peg`: a picture pegged on a line. Each state has its own
+/// silhouette, so it reads without colour and at a glance: the picture (idle), a solid card
+/// with a check (copied), a dashed empty card (paused) and a tilted card with "!"
+/// (attention). While copied, `phase` picks the frame of the copy animation
+/// (`CopiedFlash`); with Reduce Motion the copied pose is held as is.
+///
+/// One template image per pose: the label stays a plain `Image`, which a MenuBarExtra
+/// draws as is, tinted like any template image.
 struct StatusIconArt: View {
     let state: StatusIconState
     let phase: Int
     var reduceMotion = false
 
-    static let glyphSize: CGFloat = 15
     /// The tallest label the menu bar draws at its own size. MenuBarExtra rasterises a label
     /// that is more than a plain `Image` and scales it down proportionally to this height:
-    /// a 22 x 18 pt label came out at 16/18 of its size, with the viewfinder 25 px tall at
-    /// 2x instead of 29, next to VibeRes's and Eject Guard's 24-27 px (measured on a real
-    /// menu bar capture, macOS 27, 2026-10-19).
+    /// a 22 x 18 pt label came out at 16/18 of its size (measured on a real menu bar
+    /// capture, macOS 27, 2026-10-19).
     static let menuBarHeight: CGFloat = 16
-    /// Wide enough for the widest symbol (`pause.rectangle`, 21.5 pt at 15 pt), so the
-    /// status item never changes width between states and nothing beside it shifts. No
-    /// taller than `menuBarHeight`, so nothing scales the glyph down; the tallest symbol
-    /// (`checkmark.circle`, 15 pt at 15 pt) still fits.
-    static let frame = CGSize(width: 22, height: menuBarHeight)
+    /// Peg's canvas: no taller than `menuBarHeight`, so nothing scales the glyph down, and
+    /// the same in every state and frame, so the status item never changes width.
+    static let frame = Peg.canvas
 
-    nonisolated static func symbol(for state: StatusIconState) -> String {
-        switch state {
-        case .idle: "camera.viewfinder"
-        case .copied: "checkmark.circle"
-        case .paused: "pause.rectangle"
-        case .attention: "exclamationmark.triangle"
-        }
-    }
+    var pose: Peg.Pose { Peg.pose(state: state, phase: phase, reduceMotion: reduceMotion) }
 
     var body: some View {
-        let copied = state == .copied
-        let o = CopiedFlash.opacity(phase: phase, reduceMotion: reduceMotion)
-        ZStack {
-            Image(systemName: Self.symbol(for: copied ? .idle : state))
-                .opacity(copied ? 1 - o : 1)
-            if copied {
-                Image(systemName: Self.symbol(for: .copied)).opacity(o)
-            }
-        }
-        .font(.system(size: Self.glyphSize))
-        .frame(width: Self.frame.width, height: Self.frame.height)
+        Image(nsImage: Peg.image(pose))
+            .renderingMode(.template)
+            .frame(width: Self.frame.width, height: Self.frame.height)
     }
 }
 
