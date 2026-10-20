@@ -1,0 +1,39 @@
+# F16: defaults import merges instead of replacing.
+# 1. Backup taken before the spike: defaults export com.apple.screencapture screencapture-before.plist; plutil -p
+{
+  "last-analytics-stamp" => 813592784.937483
+  "location" => "~/Pictures/Screenshots"
+  "location-screenrecording" => "~/Pictures/Screenshots"
+  "location-screenshot" => "~/Pictures/Screenshots"
+  "show-thumbnail" => true
+  "style" => "selection"
+  "target" => "file"
+  "target-screenrecording" => "file"
+  "target-screenshot" => "file"
+  "video" => true
+  "visual-intelligence-active" => false
+}
+
+# 2. After: defaults import com.apple.screencapture screencapture-before.plist (exit 0), then
+#    diff <(plutil -p before) <(plutil -p after-import)  (transcribed verbatim from the session console;
+#    the after-import export was overwritten by step 4)
+2a3,9
+>   "last-selection" => {
+>     "Height" => 876.75
+>     "Width" => 1350
+>     "X" => 225
+>     "Y" => 146.125
+>   }
+>   "last-selection-display" => 0
+3a11
+>   "location-last" => "~/Documents/"
+10a19
+>   "type" => "png"
+
+# 3. for k in last-selection last-selection-display location-last type; do defaults delete com.apple.screencapture $k; done
+
+# 4. defaults export com.apple.screencapture screencapture-final.plist; diff <(plutil -p before) <(plutil -p final)
+(no differences)
+
+# 5. Re-checked read-only on 2026-10-19 17:14 +0200: defaults export now vs backup
+(no differences)

@@ -1,0 +1,7 @@
+# F15: same probe binary run directly from the terminal (TCC responsible process = the terminal app,
+# already granted Desktop access). Re-run on 2026-10-19 17:14 +0200; the earlier run in the session printed the same timings.
+$ swiftc -O scripts/spike/tccprobe.swift -o tccprobe-cli && ./tccprobe-cli /dev/stdout
+   0.000s [main] start pid=57721 folder=~/Desktop
+   0.000s [bg] open(O_EVTONLY) -> fd=4 errno=0 (ok) after 0.000s
+   0.002s [bg] contentsOfDirectory -> 5 items after 0.001s
+   0.502s [main] finished

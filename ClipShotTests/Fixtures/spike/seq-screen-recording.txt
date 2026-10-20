@@ -1,0 +1,3 @@
+      0.0ms KQ ~/Pictures/Screenshots/clipshot-spike/rec mask=2
+     -3.4ms NEW     Screen Recording 2026-10-19 at 17.00.38.mov birth= -11623.1ms mtime=  -5606.0ms size=16366570 isCap=0 capType=0 xattrs=["FinderInfo"]
+      6.5ms CHANGED Screen Recording 2026-10-19 at 17.00.38.mov birth= -11623.1ms mtime=  -5606.0ms size=16366570 isCap=0 capType=1 xattrs=["FinderInfo", "lastuseddate#PS", "md:kMDItemIsScreenRecording", "md:kMDItemScreenCaptureGlobalRect", "md:kMDItemScreenCaptureType"]

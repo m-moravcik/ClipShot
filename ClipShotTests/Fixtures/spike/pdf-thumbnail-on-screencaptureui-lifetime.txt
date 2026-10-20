@@ -1,0 +1,9 @@
+# F2: PDF with show-thumbnail=1, display capture retry. Transcribed verbatim from the session console.
+# Columns: CLOCK_REALTIME ns, screencaptureui pid (0 = not running), its on-screen windows (spikewindows).
+1792421476.560518000 CAP display pdf retry
+1792421477201632000 pid=56440 onscreen=1 [owner=Screenshot layer=24 w=1802 h=1171]
+1792421477755265000 pid=56440 onscreen=1 [owner=Screenshot layer=24 w=1800 h=1169]
+1792421482218619000 pid=0 onscreen=0
+# Then: ls caps | grep -c pdf -> 0; no new file in ~/Library/Logs/DiagnosticReports; the watcher
+# (raw-watch-2-all.log) logged no POLL or KQ line between 1792421476 and 1792421573 (only late FSEvents
+# deliveries for files created at 16:46-16:47).

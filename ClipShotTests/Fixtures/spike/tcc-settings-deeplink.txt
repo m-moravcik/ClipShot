@@ -1,0 +1,10 @@
+# F15: Privacy deep link. Transcribed verbatim from the session console (not saved to a file at the time).
+$ pgrep -l -x "System Settings"; echo "before=$?"
+before=1
+$ open "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders"; sleep 3; pgrep -l -x "System Settings"
+37329 System Settings
+$ spikeax dump 37329 6 | grep -E "AXWindow|AXStaticText|AXHeading" | head -15
+1  AXWindow 'Files & Folders' '' v='' (3371,154 740x625)
+24   AXStaticText '' '' v='Files & Folders' (3688,154 411x52)
+$ osascript -e 'tell application "System Settings" to quit'; sleep 1; pgrep -l -x "System Settings"; echo "quit rc(pgrep)=$?"
+quit rc(pgrep)=1

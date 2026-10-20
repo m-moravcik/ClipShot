@@ -1,0 +1,6 @@
+      0.0ms KQ ~/Pictures/Screenshots/clipshot-spike/flow mask=2
+     -1.0ms NEW     .Screenshot 2026-10-19 at 16.58.19.png birth=     -0.0ms mtime=      0.1ms size=40927 isCap=0 capType=0 xattrs=["FinderInfo"]
+      1.7ms KQ ~/Pictures/Screenshots/clipshot-spike/flow mask=2
+      1.0ms NEW     Screenshot 2026-10-19 at 16.58.19.png birth=     -0.0ms mtime=      0.1ms size=40927 isCap=0 capType=0 xattrs=["FinderInfo", "lastuseddate#PS"]
+      1.0ms POLL GONE ~/Pictures/Screenshots/clipshot-spike/flow/.Screenshot 2026-10-19 at 16.58.19.png
+      3.0ms CHANGED Screenshot 2026-10-19 at 16.58.19.png birth=     -0.0ms mtime=      0.1ms size=40927 isCap=1 capType=1 xattrs=["FinderInfo", "lastuseddate#PS", "md:kMDItemIsScreenCapture", "md:kMDItemScreenCaptureGlobalRect", "md:kMDItemScreenCaptureType"]

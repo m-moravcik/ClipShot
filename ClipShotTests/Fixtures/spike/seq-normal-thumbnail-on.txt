@@ -1,0 +1,7 @@
+      0.0ms NEW     .Screenshot 2026-10-19 at 16.36.11.png birth=     -0.1ms mtime=      0.4ms size=4016220 isCap=0 capType=0 xattrs=[]
+      2.9ms CHANGED .Screenshot 2026-10-19 at 16.36.11.png birth=     -0.1ms mtime=      0.4ms size=4016220 isCap=0 capType=0 xattrs=["FinderInfo"]
+      4.4ms NEW     Screenshot 2026-10-19 at 16.36.11.png birth=     -0.1ms mtime=      0.4ms size=4016220 isCap=0 capType=0 xattrs=["FinderInfo", "lastuseddate#PS"]
+      4.4ms POLL GONE ~/Pictures/Screenshots/clipshot-spike/r2/.Screenshot 2026-10-19 at 16.36.11.png
+      6.2ms CHANGED Screenshot 2026-10-19 at 16.36.11.png birth=     -0.1ms mtime=      0.4ms size=4016220 isCap=1 capType=1 xattrs=["FinderInfo", "lastuseddate#PS", "md:kMDItemIsScreenCapture", "md:kMDItemScreenCaptureGlobalRect", "md:kMDItemScreenCaptureType"]
+     11.9ms NEW     Screenshot 2026-10-19 at 16.36.11 (2).png birth=     11.1ms mtime=     11.4ms size=1592866 isCap=0 capType=0 xattrs=["FinderInfo"]
+     14.3ms CHANGED Screenshot 2026-10-19 at 16.36.11 (2).png birth=     11.1ms mtime=     11.4ms size=1592866 isCap=1 capType=1 xattrs=["FinderInfo", "lastuseddate#PS", "md:kMDItemIsScreenCapture", "md:kMDItemScreenCaptureGlobalRect", "md:kMDItemScreenCaptureType"]

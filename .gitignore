@@ -1,2 +1,33 @@
 .superpowers/
 .DS_Store
+
+# Build / signing / tooling
+build/
+build-localisation/
+DerivedData/
+*.xcodeproj/
+*.xcuserstate
+xcuserdata/
+.build/
+.swiftpm/
+# Package.resolved at the root is committed: it pins Sparkle's revision.
+.release.env
+artifacts/
+*.app.zip
+*.dmg
+notarization-*.json
+*.p12
+*.p8
+*.cer
+sparkle_ed25519.key
+__pycache__/
+# Coverage profiles the instrumented Debug build drops where it runs
+*.profraw
+
+# Local agent / audit artefacts
+.claude/
+icon-build/
+.env*
+*.pem
+*audit*.md
+!README.md

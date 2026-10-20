@@ -1,0 +1,255 @@
+import CoreGraphics
+import Observation
+import SwiftUI
+
+/// One screenshot in the floating preview stack.
+struct PreviewItem: Identifiable, Equatable {
+    /// How a preview leaves, which picks its exit motion.
+    enum Exit: Equatable {
+        /// Its 5 s are up, or a fourth preview pushed it out.
+        case timeout
+        /// Swiped towards the screen edge; it is already off screen.
+        case swipe
+        /// Moved to the Trash: it shrinks and drops.
+        case trash
+        /// Close, or dragged into another app.
+        case close
+    }
+
+    let id: UUID
+    let file: CaptureFile
+    /// The decoded preview image; nil for a file that could not be decoded.
+    let image: CGImage?
+    /// Further displays of the same multi-display capture (spike F3), shown as "+N".
+    var extraDisplays = 0
+    /// Set just before the item is removed, so the view picks the matching transition.
+    var exit: Exit?
+    /// Moved to the Trash from this preview: it shows "Moved to the Trash" and Undo in
+    /// place of the picture while the model's Undo for it lasts.
+    var trashed = false
+    /// An action on this preview failed: what to say, in place of the Copied badge.
+    var failure: ScreenshotActionFailure?
+
+    static func == (a: PreviewItem, b: PreviewItem) -> Bool {
+        a.id == b.id && a.file == b.file && a.image === b.image
+            && a.extraDisplays == b.extraDisplays && a.exit == b.exit
+            && a.trashed == b.trashed && a.failure == b.failure
+    }
+}
+
+/// ClipShot's floating previews (spec Addendum A2): which are on screen, how long each stays,
+/// and how each leaves. The panel and the views only draw this; the rules live here so they
+/// are tested.
+///
+/// Newest last: the view stacks them top to bottom, so the newest sits at the bottom and older
+/// ones move up. At most three; a fourth pushes the oldest out. Each stays `lifetime`, paused
+/// while the pointer is over it.
+@MainActor
+@Observable
+final class FloatingPreviews {
+    static let maxVisible = 3
+    nonisolated static let defaultLifetime: Duration = .seconds(5)
+    /// After the pointer leaves, a preview stays at least this long, so it does not vanish
+    /// the moment the pointer moves off it.
+    static let afterHover: Duration = .milliseconds(1_500)
+    /// Between marking a preview as leaving and removing it: one frame, so the view has drawn
+    /// the exit it should animate.
+    static let exitHandOff: Duration = .milliseconds(20)
+
+    private(set) var items: [PreviewItem] = []
+
+    /// The previews on screen, without the ones already leaving.
+    var visible: [PreviewItem] { items.filter { $0.exit == nil } }
+
+    /// The screenshot whose image ClipShot last put on the clipboard, while it is still
+    /// there; nil once something else is (the model keeps it). Only its preview says
+    /// "Copied" (U9).
+    var clipboardFile: CaptureFile?
+
+    /// Whether `file` is the screenshot on the clipboard now. The one owner comparison: the
+    /// popover's rows (Copy or Copy again) and the previews (the Copied badge, the hover's
+    /// Copy again) all ask here, so they never disagree.
+    func isOnClipboard(_ file: CaptureFile) -> Bool {
+        guard let copied = clipboardFile else { return false }
+        return Self.sameFile(copied, file)
+    }
+
+    /// The same file: by its resource ID (device and inode), so `/var` and `/private/var`, a
+    /// trailing slash or a rename all agree, and a file replaced under the same name does
+    /// not; by the standardized path only when either has no ID.
+    nonisolated static func sameFile(_ a: CaptureFile, _ b: CaptureFile) -> Bool {
+        if !a.resourceID.isEmpty, !b.resourceID.isEmpty { return a.resourceID == b.resourceID }
+        return a.url.standardizedFileURL.path == b.url.standardizedFileURL.path
+    }
+
+    /// Whether `item` is the screenshot on the clipboard now: it says Copied.
+    func showsCopied(_ item: PreviewItem) -> Bool {
+        !item.trashed && isOnClipboard(item.file)
+    }
+
+    /// Whether preview `id`, under the pointer, offers Copy again: its screenshot is not the
+    /// one on the clipboard, whatever is (another screenshot, or another app's copy).
+    func offersCopyAgain(_ id: UUID) -> Bool {
+        guard let item = items.first(where: { $0.id == id }), item.exit == nil, !item.trashed else { return false }
+        return !showsCopied(item)
+    }
+
+    /// Called after `items` changed, so the panel can show or hide itself.
+    @ObservationIgnored var onChange: (() -> Void)?
+
+    @ObservationIgnored private let lifetime: Duration
+    @ObservationIgnored private let clock: any TimerClock
+    /// When each preview on its own clock leaves, on `clock`.
+    @ObservationIgnored private var deadlines: [UUID: Duration] = [:]
+    /// Time left for previews under the pointer; their clock is stopped.
+    @ObservationIgnored private var paused: [UUID: Duration] = [:]
+    /// Later displays seen before the main display's preview was ready.
+    @ObservationIgnored private var pendingExtras: [CaptureFile] = []
+    @ObservationIgnored private var timer: Task<Void, Never>?
+
+    init(lifetime: Duration = defaultLifetime, clock: any TimerClock = SystemTimerClock()) {
+        self.lifetime = lifetime
+        self.clock = clock
+    }
+
+    isolated deinit {
+        timer?.cancel()
+    }
+
+    func show(_ file: CaptureFile, image: CGImage?) {
+        if items.contains(where: { $0.file == file && $0.exit == nil }) { return }
+        var item = PreviewItem(id: UUID(), file: file, image: image)
+        let extras = pendingExtras.filter { Self.sameCapture(main: file, extra: $0) }
+        pendingExtras.removeAll { Self.sameCapture(main: file, extra: $0) }
+        item.extraDisplays = extras.count
+        let overflow = visible.count - Self.maxVisible + 1
+        if overflow > 0 {
+            for old in visible.prefix(overflow) { dismiss(old.id, .timeout) }
+        }
+        items.append(item)
+        deadlines[item.id] = clock.now + lifetime
+        reschedule()
+        onChange?()
+    }
+
+    /// A later display of a capture: counted on its main display's preview.
+    func addExtraDisplay(_ file: CaptureFile) {
+        if let index = items.lastIndex(where: { $0.exit == nil && Self.sameCapture(main: $0.file, extra: file) }) {
+            items[index].extraDisplays += 1
+            return
+        }
+        pendingExtras.removeAll { file.created.timeIntervalSince($0.created) > 10 }
+        pendingExtras.append(file)
+    }
+
+    /// The pointer entered or left a preview: its clock stops, then resumes.
+    func setHovering(_ id: UUID, _ hovering: Bool) {
+        if hovering {
+            guard let deadline = deadlines[id] else { return }
+            paused[id] = max(deadline - clock.now, .zero)
+            deadlines[id] = nil
+        } else {
+            guard let left = paused.removeValue(forKey: id) else { return }
+            deadlines[id] = clock.now + max(left, Self.afterHover)
+        }
+        reschedule()
+    }
+
+    func dismiss(_ id: UUID, _ exit: PreviewItem.Exit) {
+        guard let index = items.firstIndex(where: { $0.id == id }), items[index].exit == nil else { return }
+        items[index].exit = exit
+        deadlines[id] = nil
+        paused[id] = nil
+        reschedule()
+        Task { [weak self] in
+            try? await Task.sleep(for: Self.exitHandOff)
+            self?.remove(id)
+        }
+    }
+
+    /// The file went away (moved to the Trash from elsewhere), except from preview `kept`.
+    func dismiss(file: CaptureFile, _ exit: PreviewItem.Exit, except kept: UUID? = nil) {
+        for item in items where item.file.url == file.url && item.exit == nil && item.id != kept {
+            dismiss(item.id, exit)
+        }
+    }
+
+    /// Preview `id` moved its screenshot to the Trash: it stays as "Moved to the Trash" with
+    /// Undo, with no clock of its own, until `endUndo(file:)` (the model's Undo ended).
+    func offerUndo(_ id: UUID) {
+        guard let index = items.firstIndex(where: { $0.id == id }), items[index].exit == nil else { return }
+        items[index].trashed = true
+        items[index].failure = nil
+        deadlines[id] = nil
+        paused[id] = nil
+        reschedule()
+    }
+
+    /// The Undo for `file` is over (used, replaced or out of time): its Undo previews leave,
+    /// except `kept`, which is saying why its Undo failed.
+    func endUndo(file: CaptureFile, except kept: UUID? = nil) {
+        for item in items where item.trashed && item.exit == nil && item.file.url == file.url && item.id != kept {
+            dismiss(item.id, .close)
+        }
+    }
+
+    /// An action on preview `id` failed: it says why, and stays at least `lifetime` for it.
+    func showFailure(_ failure: ScreenshotActionFailure, on id: UUID) {
+        guard let index = items.firstIndex(where: { $0.id == id }), items[index].exit == nil else { return }
+        items[index].failure = failure
+        guard paused[id] == nil else { return }
+        deadlines[id] = max(deadlines[id] ?? clock.now, clock.now + lifetime)
+        reschedule()
+    }
+
+    /// A later action on preview `id` worked: the note of the earlier failure goes.
+    func clearFailure(on id: UUID) {
+        guard let index = items.firstIndex(where: { $0.id == id }), items[index].failure != nil else { return }
+        items[index].failure = nil
+    }
+
+    /// The mode changed to one without ClipShot's preview, or watching stopped.
+    func dismissAll() {
+        for item in visible { dismiss(item.id, .close) }
+        pendingExtras.removeAll()
+    }
+
+    private func remove(_ id: UUID) {
+        items.removeAll { $0.id == id }
+        onChange?()
+    }
+
+    /// One task sleeps until the next deadline; it is restarted whenever deadlines change.
+    private func reschedule() {
+        timer?.cancel()
+        guard let next = deadlines.values.min() else {
+            timer = nil
+            return
+        }
+        timer = Task { [weak self, clock] in
+            try? await clock.sleep(until: next)
+            guard !Task.isCancelled else { return }
+            self?.expire()
+        }
+    }
+
+    private func expire() {
+        let now = clock.now
+        let due = deadlines.filter { $0.value <= now }.map(\.key)
+        if due.isEmpty {
+            reschedule()
+            return
+        }
+        for id in due {
+            // An Undo preview fades where it is; a screenshot's preview slides back out.
+            let trashed = items.first { $0.id == id }?.trashed ?? false
+            dismiss(id, trashed ? .close : .timeout)
+        }
+    }
+
+    /// `extra` is a later display written with `main` (about 10 ms apart, spike F3).
+    private static func sameCapture(main: CaptureFile, extra: CaptureFile) -> Bool {
+        let gap = extra.created.timeIntervalSince(main.created)
+        return gap >= 0 && gap <= CopyCoordinator.displayGroupWindow && main.url != extra.url
+    }
+}

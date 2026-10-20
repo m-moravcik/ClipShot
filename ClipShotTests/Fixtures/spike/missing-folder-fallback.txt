@@ -1,0 +1,21 @@
+=== Screenshot 2026-10-19 at 17.01.12.png
+--- stat -f '%FB %Fm %Fc %z'
+1792422077.823415709 1792422077.823691210 1792422079.631392384 1013972
+--- xattr -l
+com.apple.FinderInfo: 
+com.apple.lastuseddate#PS: .0.j
+com.apple.macl: 
+com.apple.metadata:kMDItemIsScreenCapture: bplist00..
+com.apple.metadata:kMDItemScreenCaptureGlobalRect: bplist00.....#.7
+com.apple.metadata:kMDItemScreenCaptureType: bplist00Vwindow.
+--- mdls
+kMDItemContentType             = "public.png"
+kMDItemIsScreenCapture         = 1
+kMDItemScreenCaptureGlobalRect = (
+    "-23",
+    23,
+    945,
+    1175
+)
+kMDItemScreenCaptureType       = "window"
+
