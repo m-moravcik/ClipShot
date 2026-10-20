@@ -54,11 +54,15 @@ struct PegMomentTests {
             #expect(first.old?.angle == Peg.restingCard(play.from).angle, "the card that drops is the old one")
             #expect(first.old?.dash == Peg.restingCard(play.from).dash)
             #expect(first.card.opacity == 0)
-        } else if play.moment == .grip {
-            // The card on show is still there, about to fade; the one that rises is not yet.
-            #expect(first.old == Peg.restingCard(play.from), "the card that fades is the one on show")
+        } else if play.moment == .grip || play.moment == .release {
+            // The card on show is still there, about to fade or drop; the one that rises or
+            // comes back is not yet.
+            #expect(first.old == Peg.restingCard(play.from), "the card that leaves is the one on show")
             #expect(first.card.opacity == 0)
             #expect(first.sag == 0 && first.pegLift == 0 && first.pegSquash == 1)
+            let shown = try #require(GlyphInk.unclipped(Peg.pose(play.from), pad: 0))
+            let drawn = try #require(GlyphInk.unclipped(first, pad: 0))
+            #expect(GlyphInk.alpha(drawn) == GlyphInk.alpha(shown), "it draws the resting pose")
         } else {
             #expect(first == Peg.pose(play.from), "first frame")
         }
@@ -127,7 +131,7 @@ struct PegMomentTests {
     @Test func releaseDropsTheCardOutAndClosesEmpty() {
         let play = Play(moment: .release, from: .idle, to: .idle)
         let frames = Self.frames(play)
-        let lowest = frames.map { $0.card.opacity > 0 ? $0.card.dy : 0 }.max() ?? 0
+        let lowest = frames.map { $0.old.map { $0.opacity > 0 ? $0.dy : 0 } ?? 0 }.max() ?? 0
         #expect(Peg.card.minY + lowest > Peg.canvas.height * 0.85, "the card falls out of the frame")
         let empty = frames.filter { $0.card.opacity == 0 && $0.old == nil }
         #expect(empty.count >= 4, "a beat of the empty line")
@@ -170,6 +174,24 @@ struct PegMomentTests {
         #expect(width(pressedImage, atY: handles) < width(restImage, atY: handles))
     }
 
+    /// The squeeze reads on the menu bar's own pixels, 1x as well as 2x: in every squeezed
+    /// frame the handles narrow and the jaw opens by whole pixels, not just a grey level of
+    /// anti-aliasing.
+    @Test(arguments: [CGFloat(1), 2])
+    func squeezeMovesWholePixels(_ scale: CGFloat) throws {
+        let play = Play(moment: .squeeze, from: .idle, to: .idle)
+        let squeezed = Self.frames(play).filter { $0.pegPinch > 0.5 }
+        #expect(squeezed.count >= 2)
+        let rest = GlyphInk.alpha(try #require(GlyphInk.unclipped(Peg.pose(.idle), pad: 0, scale: scale)))
+        for pose in squeezed {
+            let image = GlyphInk.alpha(try #require(GlyphInk.unclipped(pose, pad: 0, scale: scale)))
+            // Pixels that went from mostly ink to mostly clear, or back: whole-pixel changes.
+            let flipped = zip(rest, image).filter { abs(Int($0) - Int($1)) >= 128 }.count
+            #expect(flipped >= Int(2 * scale), "\(scale)x: \(flipped) pixels changed by half their coverage or more")
+        }
+        #expect(Peg.snapped(0.4, 1) == 1 && Peg.snapped(0.4, 2) == 0.5 && Peg.snapped(1.0, 2) == 1)
+        #expect(Peg.snapped(0, 1) == 0)
+    }
 
     /// Every frame, drawn with room to spare, stays in the 22 x 16 pt frame (once the copy's
     /// new card has slid in), within a pixel of anti-aliasing, and the peg never rises past
@@ -189,8 +211,9 @@ struct PegMomentTests {
             if play.moment == .copied, t < Peg.Beat.slideIn.upperBound { continue }
             if let old = pose.old, old.opacity > 0, play.moment == .copied, t < Peg.Beat.oldDrop.upperBound { continue }
             // Letting go drops the card out of the frame; a grip raises one from below it.
-            if play.moment == .release, t < Peg.ReleaseBeat.drop.upperBound { continue }
-            if play.moment == .grip, t < Peg.GripBeat.rise.upperBound {
+            // Both stay inside the sides while they do.
+            if play.moment == .release && t < Peg.ReleaseBeat.drop.upperBound
+                || play.moment == .grip && t < Peg.GripBeat.rise.upperBound {
                 #expect(box.minX >= frame.minX - 1 && box.maxX <= frame.maxX + 1, "t \(t): ink outside the frame's sides")
                 continue
             }

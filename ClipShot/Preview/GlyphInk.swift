@@ -50,7 +50,8 @@ enum GlyphInk {
 
     /// `pose` drawn at 2x with `pad` points of room on every side, so nothing the canvas
     /// would clip is lost: its ink box is the whole drawing's.
-    nonisolated static func unclipped(_ pose: Peg.Pose, pad: CGFloat) -> CGImage? {
+    /// `scale`: device pixels per point; 2 unless a test asks for the 1x menu bar.
+    nonisolated static func unclipped(_ pose: Peg.Pose, pad: CGFloat, scale: CGFloat = GlyphInk.scale) -> CGImage? {
         let width = Int((Peg.canvas.width + 2 * pad) * scale), height = Int((Peg.canvas.height + 2 * pad) * scale)
         guard let context = CGContext(
             data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,

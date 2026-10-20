@@ -398,12 +398,13 @@ final class AppModel {
     /// The popover opened or closed. Opening re-reads what it shows: a screenshot deleted in
     /// Finder meanwhile leaves the list, and Copy again moves off a screenshot that is no
     /// longer on the clipboard. Peg answers the click that opened it with a squeeze, as the
-    /// popover appears; closing it plays nothing.
-    func popoverVisibilityChanged(_ visible: Bool) {
+    /// popover appears (`freshOpen`: the window was ordered out before, so a click opened it,
+    /// not an occlusion round trip); closing it plays nothing.
+    func popoverVisibilityChanged(_ visible: Bool, freshOpen: Bool = true) {
         guard visible != popoverVisible else { return }
         popoverVisible = visible
         if visible {
-            play(.squeeze, from: restingIconState)
+            if freshOpen { play(.squeeze, from: restingIconState) }
             forgetClipboardIfReplaced()
             refreshRecent()
             refreshStatus()

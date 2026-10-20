@@ -72,6 +72,10 @@ enum Peg {
         /// The "!" mark's opacity, 0...1.
         var bang: Double = 0
         var opacity: Double = 1
+        /// How fast the card is falling, in points per second (0 for a card that hangs). Not
+        /// drawn: a moment that replaces this one lets a falling card finish its fall at this
+        /// speed instead of stopping it in mid-air.
+        var fall: CGFloat = 0
 
         /// From `a` at 0 to `b` at 1, every field, exactly `b` at the end.
         static func mix(_ a: Card, _ b: Card, _ u: Double) -> Card {
@@ -80,7 +84,8 @@ enum Peg {
                 dx: Curve.mix(a.dx, b.dx, u), dy: Curve.mix(a.dy, b.dy, u), angle: Curve.mix(a.angle, b.angle, u),
                 fill: Curve.mix(a.fill, b.fill, u), check: Curve.mix(a.check, b.check, u),
                 dash: Curve.mix(a.dash, b.dash, u), picture: Curve.mix(a.picture, b.picture, u),
-                bang: Curve.mix(a.bang, b.bang, u), opacity: Curve.mix(a.opacity, b.opacity, u))
+                bang: Curve.mix(a.bang, b.bang, u), opacity: Curve.mix(a.opacity, b.opacity, u),
+                fall: Curve.mix(a.fall, b.fall, u))
         }
     }
 
@@ -93,8 +98,11 @@ enum Peg {
         /// spring narrows (`pinchNarrowing`); negative springs it a little wider.
         var pegPinch: CGFloat = 0
         var card = Card()
-        /// The previous shot falling away.
+        /// The previous shot falling away, or fading where it hangs.
         var old: Card?
+        /// A card still leaving from a moment this one replaced: it finishes its fall and fades
+        /// within the hand-off (`handedOver`).
+        var leaving: Card?
     }
 
     /// The attention card hangs askew from the peg, lifted a little so it stays in the frame.
@@ -144,12 +152,9 @@ enum Peg {
             case .attention, .pause, .resume, .squeeze: return pose(rest)
             }
         }
-        // The card on show: the one that drops, fades or swings. A copy that replaced another
-        // copy before its new card slid in drops the card still falling.
-        var start = restingCard(from)
-        if let handoff {
-            start = handoff.card.opacity == 0 ? handoff.old ?? handoff.card : handoff.card
-        }
+        // The card on show: the one that drops, fades or swings. A card already leaving in the
+        // moment replaced is not it: that one finishes leaving (`handedOver`).
+        let start = handoff?.card ?? restingCard(from)
         var p: Pose
         switch moment {
         case .copied: p = pose(at: t, from: from, to: rest, dropping: start)
@@ -167,9 +172,13 @@ enum Peg {
     /// `pose` in the first `Design.Motion.menuBarHandoff` of a moment that replaced another:
     /// the peg and the line ease from where they were; a moment that does not carry the card
     /// on show itself (attention, pause, resume, squeeze) eases the card from it too; a card
-    /// still falling from the moment replaced keeps falling and fades.
+    /// that was leaving in the moment replaced (the one a copy or a release drops, the one a
+    /// grip fades) is never pulled back: it goes on at its own speed and fades out.
     static func handedOver(_ pose: Pose, from handoff: Pose, moment: PegMoment, at t: TimeInterval) -> Pose {
-        let k = Curve.easeInOut(Curve.progress(t, 0...Design.Motion.menuBarHandoff))
+        // Linear: an ease in and out would make up the distance to the new moment's course
+        // half as fast again in its middle frames, which reads as a jump on top of the moment's
+        // own movement.
+        let k = Curve.progress(t, 0...Design.Motion.menuBarHandoff)
         guard k < 1 else { return pose }
         var p = pose
         p.sag = Curve.mix(handoff.sag, pose.sag, k)
@@ -178,11 +187,10 @@ enum Peg {
         p.pegPinch = Curve.mix(handoff.pegPinch, pose.pegPinch, k)
         let carriesCard = moment == .copied || moment == .release || moment == .grip
         if !carriesCard { p.card = Card.mix(handoff.card, pose.card, k) }
-        // A card still falling keeps fading, unless it is the card this moment carries on (a
-        // copy cut before its new card slid in).
-        if p.old == nil, handoff.card.opacity > 0, var falling = handoff.old, falling != handoff.card {
-            falling.opacity *= 1 - k
-            p.old = falling
+        if var leaving = handoff.old.flatMap({ $0.opacity > 0 ? $0 : nil }) ?? handoff.leaving {
+            leaving.dy += leaving.fall * CGFloat(t)
+            leaving.opacity *= 1 - k
+            p.leaving = leaving
         }
         return p
     }
@@ -233,6 +241,7 @@ enum Peg {
             old.dy += 13 * Curve.easeIn(drop)
             old.angle += -12 * drop
             old.opacity *= 1 - drop * drop
+            old.fall = dropSpeed(13, drop, Beat.oldDrop)
             p.old = old
         }
 
@@ -379,19 +388,27 @@ enum Peg {
             - 0.7 * snap
         p.pegSquash = 1 - 0.25 * snap
         p.sag = -1.2 * Curve.wobble(Curve.progress(t, ReleaseBeat.lineKick), cycles: 1)
+        // The card that drops is the leaving one; the resting card waits unseen until it comes
+        // back, so a moment that cuts in never mistakes the falling card for the one on show.
         let drop = Curve.progress(t, ReleaseBeat.drop)
         if drop < 1 {
             var card = dropping
             card.dy += ReleaseBeat.fall * Curve.easeIn(drop)
             card.angle += -10 * drop
             card.opacity *= 1 - drop * drop
-            p.card = card
-        } else {
-            var card = restingCard(rest)
-            card.opacity = Curve.easeInOut(Curve.progress(t, ReleaseBeat.back))
-            p.card = card
+            card.fall = dropSpeed(ReleaseBeat.fall, drop, ReleaseBeat.drop)
+            p.old = card
         }
+        var card = restingCard(rest)
+        card.opacity = Curve.easeInOut(Curve.progress(t, ReleaseBeat.back))
+        p.card = card
         return p
+    }
+
+    /// The speed, in points per second, of a card falling `distance` with `easeIn` over
+    /// `beat`, at `drop` (its progress through the beat).
+    static func dropSpeed(_ distance: CGFloat, _ drop: Double, _ beat: ClosedRange<Double>) -> CGFloat {
+        distance * CGFloat(3 * drop * drop / (beat.upperBound - beat.lowerBound))
     }
 
     /// Reduce Motion's release: the jaws open on the empty line, held, then the resting pose.
@@ -509,6 +526,7 @@ enum Peg {
         stroke(line, lineWeight, in: context)
         context.restoreGState()
 
+        if let leaving = pose.leaving { drawCard(leaving, in: context) }
         if let old = pose.old { drawCard(old, in: context) }
         drawCard(pose.card, in: context)
 
@@ -517,11 +535,17 @@ enum Peg {
         // top stays put, so it never rises past the frame (a lift of the whole peg poked
         // 0.75 pt out of it and was clipped). Biting (a negative lift, the clamp's bounce)
         // moves it down and squashes it from below.
-        let open = max(0, pose.pegLift), bite = max(0, -pose.pegLift)
+        var open = max(0, pose.pegLift), bite = max(0, -pose.pegLift)
+        // Squeezed, the jaw opens by whole device pixels, so the squeeze reads at 1x too.
+        let device = deviceScale(context)
+        if pose.pegPinch != 0 {
+            open = snapped(open, device)
+            bite = (bite * device).rounded() / device
+        }
         var pegTransform = scale(1, (peg.height - open) / peg.height, around: CGPoint(x: 11, y: peg.minY))
             .concatenating(CGAffineTransform(translationX: 0, y: bite))
             .concatenating(scale(1, pose.pegSquash, around: CGPoint(x: 11, y: peg.maxY + bite)))
-        let body = pegBody(pinch: pose.pegPinch, transform: &pegTransform)
+        let body = pegBody(pinch: pose.pegPinch, device: device, transform: &pegTransform)
         erase(body.copy(strokingWithWidth: pegGap, lineCap: .round, lineJoin: .round, miterLimit: 10), in: context)
         context.addPath(body)
         context.fillPath()
@@ -533,17 +557,19 @@ enum Peg {
         context.restoreGState()
     }
 
-    /// The peg's body. Squeezed (`pinch` > 0), its handles, above the spring, narrow around
-    /// the peg's middle while the jaws below keep their width; at rest it is one rounded bar.
-    private static func pegBody(pinch: CGFloat, transform: inout CGAffineTransform) -> CGPath {
-        guard pinch != 0 else {
+    /// The peg's body. Squeezed (`pinch` > 0), its handles, above the spring, narrow by whole
+    /// device pixels on each side while the jaws below keep their width; at rest it is one
+    /// rounded bar.
+    private static func pegBody(pinch: CGFloat, device: CGFloat, transform: inout CGAffineTransform) -> CGPath {
+        let inset = snapped(peg.width * pinchNarrowing * pinch / 2, device)
+        guard pinch != 0, inset > 0 else {
             return CGPath(roundedRect: peg, cornerWidth: pegRadius, cornerHeight: pegRadius, transform: &transform)
         }
         let body = CGMutablePath()
-        let handles = CGRect(x: peg.minX, y: peg.minY, width: peg.width, height: spring.y + pegRadius - peg.minY)
-        var narrow = scale(1 - pinchNarrowing * pinch, 1, around: CGPoint(x: peg.midX, y: peg.minY))
-            .concatenating(transform)
-        body.addPath(CGPath(roundedRect: handles, cornerWidth: pegRadius, cornerHeight: pegRadius, transform: &narrow))
+        let handles = CGRect(x: peg.minX + inset, y: peg.minY, width: peg.width - 2 * inset,
+                             height: spring.y + pegRadius - peg.minY)
+        let radius = min(pegRadius, handles.width / 2)
+        body.addPath(CGPath(roundedRect: handles, cornerWidth: radius, cornerHeight: radius, transform: &transform))
         let jaws = CGRect(x: peg.minX, y: spring.y, width: peg.width, height: peg.maxY - spring.y)
         body.addPath(CGPath(roundedRect: jaws, cornerWidth: pegRadius, cornerHeight: pegRadius, transform: &transform))
         return body
@@ -641,6 +667,19 @@ enum Peg {
         context.clip(to: CGRect(x: wide.minX, y: split, width: wide.width, height: wide.maxY - split))
         stroke(dashed, stroke, in: context)
         context.restoreGState()
+    }
+
+    /// Device pixels per point where `context` draws: 1 or 2 on a menu bar, more in the larger
+    /// renders.
+    static func deviceScale(_ context: CGContext) -> CGFloat {
+        let t = context.userSpaceToDeviceSpaceTransform
+        return max(1, hypot(t.a, t.b))
+    }
+
+    /// `points` rounded to whole device pixels, at least one when there is any.
+    static func snapped(_ points: CGFloat, _ device: CGFloat) -> CGFloat {
+        guard points > 0 else { return 0 }
+        return max(1, (points * device).rounded()) / device
     }
 
     private static func stroke(_ path: CGPath, _ width: CGFloat, in context: CGContext) {

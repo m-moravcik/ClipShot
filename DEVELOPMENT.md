@@ -181,8 +181,12 @@ squeeze replaces only a squeeze and cuts nothing short. A moment that may not
 replace the one playing does not play. One that may starts from the pose on show
 (`Peg.pose(...handoff:)`): the card on show is the one that drops, fades or
 swings, and the peg, the line and any other card ease from where they were into
-the new moment within `menuBarHandoff` (0.15 s), so nothing jumps. A change of
-state hands over the pose drawn before the state changed. With Reduce Motion a
+the new moment, linearly within `menuBarHandoff` (0.15 s), so nothing jumps; an
+ease in and out made up the distance faster in its middle frames than either
+moment moves on its own. A card that was leaving (a release's or a copy's falling
+card, a grip's fading one) is never frozen or pulled back: it goes on at its own
+speed (`Card.fall`) and fades out within the hand-off while the new moment's card
+comes in. A change of state hands over the pose drawn before the state changed. With Reduce Motion a
 release or grip replaces the copy's hold with its own, and a change of state ends
 a release's or grip's hold, so its state shows at once.
 
@@ -294,10 +298,19 @@ own pixels, for GIFs), and the optical size next to VibeRes and Eject Guard
 A `.window` MenuBarExtra gives no click callback, and its status item button
 belongs to SwiftUI (no target or action). ClipShot learns of the click from the
 popover's window: `WindowVisibilityReader` reports it open when it is ordered in
-and either key or unoccluded. The window becomes key as the click opens it,
-before the window server reports it unoccluded, so the squeeze starts with the
-click; closing reports closed only once the window is off screen
+and either key or unoccluded, whichever the window server reports first, so the
+squeeze can start with the click. On a stand-in panel (see below) the window
+became key before it was reported unoccluded; on the real popover that order is
+still to be checked live. Closing reports closed only once the window is off
+screen. Only a fresh open squeezes: one after the window was ordered out
+(`PopoverPresence`). An occlusion round trip while it stays ordered in (a display
+asleep, another Space) refreshes the popover but plays nothing
 (`WindowVisibilityReader.isOpen`, `AppModel.popoverVisibilityChanged`).
+
+The squeeze moves 1 pt, too little to survive anti-aliasing at 1x, so its jaw
+opening and the narrowing of each handle are drawn in whole device pixels
+(`Peg.snapped`): 1 px at 1x, 2 px for the jaw and 1 px a side for the handles at
+2x.
 
 ### The label in the menu bar while the popover is open
 
@@ -516,7 +529,7 @@ Swift Testing. Pure logic is tested; views are not, except their layout rules. T
 | `LocalisationTests` | The l10n gate fails on the broken catalogs in `ClipShotTests/Fixtures/l10n`. |
 | `StatusIconStateTests`, `PegFlashTests`, `PopoverLayoutTests` | The menu bar label is never scaled and fits its frame; every state has its own silhouette; Peg matches the siblings' height, width and stroke; the copy animation starts and ends at rest, one timer tick per frame and none after; Reduce Motion holds the copied pose; the bounces are derived from Peg's clamp; the popover's bottom soft scroll edge. |
 | `PegMomentTests`, `PegMomentModelTests` | Every moment starts where the icon rested and ends exactly on its resting pose, every frame is a template image that fits the canvas; the model plays them on real state changes only, once, never cuts a copy short, leaves no timer behind, and plays none with Reduce Motion. |
-| `PegActionMomentModelTests`, `PegHandoffTests` | Move to Trash from a row or a preview plays the release, Undo the grip, opening the popover the squeeze; retention, Clean up now, "Also clean up", a refused move, a failed Undo and closing the popover play nothing; precedence (the latest of copy, release and grip wins); a moment that replaces another starts from the pose on show (drawn pixel for pixel) and ends at rest; Reduce Motion holds the key poses on one tick and never squeezes. |
+| `PegActionMomentModelTests`, `PegHandoffTests` | Move to Trash from a row or a preview plays the release, Undo the grip, a fresh open of the popover the squeeze (`PopoverPresence`, and the reader's wiring on a real window); retention, Clean up now, "Also clean up", a refused move, a failed Undo and closing the popover play nothing; precedence (the latest of copy, release and grip wins); a moment that replaces another starts from the pose on show (drawn pixel for pixel), changes no frame of the hand-off more than the two moments do on their own, lets a falling card finish falling, and ends at rest; the squeeze moves whole pixels at 1x and 2x; Reduce Motion holds the key poses on one tick and never squeezes. |
 | `PreviewMotionTests`, `OnboardingTests` | The swipe commits exactly where a release dismisses; the drag image is lifted off its card; Copy again reports back so the badge bounces; the first copy is celebrated once per install, the burst stays small, short and ends. |
 
 Tests never touch real preferences (`make guards` refuses `UserDefaults` in

@@ -34,7 +34,7 @@ struct MenuContent: View {
         .fixedSize(horizontal: false, vertical: true)
         .background(.ultraThinMaterial)
         // The window outlives a closed popover, so its views do not say when it opens.
-        .background(WindowVisibilityReader { model.popoverVisibilityChanged($0) })
+        .background(WindowVisibilityReader { model.popoverVisibilityChanged($0, freshOpen: $1) })
     }
 
     private var main: some View {
@@ -624,12 +624,16 @@ private struct MenuRow: View {
 /// cannot tell an open popover from a closed one; the window's occlusion state can.
 ///
 /// It is also how ClipShot knows the menu bar icon was clicked: a `.window` MenuBarExtra
-/// gives no click callback, and its status item button belongs to SwiftUI. The window
-/// becomes key as the click opens it, a frame or more before the window server reports it
-/// unoccluded, so becoming key counts as open too: Peg's squeeze starts with the click.
-/// Closing (resigning key, then ordered out) reports closed only once it is off screen.
+/// gives no click callback, and its status item button belongs to SwiftUI. Becoming key
+/// counts as open as well as being unoccluded, so the squeeze can start with the click
+/// whichever the window server reports first (on a stand-in panel, key came first; the real
+/// popover is still to be checked live). Closing reports closed once the window is off screen.
+/// Only an open after the window was ordered out is a fresh one, the click's: an occlusion
+/// round trip while it stays ordered in (a display asleep, another Space) reopens it without
+/// a click (`PopoverPresence`).
 struct WindowVisibilityReader: NSViewRepresentable {
-    let changed: @MainActor (Bool) -> Void
+    /// Open or closed, and for an open whether it is fresh (the window was ordered out before).
+    let changed: @MainActor (_ open: Bool, _ fresh: Bool) -> Void
 
     /// Open: ordered in, and either key (the click that opened it) or unoccluded.
     static func isOpen(visible: Bool, key: Bool, unoccluded: Bool) -> Bool {
@@ -647,15 +651,19 @@ struct WindowVisibilityReader: NSViewRepresentable {
     }
 
     final class ReaderView: NSView {
-        var changed: @MainActor (Bool) -> Void = { _ in }
+        var changed: @MainActor (_ open: Bool, _ fresh: Bool) -> Void = { _, _ in }
         private var observers: [NSObjectProtocol] = []
+        private var presence = PopoverPresence()
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             for observer in observers { NotificationCenter.default.removeObserver(observer) }
             observers = []
             if let window {
-                let names = [NSWindow.didChangeOcclusionStateNotification, NSWindow.didBecomeKeyNotification]
+                let names = [
+                    NSWindow.didChangeOcclusionStateNotification, NSWindow.didBecomeKeyNotification,
+                    NSWindow.didResignKeyNotification,
+                ]
                 observers = names.map { name in
                     NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
                         MainActor.assumeIsolated { self?.report() }
@@ -666,10 +674,14 @@ struct WindowVisibilityReader: NSViewRepresentable {
         }
 
         private func report() {
-            changed(window.map {
-                WindowVisibilityReader.isOpen(
-                    visible: $0.isVisible, key: $0.isKeyWindow, unoccluded: $0.occlusionState.contains(.visible))
-            } ?? false)
+            let change = presence.update(
+                visible: window?.isVisible ?? false, key: window?.isKeyWindow ?? false,
+                unoccluded: window?.occlusionState.contains(.visible) ?? false)
+            switch change {
+            case .opened(let fresh)?: changed(true, fresh)
+            case .closed?: changed(false, false)
+            case nil: break
+            }
         }
 
         override func hitTest(_ point: NSPoint) -> NSView? { nil }
@@ -678,6 +690,31 @@ struct WindowVisibilityReader: NSViewRepresentable {
         isolated deinit {
             for observer in observers { NotificationCenter.default.removeObserver(observer) }
         }
+    }
+}
+
+/// Whether the popover's window is open, and whether an open is a fresh one: the window was
+/// ordered out (or never shown) since it was last open, so a click opened it. Only a fresh
+/// open plays Peg's squeeze; a window that only went occluded and came back does not.
+struct PopoverPresence {
+    enum Change: Equatable {
+        case opened(fresh: Bool)
+        case closed
+    }
+
+    private(set) var isOpen = false
+    /// Ordered out since it was last open, or never open yet.
+    private var orderedOut = true
+
+    /// The window's state now; the change it makes, nil when open or closed stays as it was.
+    mutating func update(visible: Bool, key: Bool, unoccluded: Bool) -> Change? {
+        if !visible { orderedOut = true }
+        let open = WindowVisibilityReader.isOpen(visible: visible, key: key, unoccluded: unoccluded)
+        guard open != isOpen else { return nil }
+        isOpen = open
+        guard open else { return .closed }
+        defer { orderedOut = false }
+        return .opened(fresh: orderedOut)
     }
 }
 

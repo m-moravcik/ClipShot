@@ -1,6 +1,20 @@
+import AppKit
 import Foundation
 import Testing
 @testable import ClipShot
+
+/// A borderless window that says whether it is key, for the reader's wiring test: the test
+/// host is not the active app, so AppKit would not make it key.
+private final class KeyableWindow: NSWindow {
+    var key = false
+    override var isKeyWindow: Bool { key }
+}
+
+/// What a reader reported, in order: open, and fresh.
+@MainActor
+private final class ReaderReports {
+    var all: [(Bool, Bool)] = []
+}
 
 /// Peg answers the user's own actions in the menu bar: Move to Trash lets the picture go,
 /// Undo grips it again, the click that opens the popover squeezes the peg. Retention and
@@ -18,6 +32,12 @@ struct PegActionMomentModelTests {
         h.timer?.fire(PegFlash.steps)
         #expect(h.model.flashPhase == 0)
         return file
+    }
+
+    /// The two poses draw the same picture (the cards may sit in different roles).
+    private func draws(_ pose: Peg.Pose, as other: Peg.Pose) throws -> Bool {
+        let a = try #require(GlyphInk.unclipped(pose, pad: 8)), b = try #require(GlyphInk.unclipped(other, pad: 8))
+        return zip(GlyphInk.alpha(a), GlyphInk.alpha(b)).allSatisfy { abs(Int($0) - Int($1)) <= 2 }
     }
 
     /// Plays the moment on show to its end and checks it ended at rest with no timer left.
@@ -45,7 +65,7 @@ struct PegActionMomentModelTests {
         #expect(h.model.flashMoment == .release)
         #expect(h.model.flashPhase == 1)
         #expect(h.model.flashHandoff == nil, "started from rest")
-        #expect(h.model.iconPose == Peg.pose(.idle), "it starts from the picture on show")
+        #expect(try draws(h.model.iconPose, as: Peg.pose(.idle)), "it starts from the picture on show")
         #expect(h.model.iconState == .idle, "VoiceOver keeps saying copying is on")
         #expect(h.timers.count == timers + 1)
         #expect(h.timer?.interval == PegFlash.interval)
@@ -74,7 +94,7 @@ struct PegActionMomentModelTests {
         h.timer?.fire(PegMoment.pause.steps)
         await h.model.moveToTrash(file)
         #expect(h.model.flashMoment == .release)
-        #expect(h.model.iconPose == Peg.pose(.paused))
+        #expect(try draws(h.model.iconPose, as: Peg.pose(.paused)))
         try playOut(h, .release, rest: .paused)
     }
 
@@ -186,6 +206,73 @@ struct PegActionMomentModelTests {
         #expect(!WindowVisibilityReader.isOpen(visible: false, key: false, unoccluded: false))
     }
 
+    /// Only a fresh open squeezes: the window coming back from occlusion while it stayed
+    /// ordered in (a display asleep, another Space) reopens the popover's refresh without a click.
+    @Test func anOpenWithoutAClickDoesNotSqueeze() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        #expect(await h.start())
+        h.model.popoverVisibilityChanged(true, freshOpen: false)
+        #expect(h.model.popoverVisible)
+        #expect(h.model.flashPhase == 0)
+        #expect(h.timers.isEmpty)
+    }
+
+    /// The presence rule: ordered in after being out (or for the first time) is a fresh open;
+    /// occluded and back while still ordered in is not; closing reports once.
+    @Test func popoverPresenceCountsOnlyRealOpens() {
+        var presence = PopoverPresence()
+        #expect(presence.update(visible: false, key: false, unoccluded: false) == nil, "closed at the start")
+        #expect(presence.update(visible: true, key: true, unoccluded: false) == .opened(fresh: true), "the click")
+        #expect(presence.update(visible: true, key: true, unoccluded: true) == nil, "still open")
+        // The display sleeps: still ordered in, no longer key or visible, then back.
+        #expect(presence.update(visible: true, key: false, unoccluded: false) == .closed)
+        #expect(presence.update(visible: true, key: false, unoccluded: true) == .opened(fresh: false))
+        // Closed by ordering out, then a click again.
+        #expect(presence.update(visible: false, key: false, unoccluded: false) == .closed)
+        #expect(presence.update(visible: false, key: false, unoccluded: false) == nil)
+        #expect(presence.update(visible: true, key: false, unoccluded: true) == .opened(fresh: true))
+    }
+
+    /// The reader's wiring on a real window of the test host, off screen: its becoming key is
+    /// reported at once as a fresh open, before any occlusion change, and resigning key once
+    /// ordered out as closed. The test host is not the active app, so the window says it is key
+    /// and the notifications AppKit sends are posted as AppKit does.
+    @Test func readerReportsBecomingKeyAsAFreshOpen() {
+        let reports = ReaderReports()
+        let window = KeyableWindow(
+            contentRect: NSRect(x: -20_000, y: -20_000, width: 40, height: 40), styleMask: [.borderless],
+            backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        let reader = WindowVisibilityReader.ReaderView()
+        reader.changed = { reports.all.append(($0, $1)) }
+        window.contentView = NSView(frame: NSRect(x: 0, y: 0, width: 40, height: 40))
+        window.contentView?.addSubview(reader)
+        #expect(reports.all.isEmpty, "not ordered in: nothing to report")
+        window.orderFront(nil)
+        #expect(window.isVisible)
+        #expect(!window.occlusionState.contains(.visible), "off screen")
+        window.key = true
+        NotificationCenter.default.post(name: NSWindow.didBecomeKeyNotification, object: window)
+        #expect(reports.all.count == 1)
+        #expect(reports.all.first.map { $0.0 && $0.1 } == true, "a fresh open, from becoming key alone")
+        // Another window's notification is not this one's.
+        NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: NSWindow())
+        #expect(reports.all.count == 1)
+        window.orderOut(nil)
+        window.key = false
+        NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: window)
+        #expect(reports.all.count == 2)
+        #expect(reports.all.last.map { !$0.0 } == true, "closed once ordered out")
+        // Ordered in and key again: a fresh open again.
+        window.orderFront(nil)
+        window.key = true
+        NotificationCenter.default.post(name: NSWindow.didBecomeKeyNotification, object: window)
+        #expect(reports.all.last.map { $0.0 && $0.1 } == true)
+        window.orderOut(nil)
+        window.close()
+    }
+
     // MARK: Precedence
 
     /// Among copy, release and grip the latest wins: a Move to Trash right after the copy (the
@@ -207,7 +294,7 @@ struct PegActionMomentModelTests {
         #expect(h.model.flashMoment == .release)
         #expect(h.model.flashPhase == 1)
         #expect(h.model.flashHandoff == shown)
-        #expect(h.model.iconPose == shown, "the release starts where the copy was")
+        #expect(try draws(h.model.iconPose, as: shown), "the release starts where the copy was")
         #expect(h.model.iconState == .idle)
         #expect(h.timer === timer, "the same frame timer")
         try playOut(h, .release)
@@ -302,6 +389,7 @@ struct PegActionMomentModelTests {
         #expect(h.model.flashPhase == 1)
         #expect(h.model.flashHandoff == shown)
         #expect(h.model.iconPose.old == shown.card, "the card on show is the one that drops")
+        #expect(h.model.iconPose.leaving == shown.old, "the card the release was dropping goes on falling")
         #expect(h.model.iconPose.pegLift == shown.pegLift && h.model.iconPose.sag == shown.sag)
         #expect(h.timer === timer, "the same frame timer")
         try playOut(h, .copied)
@@ -348,7 +436,8 @@ struct PegActionMomentModelTests {
         await h.model.putBack()
         #expect(h.model.flashMoment == .grip && h.model.flashPhase == 1)
         #expect(h.model.flashHandoff == falling)
-        #expect(h.model.iconPose.old == falling.card, "the falling card fades where it is")
+        #expect(falling.old?.fall ?? 0 > 0, "the release was mid-drop")
+        #expect(h.model.iconPose.leaving == falling.old, "the falling card goes on falling as it fades")
         try playOut(h, .grip)
     }
 

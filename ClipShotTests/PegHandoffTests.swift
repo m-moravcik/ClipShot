@@ -114,6 +114,67 @@ struct PegHandoffTests {
         }
     }
 
+    /// How much of the picture changes from one frame to the next: the coverage moved, in
+    /// 2x pixels.
+    private static func step(_ a: Peg.Pose, _ b: Peg.Pose) throws -> Int {
+        zip(try pixels(a), try pixels(b)).reduce(0) { $0 + abs(Int($1.0) - Int($1.1)) } / 255
+    }
+
+    /// The largest step between two frames of `moment` played from rest.
+    private static func largestStep(_ moment: PegMoment, from: StatusIconState, to: StatusIconState) throws -> Int {
+        let frames = (1..<moment.steps).map {
+            Peg.pose(rest: to, moment: moment, phase: $0, from: from, reduceMotion: false)
+        } + [Peg.pose(to)]
+        return try zip(frames, frames.dropFirst()).map { try step($0, $1) }.max() ?? 0
+    }
+
+    /// Every frame of the hand-off, not only the first and the last, changes the picture no
+    /// more than the two moments do from frame to frame on their own: no jump inside the ease
+    /// or where it ends.
+    @Test(arguments: cuts)
+    func everyFrameOfTheEaseIsContinuous(_ cut: Cut) throws {
+        let shown = Self.onShow(cut)
+        let own = max(try Self.largestStep(cut.running, from: cut.from, to: cut.from),
+                      try Self.largestStep(cut.next, from: cut.from, to: cut.to))
+        let bound = own + own / 4 + 4
+        let end = Int((Design.Motion.menuBarHandoff * PegFlash.frameRate).rounded(.up)) + 2
+        var previous = shown
+        for phase in 1...min(end, cut.next.steps - 1) {
+            let frame = Self.pose(cut, phase: phase, handoff: shown)
+            let change = try Self.step(previous, frame)
+            #expect(change <= bound, "phase \(phase): \(change) px changed, the moments move at most \(own)")
+            previous = frame
+        }
+    }
+
+    /// A card falling when the moment is cut (a release's, a copy's old shot) is never frozen
+    /// in mid-air or pulled back up: it goes on falling at its own speed and fades out within
+    /// the hand-off, while the new moment's card comes in.
+    @Test(arguments: [PegMoment.grip, .attention, .pause, .copied, .release])
+    func aFallingCardFinishesLeaving(_ next: PegMoment) throws {
+        let to: StatusIconState = next == .attention ? .attention : next == .pause ? .paused : .idle
+        let cut = Cut(running: .release, phase: 10, next: next, from: .idle, to: to)
+        let shown = Self.onShow(cut)
+        let falling = try #require(shown.old)
+        #expect(falling.fall > 0 && falling.opacity > 0, "the release is mid-drop")
+        #expect(shown.card.opacity == 0, "the card it drops is the leaving one, not the card on show")
+        var last = falling
+        for phase in 1..<cut.next.steps {
+            let frame = Self.pose(cut, phase: phase, handoff: shown)
+            guard let leaving = frame.leaving else {
+                #expect(PegFlash.time(phase: phase) >= Design.Motion.menuBarHandoff, "gone only once faded")
+                break
+            }
+            #expect(leaving.dy >= last.dy, "phase \(phase): never moves up")
+            #expect(leaving.opacity <= last.opacity, "phase \(phase): only fades")
+            if phase > 1 { #expect(leaving.dy > last.dy, "phase \(phase): keeps falling") }
+            last = leaving
+            if next == .attention || next == .pause {
+                #expect(frame.card.dy < falling.dy, "phase \(phase): the state's card is not the falling one")
+            }
+        }
+    }
+
     /// Every frame of a cut stays a template image of the canvas's size.
     @MainActor
     @Test(arguments: cuts)
