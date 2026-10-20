@@ -259,12 +259,15 @@ struct TrailingActionLayout: Layout {
 }
 
 /// A round button over a screenshot, shown on hover: the floating preview's Close, Copy again
-/// and Move to Trash, and the actions on an earlier screenshot in the popover's strip.
+/// and Move to Trash, and the actions on an earlier screenshot in the popover's strip. A
+/// shadow and a hairline keep it apart from whatever the picture behind it is; over the
+/// picture it also sits on a `HoverScrim`. The whole square around the circle takes the
+/// click, so neighbouring buttons leave no dead gap between them.
 struct CardButton: View {
     /// The floating preview's size.
     static let diameter: CGFloat = 22
     /// Three side by side within the strip's 64 pt thumbnail.
-    static let compactDiameter: CGFloat = 18
+    static let compactDiameter: CGFloat = 20
 
     let symbol: String
     let label: LocalizedStringResource
@@ -275,13 +278,30 @@ struct CardButton: View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: (diameter * 10 / 22).rounded(), weight: .bold))
+                .foregroundStyle(.primary)
                 .frame(width: diameter, height: diameter)
                 .background(Circle().fill(.regularMaterial))
-                .overlay(Circle().strokeBorder(Color.primary.opacity(0.15), lineWidth: 0.5))
-                .contentShape(Circle())
+                .overlay(Circle().strokeBorder(Color.primary.opacity(0.25), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.35), radius: 1.5, y: 0.5)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(label))
         .help(Text(label))
+    }
+}
+
+/// A shade rising from a picture's bottom edge behind its hover buttons, so they read on a
+/// white screenshot as on a dark one. Fill the picture with it; it draws nothing above
+/// `height`.
+struct HoverScrim: View {
+    let height: CGFloat
+
+    var body: some View {
+        LinearGradient(colors: [.black.opacity(0), .black.opacity(0.45)], startPoint: .top, endPoint: .bottom)
+            .frame(height: height)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 }

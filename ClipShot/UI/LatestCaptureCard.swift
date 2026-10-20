@@ -242,7 +242,9 @@ struct LatestCaptureCard: View {
 /// The latest card's buttons, in one row whatever the language: the first (the primary
 /// action) takes the width the others leave; the others are square icon buttons. All share
 /// one height, so a primary label that has to wrap onto a second line makes the whole row
-/// taller rather than stacking it.
+/// taller rather than stacking it. Frames are worked out left to right; SwiftUI mirrors a
+/// custom layout's placement in a right-to-left layout direction, so there the primary sits
+/// on the right (`CardActionsLayoutTests.mirrorsRightToLeft`).
 struct CardActionsLayout: Layout {
     var spacing: CGFloat = Design.Spacing.s
 
@@ -264,18 +266,21 @@ struct CardActionsLayout: Layout {
         return frames
     }
 
-    /// The icon buttons' side: the buttons' own height, or an icon button's own width where
-    /// its symbol and the bezel's margins need more (a bordered button does not get narrower
-    /// than that), so they come out square.
-    static func side(sizes: [CGSize]) -> CGFloat {
-        let height = sizes.map(\.height).max() ?? 0
-        let iconWidth = sizes.dropFirst().map(\.width).max() ?? 0
-        return max(height, iconWidth)
+    /// The icon buttons' side: the buttons' one-line height, or an icon button's narrowest
+    /// width where its symbol and the bezel's margins need more (a bordered button does not
+    /// get narrower than that), so they come out square. `heights` are the buttons' own
+    /// heights, `iconMinWidths` the icon buttons' narrowest widths.
+    static func side(heights: [CGFloat], iconMinWidths: [CGFloat]) -> CGFloat {
+        max(heights.max() ?? 0, iconMinWidths.max() ?? 0)
     }
 
     private func frames(_ width: CGFloat?, _ subviews: Subviews) -> [CGRect] {
         guard let primary = subviews.first else { return [] }
-        let side = Self.side(sizes: subviews.map { $0.sizeThatFits(.unspecified) })
+        // A bordered icon button's own width is a default far wider than its symbol; offered
+        // no width, it reports the narrowest it can be.
+        let side = Self.side(
+            heights: subviews.map { $0.sizeThatFits(.unspecified).height },
+            iconMinWidths: subviews.dropFirst().map { $0.sizeThatFits(.zero).width })
         let ideal = primary.sizeThatFits(.unspecified).width + CGFloat(subviews.count - 1) * (side + spacing)
         return Self.frames(
             width: width ?? ideal, buttons: subviews.count, side: side, spacing: spacing,

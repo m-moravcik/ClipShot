@@ -75,6 +75,7 @@ enum ScreenshotHarness {
 
             try renderMain(shots, scratch: scratch, icon: icon)
             try renderPaused(shots, scratch: scratch)
+            try renderStripContrast(shots, scratch: scratch)
             try renderAttentions(shots, scratch: scratch)
             try renderFull(shots, scratch: scratch)
             try renderTour(shots, scratch: scratch)
@@ -185,6 +186,24 @@ enum ScreenshotHarness {
             let window = capture(SettingsWindow(tab: .general, scheme: scheme, replayed: true)
                 .harnessEnvironment(scene.model, updater: updater), scheme: scheme)
             try shots.write(render(WindowShadow(window: window, scheme: scheme)), "settings-general-replayed", scheme)
+        }
+        scene.stop()
+    }
+
+    /// The strip's buttons over a white screenshot and over a dark one, so they read on any
+    /// picture.
+    private static func renderStripContrast(_ shots: Shots, scratch: URL) throws {
+        let scene = try DemoScene(in: scratch)
+        try awaitTask { try await scene.contrastScreenshots() }
+        guard scene.start() else { fail("the demo folder was not watched") }
+        try scene.copyDemoScreenshot()
+        DemoScene.wait { scene.model.recent.count == 4 }
+        for scheme in ColorScheme.allCases {
+            for (index, name) in [(0, "popover-recent-hover-white"), (2, "popover-recent-hover-dark-shot")] {
+                try shots.write(popoverWindow(capturePanel(PopoverPanel(scheme: scheme) { MenuContent() }
+                    .harnessEnvironment(scene.model)
+                    .environment(\.hoveredRecent, index), scheme: scheme), scheme: scheme), name, scheme)
+            }
         }
         scene.stop()
     }

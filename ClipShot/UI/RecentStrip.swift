@@ -69,14 +69,20 @@ struct StripLayout: Layout {
 
 /// One earlier screenshot: the picture, and on hover or keyboard focus a pencil (a click
 /// opens Markup) and the bar of actions.
-private struct RecentItem: View {
+struct RecentItem: View {
     let file: CaptureFile
     let image: CGImage?
 
     /// Where keyboard focus is: the thumbnail or one of its buttons. The bar stays while it
     /// is anywhere in here, so Tab can reach its buttons.
-    private enum Focus: Hashable {
+    enum Focus: Hashable {
         case thumbnail, copy, reveal, trash
+    }
+
+    /// Space and Return open Markup only from the thumbnail itself: on one of its buttons
+    /// they press that button.
+    static func keyOpensMarkup(focus: Focus?) -> Bool {
+        focus == .thumbnail
     }
 
     @Environment(AppModel.self) private var model
@@ -95,6 +101,9 @@ private struct RecentItem: View {
 
     private var showsActions: Bool { hovering || focus != nil }
 
+    /// The shade behind the bar: the buttons and a little above them.
+    private static let scrimHeight: CGFloat = 30
+
     var body: some View {
         ZStack {
             CaptureThumbnail(image: image)
@@ -106,6 +115,9 @@ private struct RecentItem: View {
                 menu: menuItems)
                 .accessibilityHidden(true)
             if showsActions {
+                HoverScrim(height: Self.scrimHeight)
+                    .clipShape(RoundedRectangle(cornerRadius: Design.Radius.chip, style: .continuous))
+                    .transition(.opacity)
                 Image(systemName: "pencil.tip.crop.circle.fill")
                     .font(.system(size: 14))
                     .symbolRenderingMode(.palette)
@@ -117,7 +129,7 @@ private struct RecentItem: View {
                     .transition(.opacity)
                 actionBar
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                    .padding(.bottom, 3)
+                    .padding(.bottom, 2)
                     .transition(.opacity)
             }
         }
@@ -132,14 +144,12 @@ private struct RecentItem: View {
                     .allowsHitTesting(false)
             }
         }
-        .onKeyPress(.space) {
+        .onKeyPress(keys: [.space, .return]) { _ in
+            guard Self.keyOpensMarkup(focus: focus) else { return .ignored }
             markup()
             return .handled
         }
-        .onKeyPress(.return) {
-            markup()
-            return .handled
-        }
+        .onDisappear { checkTask?.cancel() }
         .animation(Design.Motion.quick, value: showsActions)
         .help(Text(verbatim: file.url.lastPathComponent))
         .accessibilityElement(children: .ignore)
@@ -155,7 +165,7 @@ private struct RecentItem: View {
 
     /// The latest card's three actions, as the floating preview's round buttons.
     private var actionBar: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: 1) {
             CardButton(
                 symbol: showCheck ? "checkmark" : "doc.on.doc", label: Copy.Preview.copy,
                 diameter: CardButton.compactDiameter, action: copy)

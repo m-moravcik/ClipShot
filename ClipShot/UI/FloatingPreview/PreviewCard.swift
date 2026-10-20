@@ -161,6 +161,12 @@ struct PreviewCard: View {
 
     private var overlays: some View {
         ZStack {
+            // Under the badge and the buttons: it shades the picture, not them.
+            if hovering {
+                HoverScrim(height: 44)
+                    .clipShape(shape)
+                    .transition(.opacity)
+            }
             CopiedBadge(bounce: badgeBounce)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                 .padding(6)

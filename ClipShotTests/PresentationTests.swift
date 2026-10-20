@@ -231,13 +231,11 @@ struct CardActionsLayoutTests {
         #expect(f[2].maxX == 260, "flush with the card's trailing edge")
     }
 
-    /// Square at the buttons' height, or at an icon button's width where the bezel needs more.
+    /// Square at the buttons' height, or at an icon button's narrowest width where the bezel
+    /// needs more.
     @Test func sideIsTheLargerOfHeightAndIconWidth() {
-        let primary = CGSize(width: 120, height: 22)
-        #expect(CardActionsLayout.side(sizes: [primary, CGSize(width: 20, height: 22), CGSize(width: 21, height: 22)]) == 22)
-        #expect(CardActionsLayout.side(sizes: [primary, CGSize(width: 25, height: 22), CGSize(width: 23, height: 22)]) == 25)
-        #expect(CardActionsLayout.side(sizes: [CGSize(width: 300, height: 22), CGSize(width: 20, height: 22)]) == 22,
-                "the primary's width never counts")
+        #expect(CardActionsLayout.side(heights: [22, 18, 18], iconMinWidths: [20, 21]) == 22)
+        #expect(CardActionsLayout.side(heights: [22, 18, 18], iconMinWidths: [25.5, 23]) == 25.5)
     }
 
     /// A label that wraps makes the row taller; it never stacks, and the secondaries keep
@@ -249,10 +247,12 @@ struct CardActionsLayoutTests {
         #expect(f[0].width == 204)
     }
 
-    /// Real bordered buttons in the card's 260 pt: the row is one button tall with the
-    /// English label, and the secondaries come out equal and square.
+    /// The card's row of real bordered small buttons in 260 pt, laid out; the frames of the
+    /// primary, Show in Finder and Move to Trash, and the row's height.
     @MainActor
-    @Test func borderedButtonsShareOneRow() async throws {
+    private func layOut(
+        primary label: String, direction: LayoutDirection = .leftToRight
+    ) async throws -> (frames: [CGRect], height: CGFloat) {
         @MainActor final class Frames { var all: [Int: CGRect] = [:] }
         let frames = Frames()
         func tracked(_ index: Int, _ view: some View) -> some View {
@@ -260,8 +260,10 @@ struct CardActionsLayoutTests {
         }
         let row = CardActionsLayout {
             tracked(0, Button {} label: {
-                Label { Text(verbatim: "Copy again") } icon: { Image(systemName: "doc.on.doc") }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                Label { Text(verbatim: label).lineLimit(2).multilineTextAlignment(.center) } icon: {
+                    Image(systemName: "doc.on.doc")
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             })
             tracked(1, Button {} label: { Image(systemName: "folder").frame(maxWidth: .infinity, maxHeight: .infinity) })
             tracked(2, Button {} label: { Image(systemName: "trash").frame(maxWidth: .infinity, maxHeight: .infinity) })
@@ -269,17 +271,60 @@ struct CardActionsLayoutTests {
         .buttonStyle(.bordered)
         .controlSize(.small)
         .frame(width: 260)
+        .environment(\.layoutDirection, direction)
         let view = NSHostingView(rootView: row)
         view.frame = CGRect(origin: .zero, size: view.fittingSize)
         view.layoutSubtreeIfNeeded()
         #expect(await eventually { await frames.all.count == 3 })
         let f = (0..<3).compactMap { frames.all[$0] }
         try #require(f.count == 3)
+        return (f, view.fittingSize.height)
+    }
+
+    /// Real bordered buttons in the card's 260 pt: the row is one button tall with the
+    /// English label, and the secondaries come out equal and square.
+    @MainActor
+    @Test func borderedButtonsShareOneRow() async throws {
+        let (f, height) = try await layOut(primary: "Copy again")
         #expect(Set(f.map(\.minY)).count == 1 && Set(f.map(\.height)).count == 1, "one row, one height")
         #expect(f[1].size == f[2].size, "\(f)")
         #expect(abs(f[1].width - f[1].height) < 0.5, "square")
         #expect(abs(f[2].maxX - f[0].minX - 260) < 0.5)
-        #expect(view.fittingSize.height == f[0].height)
+        #expect(height == f[0].height)
+        #expect(f[1].width < 28, "square near the control's height, not a bordered button's default width: \(f)")
+    }
+
+    /// A label too long for one line (pseudo-German) wraps: the row grows taller but keeps
+    /// its three buttons side by side, at one height, the icon buttons equally wide.
+    @MainActor
+    @Test func aWrappedLabelKeepsTheRealRow() async throws {
+        let single = try await layOut(primary: "Copy again")
+        let (f, height) = try await layOut(primary: "Erneut kopieren Erneut kopieren Erneut kopieren")
+        #expect(height > single.height + 8, "two lines: \(height) pt against \(single.height) pt")
+        #expect(Set(f.map(\.minY)).count == 1 && Set(f.map(\.height)).count == 1, "one row, one height: \(f)")
+        #expect(f[1].width == f[2].width && f[1].width == single.frames[1].width, "icon buttons keep their width")
+        #expect(f[0].maxX < f[1].minX && f[1].maxX < f[2].minX)
+    }
+
+    /// Right to left, the row mirrors: the primary at the trailing (right-hand) end becomes
+    /// the leading one on the right, with the icon buttons to its left.
+    @MainActor
+    @Test func mirrorsRightToLeft() async throws {
+        let (f, _) = try await layOut(primary: "Copy again", direction: .rightToLeft)
+        #expect(f[0].minX > f[1].maxX && f[1].minX > f[2].maxX, "\(f)")
+        #expect(abs(f[0].maxX - f[2].minX - 260) < 0.5)
+    }
+}
+
+/// The strip's keyboard: Space and Return open Markup from the thumbnail only, never while
+/// one of its buttons has focus (that button takes the key).
+struct RecentItemKeyTests {
+    @Test func onlyTheThumbnailOpensMarkup() {
+        #expect(RecentItem.keyOpensMarkup(focus: .thumbnail))
+        #expect(!RecentItem.keyOpensMarkup(focus: .copy))
+        #expect(!RecentItem.keyOpensMarkup(focus: .reveal))
+        #expect(!RecentItem.keyOpensMarkup(focus: .trash))
+        #expect(!RecentItem.keyOpensMarkup(focus: nil))
     }
 }
 

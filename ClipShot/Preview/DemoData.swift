@@ -132,6 +132,22 @@ final class DemoScene {
         for file in files { await ledger.record(file) }
     }
 
+    /// Earlier screenshots at the extremes, for the strip's buttons over any picture: newest
+    /// first, a plain white one, the pale demo window, the demo window in dark mode, and a
+    /// black one.
+    func contrastScreenshots() async throws {
+        let images = [
+            DemoContent.plainPNG(white: 1), DemoContent.screenshotPNG(variant: 1),
+            DemoContent.screenshotPNG(variant: 2, dark: true), DemoContent.plainPNG(white: 0),
+        ]
+        var files: [CaptureFile] = []
+        for (index, image) in images.enumerated() {
+            let age = TimeInterval(index + 1) * 10 * 60
+            files.append(try shoot(DemoContent.recentScreenshotName(index), image: image, age: age))
+        }
+        for file in files { await ledger.record(file) }
+    }
+
     /// Old screenshots, `count` of them `days` old: in the ledger when `tracked`, otherwise
     /// left for "Also clean up N older screenshots".
     func oldScreenshots(_ count: Int, days: Int, tracked: Bool) async throws {
@@ -337,9 +353,18 @@ enum DemoContent {
     /// every language and shows nothing personal.
     static let screenshotPNG: Data = screenshotPNG(variant: 0)
 
-    /// The demo window in other colours, so the strip's pictures tell apart.
-    static func screenshotPNG(variant: Int) -> Data {
-        let renderer = ImageRenderer(content: DemoWindow(variant: variant))
+    /// The demo window in other colours, so the strip's pictures tell apart; `dark`, as a
+    /// window in dark mode.
+    static func screenshotPNG(variant: Int, dark: Bool = false) -> Data {
+        let renderer = ImageRenderer(content: DemoWindow(variant: variant, dark: dark))
+        renderer.scale = 1
+        guard let image = renderer.cgImage else { return Data() }
+        return NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) ?? Data()
+    }
+
+    /// A screenshot of one flat grey, `white` 1 for white and 0 for black.
+    static func plainPNG(white: CGFloat) -> Data {
+        let renderer = ImageRenderer(content: Color(white: white).frame(width: 1280, height: 820))
         renderer.scale = 1
         guard let image = renderer.cgImage else { return Data() }
         return NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) ?? Data()
@@ -348,6 +373,10 @@ enum DemoContent {
 
 private struct DemoWindow: View {
     var variant = 0
+    var dark = false
+
+    /// A grey of the light window, or its counterpart in dark mode.
+    private func grey(_ white: Double) -> Color { Color(white: dark ? 1.1 - white : white) }
 
     private static let palettes: [(Color, Color)] = [
         (Color(red: 0.937, green: 0.396, blue: 0.329), Color(red: 0.973, green: 0.643, blue: 0.247)),
@@ -369,18 +398,18 @@ private struct DemoWindow: View {
             }
             .padding(.horizontal, 18)
             .frame(height: 44)
-            .background(Color(white: 0.94))
+            .background(grey(0.94))
 
             HStack(alignment: .top, spacing: 28) {
                 VStack(alignment: .leading, spacing: 18) {
                     ForEach(0..<6) { index in
                         RoundedRectangle(cornerRadius: 6)
-                            .fill(index == 1 ? coral.opacity(0.25) : Color(white: 0.9))
+                            .fill(index == 1 ? coral.opacity(0.25) : grey(0.9))
                             .frame(width: 180, height: 26)
                     }
                 }
                 VStack(alignment: .leading, spacing: 24) {
-                    RoundedRectangle(cornerRadius: 6).fill(Color(white: 0.82)).frame(width: 320, height: 30)
+                    RoundedRectangle(cornerRadius: 6).fill(grey(0.82)).frame(width: 320, height: 30)
                     HStack(alignment: .bottom, spacing: 22) {
                         ForEach(bars.indices, id: \.self) { index in
                             RoundedRectangle(cornerRadius: 8)
@@ -392,7 +421,7 @@ private struct DemoWindow: View {
                     HStack(spacing: 22) {
                         ForEach(0..<3) { index in
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(Color(white: index == 0 ? 0.88 : 0.93))
+                                .fill(grey(index == 0 ? 0.88 : 0.93))
                                 .frame(width: 236, height: 150)
                         }
                     }
@@ -400,7 +429,7 @@ private struct DemoWindow: View {
             }
             .padding(36)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(Color.white)
+            .background(grey(1))
         }
         .frame(width: 1280, height: 820)
     }
