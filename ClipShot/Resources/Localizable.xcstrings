@@ -6347,6 +6347,47 @@
         }
       }
     },
+    "Not copied: the file is gone or could not be read." : {
+      "comment" : "Copy or Copy again failed: the screenshot was moved or deleted meanwhile, ClipShot refused to read it, or the clipboard took nothing",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not copied: the file is gone or could not be read."
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neskopírované: súbor už neexistuje alebo sa nedal prečítať."
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nezkopírováno: soubor už neexistuje nebo ho nešlo přečíst."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht kopiert: Die Datei ist nicht mehr da oder ließ sich nicht lesen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se copió: el archivo ya no existe o no se pudo leer."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non copiée : le fichier n’existe plus ou n’a pas pu être lu."
+          }
+        }
+      }
+    },
     "Not moved: ClipShot only moves screenshots taken while it runs." : {
       "comment" : "Move to Trash refused: ClipShot did not see this screenshot being taken",
       "localizations" : {

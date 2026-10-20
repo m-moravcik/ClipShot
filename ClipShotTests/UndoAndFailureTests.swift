@@ -108,8 +108,56 @@ struct UndoAndFailureTests {
         #expect(await eventually { await h.model.actionNote == nil })
     }
 
+    /// Minor 3: a Copy from a row (its pill, its menu, VoiceOver, all `copyAgain(file:)`) that
+    /// fails says why in the note above the list, with the alert sound and VoiceOver.
+    @Test func aFailedCopyFromARowIsSaid() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        #expect(await h.start())
+        let url = try h.shoot("Screenshot 1.png")
+        #expect(await eventually { await h.model.recent.count == 1 })
+        let row = try #require(h.model.recent.first)
+        // Gone in Finder while the popover is open.
+        let away = try Fixtures.makeDir().appendingPathComponent("Screenshot 1.png")
+        try FileManager.default.moveItem(at: url, to: away)
+
+        #expect(await !h.model.copyAgain(file: row))
+        #expect(h.model.actionNote?.failure == .copy)
+        #expect(h.alerts == 1)
+        #expect(h.announced.last == Copy.Failure.copyFailed.key)
+
+        // The clipboard refusing is said the same way.
+        try FileManager.default.moveItem(at: away, to: url)
+        h.pasteboard.failing = true
+        #expect(await !h.model.copyAgain(file: row))
+        #expect(h.alerts == 2)
+        #expect(h.model.actionNote?.failure == .copy)
+    }
+
+    /// The same on a floating preview (its hover button, its menu, VoiceOver): said on the
+    /// preview itself, and gone once a Copy from it works.
+    @Test func aFailedCopyFromAPreviewIsSaidOnIt() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        #expect(await h.start())
+        let (file, id) = try await shotWithPreview(h)
+        let actions = PreviewFileActions.model(h.model)
+
+        h.pasteboard.failing = true
+        #expect(await !actions.copy(file, id))
+        #expect(h.model.previews.visible.first { $0.id == id }?.failure == .copy)
+        #expect(h.model.actionNote == nil, "said where the user acted, not in the popover")
+        #expect(h.alerts == 1)
+        #expect(h.announced.last == Copy.Failure.copyFailed.key)
+
+        h.pasteboard.failing = false
+        #expect(await actions.copy(file, id))
+        #expect(h.model.previews.visible.first { $0.id == id }?.failure == nil)
+    }
+
     @Test(arguments: [
-        (ScreenshotActionFailure.trash(.notTracked), Copy.Failure.notTracked.key),
+        (ScreenshotActionFailure.copy, Copy.Failure.copyFailed.key),
+        (.trash(.notTracked), Copy.Failure.notTracked.key),
         (.trash(.outsideFolder), Copy.Failure.outsideFolder.key),
         (.trash(.noTrash), Copy.Failure.noTrash.key),
         (.trash(.failed), Copy.Failure.trashFailed.key),

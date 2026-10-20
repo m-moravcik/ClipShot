@@ -55,13 +55,15 @@ extension AppModel {
     }
 }
 
-/// A Move to Trash or an Undo that did not happen, and why, in the user's words.
+/// A Copy, a Move to Trash or an Undo that did not happen, and why, in the user's words.
 enum ScreenshotActionFailure: Equatable, Sendable {
+    case copy
     case trash(AppModel.TrashError)
     case undo
 
     var message: LocalizedStringResource {
         switch self {
+        case .copy: Copy.Failure.copyFailed
         case .trash(.notTracked): Copy.Failure.notTracked
         case .trash(.outsideFolder): Copy.Failure.outsideFolder
         case .trash(.noTrash): Copy.Failure.noTrash

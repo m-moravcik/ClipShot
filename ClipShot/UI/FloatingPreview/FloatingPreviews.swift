@@ -199,6 +199,12 @@ final class FloatingPreviews {
         reschedule()
     }
 
+    /// A later action on preview `id` worked: the note of the earlier failure goes.
+    func clearFailure(on id: UUID) {
+        guard let index = items.firstIndex(where: { $0.id == id }), items[index].failure != nil else { return }
+        items[index].failure = nil
+    }
+
     /// The mode changed to one without ClipShot's preview, or watching stopped.
     func dismissAll() {
         for item in visible { dismiss(item.id, .close) }

@@ -336,7 +336,11 @@ struct PreviewCard: View {
     private func copy() {
         bounceTask?.cancel()
         bounceTask = Task {
-            guard await actions.copy(), !Task.isCancelled, !reduceMotion else { return }
+            let copied = await actions.copy()
+            guard !Task.isCancelled else { return }
+            // A Copy that failed (the card says why) can be tried again from the same hover.
+            if !copied, hovering { offerCopy = true }
+            guard copied, !reduceMotion else { return }
             do { try await Task.sleep(for: Design.Motion.badgeDelay) } catch { return }
             badgeBounce += 1
         }

@@ -56,10 +56,10 @@ struct PreviewMotionTests {
         #expect(await eventually { await h.model.lastCopied != nil })
         let file = try #require(h.model.lastCopied)
         let actions = PreviewFileActions.model(h.model)
-        #expect(await actions.copy(file))
+        #expect(await actions.copy(file, UUID()))
         #expect(h.preferences.totals.copied == 2)
         h.pasteboard.failing = true
-        #expect(await !actions.copy(file))
+        #expect(await !actions.copy(file, UUID()))
     }
 
     private static func image(width: Int, height: Int) -> CGImage? {

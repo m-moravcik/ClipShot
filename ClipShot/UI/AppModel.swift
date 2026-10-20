@@ -72,8 +72,8 @@ final class AppModel {
     /// The screenshot just moved to the Trash while its Undo is offered (Addendum A6). One at
     /// a time: a newer trash replaces it.
     private(set) var undoable: TrashedScreenshot?
-    /// A Move to Trash or Undo from the popover that failed, said in a note above the list
-    /// for `undoLifetime` (Addendum A6). One at a time.
+    /// A Copy, Move to Trash or Undo from the popover that failed, said in a note above the
+    /// list for `undoLifetime` (Addendum A6). One at a time.
     private(set) var actionNote: ActionNote?
     /// ClipShot's floating previews (Addendum A2); only filled in Preview mode ClipShot.
     let previews: FloatingPreviews
@@ -654,12 +654,16 @@ final class AppModel {
         return await copyAgain(file: file)
     }
 
-    /// Copies `file` again: the screenshot of the row (or preview) whose Copy was clicked. The
-    /// menu bar plays its copy animation, as for a new screenshot. An
-    /// explicit Copy, so it works while copying is paused. Clears the could-not-copy
-    /// attention only when `file` is the one that failed.
+    /// Copies `file` again: the screenshot of the row (or preview `preview`) whose Copy was
+    /// clicked. The menu bar plays its copy animation, as for a new screenshot. An explicit
+    /// Copy, so it works while copying is paused. Clears the could-not-copy attention only
+    /// when `file` is the one that failed.
+    ///
+    /// A Copy that fails (the file is gone or refused, or the pasteboard took nothing) says
+    /// so where the user acted, as a failed Move to Trash does: on the preview, or in the
+    /// note above the popover's list, with the alert sound and VoiceOver.
     @discardableResult
-    func copyAgain(file: CaptureFile) async -> Bool {
+    func copyAgain(file: CaptureFile, fromPreview preview: UUID? = nil) async -> Bool {
         let outcome = await Task.detached(priority: .userInitiated) { PNGConverter.convert(file.url) }.value
         let ext = file.url.pathExtension.lowercased()
         let log = log
@@ -669,8 +673,10 @@ final class AppModel {
             } else {
                 Task { await log.error("copy again failed ext=\(ext)") }
             }
+            actionFailed(.copy, preview: preview)
             return false
         }
+        if let preview { previews.clearFailure(on: preview) }
         Task { await log.info("copied again ext=\(ext)") }
         return true
     }

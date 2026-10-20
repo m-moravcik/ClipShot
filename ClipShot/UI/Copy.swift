@@ -161,6 +161,9 @@ enum Copy {
 
     /// A Move to Trash or Undo that did not happen: said where the user acted, for 5 s.
     enum Failure {
+        static let copyFailed = LocalizedStringResource(
+            "Not copied: the file is gone or could not be read.",
+            comment: "Copy or Copy again failed: the screenshot was moved or deleted meanwhile, ClipShot refused to read it, or the clipboard took nothing")
         static let notTracked = LocalizedStringResource(
             "Not moved: ClipShot only moves screenshots taken while it runs.",
             comment: "Move to Trash refused: ClipShot did not see this screenshot being taken")
