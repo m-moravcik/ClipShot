@@ -38,18 +38,48 @@ enum FileTrust {
     /// checked (a regular file, the owner, the size) is what is read, whatever happens to
     /// the path meanwhile.
     static func read(_ url: URL, policy: Policy = .standard) -> Result<Data, Refusal> {
+        open(url, policy: policy).flatMap { $0.read() }
+    }
+
+    /// A file opened and checked as `read` does, not read yet. The bytes stay readable
+    /// after the path goes away, so a caller can open a file that may vanish at once (a
+    /// temporary copy) and read it later, off the main actor.
+    final class Opened: Sendable {
+        private let fd: Int32
+        private let maxBytes: Int64
+
+        fileprivate init(fd: Int32, maxBytes: Int64) {
+            self.fd = fd
+            self.maxBytes = maxBytes
+        }
+
+        deinit { close(fd) }
+
+        /// At most the policy's size, as `read` would.
+        func read() -> Result<Data, Refusal> {
+            FileTrust.readBounded(FileHandle(fileDescriptor: fd, closeOnDealloc: false), maxBytes: maxBytes)
+        }
+    }
+
+    /// Opens and checks `url` (one `open` and one `fstat`, no read).
+    static func open(_ url: URL, policy: Policy = .standard) -> Result<Opened, Refusal> {
         let fd = url.withUnsafeFileSystemRepresentation { path -> Int32 in
             guard let path else { return -1 }
-            return open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK)
+            return Darwin.open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK)
         }
         guard fd >= 0 else { return .failure(errno == ELOOP ? .notRegular : .unreadable) }
-        defer { close(fd) }
         var st = stat()
-        guard fstat(fd, &st) == 0 else { return .failure(.unreadable) }
-        guard (st.st_mode & S_IFMT) == S_IFREG else { return .failure(.notRegular) }
-        guard st.st_uid == policy.owner else { return .failure(.notOwned) }
-        guard Int64(st.st_size) <= policy.maxBytes else { return .failure(.tooLarge) }
-        return readBounded(FileHandle(fileDescriptor: fd, closeOnDealloc: false), maxBytes: policy.maxBytes)
+        let refusal: Refusal? =
+            if fstat(fd, &st) != 0 { .unreadable }
+            else if (st.st_mode & S_IFMT) != S_IFREG { .notRegular }
+            else if st.st_uid != policy.owner { .notOwned }
+            else if Int64(st.st_size) > policy.maxBytes { .tooLarge }
+            else { nil }
+        if let refusal {
+            close(fd)
+            return .failure(refusal)
+        }
+        return .success(Opened(fd: fd, maxBytes: policy.maxBytes))
     }
 
     /// At most `maxBytes` from `handle`. One byte past the limit is enough to tell a file

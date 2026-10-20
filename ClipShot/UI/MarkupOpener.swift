@@ -73,11 +73,16 @@ final class MarkupOpener: NSObject, NSSharingServiceDelegate {
     }
 
     private func finish(_ result: MarkupResult) {
-        guard let edit else { return }
+        end()?.completion(result)
+    }
+
+    /// Ends the edit in progress, if any, and hands it back for its completion.
+    private func end() -> Edit? {
+        guard let edit else { return nil }
         self.edit = nil
         edit.service.delegate = nil
         edit.host.orderOut(nil)
-        edit.completion(result)
+        return edit
     }
 
     static func openInPreview(_ url: URL) -> Bool {
@@ -122,22 +127,43 @@ final class MarkupOpener: NSObject, NSSharingServiceDelegate {
     }
 
     nonisolated func sharingService(_ sharingService: NSSharingService, didShareItems items: [Any]) {
-        // Read a returned copy now: it may live in a temporary place the extension cleans up.
         let urls = items.compactMap(Self.fileURL)
-        MainActor.assumeIsolated {
-            guard let edit else { return }
-            if Self.modified(edit.url) != edit.modified {
-                finish(.savedInPlace)
-            } else if let copy = urls.first(where: { $0.standardizedFileURL != edit.url.standardizedFileURL }),
-                      // Through FileTrust like every screenshot read: this user's, no
-                      // symlink, bounded in size.
-                      case .success(let data) = FileTrust.read(copy) {
-                finish(.savedCopy(data))
-            } else {
-                finish(.closed)
+        MainActor.assumeIsolated { returned(urls) }
+    }
+
+    /// Done in the editor, with the items it handed back. A returned copy may live in a
+    /// temporary place the extension cleans up as soon as this returns, so it is opened
+    /// now (through FileTrust like every screenshot read: this user's, no symlink, bounded
+    /// in size) and read off the main actor, where its size cannot stall the UI.
+    func returned(_ urls: [URL]) {
+        guard let edit else { return }
+        if Self.modified(edit.url) != edit.modified {
+            finish(.savedInPlace)
+        } else if let copy = urls.first(where: { $0.standardizedFileURL != edit.url.standardizedFileURL }),
+                  case .success(let opened) = FileTrust.open(copy) {
+            guard let edit = end() else { return }
+            Task {
+                let read = await Task.detached(priority: .userInitiated) { opened.read() }.value
+                guard case .success(let data) = read else {
+                    edit.completion(.closed)
+                    return
+                }
+                edit.completion(.savedCopy(data))
             }
+        } else {
+            finish(.closed)
         }
     }
+
+    #if DEBUG
+    /// Tests: an edit of `url` in progress, as `open` leaves it, without opening an editor.
+    func beginForTesting(_ url: URL, completion: @escaping @MainActor (MarkupResult) -> Void) {
+        let host = NSWindow(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: true)
+        host.isReleasedWhenClosed = false
+        let service = NSSharingService(title: "", image: NSImage(), alternateImage: nil) {}
+        edit = Edit(url: url, modified: Self.modified(url), service: service, host: host, completion: completion)
+    }
+    #endif
 
     nonisolated func sharingService(
         _ sharingService: NSSharingService, didFailToShareItems items: [Any], error: any Error

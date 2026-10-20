@@ -19,6 +19,21 @@ struct FileTrustTests {
         #expect(PNGConverter.convert(url) == .png(try Data(contentsOf: url)))
     }
 
+    /// Opened and checked now, read later: what was checked is what is read, also after the
+    /// path went away (Markup's temporary copy).
+    @Test func anOpenedFileIsReadAfterItsPathIsGone() throws {
+        let url = try shot()
+        let bytes = try Data(contentsOf: url)
+        let opened = try FileTrust.open(url).get()
+        try FileManager.default.moveItem(at: url, to: try Fixtures.makeDir().appendingPathComponent("moved.png"))
+        #expect(try opened.read().get() == bytes)
+        let refused: FileTrust.Refusal? = switch FileTrust.open(try shot(), policy: FileTrust.Policy(owner: Self.otherUser)) {
+        case .success: nil
+        case .failure(let refusal): refusal
+        }
+        #expect(refused == .notOwned, "opening checks as reading does")
+    }
+
     @Test func refusesAnotherUsersFile() throws {
         let url = try shot()
         let policy = FileTrust.Policy(owner: Self.otherUser)
