@@ -25,8 +25,8 @@ enum LoginItem {
     /// Whether watching reconciles at its start. Not during a first tour: nothing is
     /// stored yet, and adopting the system's "off" there would turn the tour's switch,
     /// which starts on, off before the user sees it. The tour's end decides instead.
-    static func reconcilesAtStart(storedIntent: Bool?, onboardingShown: Bool) -> Bool {
-        storedIntent != nil || onboardingShown
+    static func reconcilesAtStart(storedIntent: Bool?, tourCompleted: Bool) -> Bool {
+        storedIntent != nil || tourCompleted
     }
 
     /// What ending the tour stores when the user did not touch the switch: the tour's

@@ -294,9 +294,11 @@ final class AppModel {
 
     // MARK: - Lifecycle
 
-    /// At app start: resumes watching once onboarding has been shown.
+    /// At app start: resumes watching once the welcome tour has been completed, even when a
+    /// replay of it now waits in the popover (a replay is a request to show the tour again,
+    /// not a reset of copying).
     func launch() {
-        if preferences.onboardingShown { startWatching() }
+        if preferences.tourCompleted { startWatching() }
     }
 
     /// The first moment ClipShot touches the screenshot folder, prefs, pasteboard and login item.
@@ -304,7 +306,7 @@ final class AppModel {
         guard !isWatching else { return }
         isWatching = true
         if LoginItem.reconcilesAtStart(
-            storedIntent: preferences.launchAtLoginIntent, onboardingShown: preferences.onboardingShown) {
+            storedIntent: preferences.launchAtLoginIntent, tourCompleted: preferences.tourCompleted) {
             preferences.launchAtLoginIntent = reconcileLoginItem(preferences.launchAtLoginIntent)
         }
         observedPolicy = preferences.retention
@@ -358,6 +360,7 @@ final class AppModel {
     }
 
     /// Settings > General: shows the welcome tour again the next time the popover opens.
+    /// Copying goes on meanwhile, also after a relaunch (`tourCompleted` stays).
     func replayOnboarding() {
         preferences.onboardingShown = false
     }

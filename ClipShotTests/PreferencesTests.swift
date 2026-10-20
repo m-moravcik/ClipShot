@@ -14,10 +14,29 @@ struct PreferencesTests {
             #expect(p.copyEnabled)
             #expect(p.retention == .default)
             #expect(!p.onboardingShown)
+            #expect(!p.tourCompleted)
             #expect(p.launchAtLoginIntent == nil)
             #expect(p.lastRetention == nil)
             #expect(p.totals == Totals())
             #expect(!p.markupTipShown)
+        }
+    }
+
+    /// Minor 4: Replay welcome tour shows the tour again but leaves "completed once", so the
+    /// next launch resumes copying; an install from before the key counts a shown tour.
+    @Test func aReplayKeepsTheTourCompleted() {
+        withDefaults { defaults in
+            let p = Preferences(store: defaults)
+            p.onboardingShown = true
+            #expect(p.tourCompleted, "done or skipped completes it")
+            p.onboardingShown = false
+            let q = Preferences(store: defaults)
+            #expect(!q.onboardingShown, "the replay waits in the popover")
+            #expect(q.tourCompleted)
+        }
+        withDefaults { defaults in
+            defaults.set(true, forKey: "clipshot.onboardingShown")
+            #expect(Preferences(store: defaults).tourCompleted, "shown before the key existed")
         }
     }
 

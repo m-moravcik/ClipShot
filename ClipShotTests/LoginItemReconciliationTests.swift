@@ -42,10 +42,10 @@ struct LoginItemReconciliationTests {
 
     @Test("A first tour reconciles at its end, every later start at once")
     func reconcilesAtStart() {
-        #expect(!LoginItem.reconcilesAtStart(storedIntent: nil, onboardingShown: false))
-        #expect(LoginItem.reconcilesAtStart(storedIntent: nil, onboardingShown: true))
-        #expect(LoginItem.reconcilesAtStart(storedIntent: false, onboardingShown: false))
-        #expect(LoginItem.reconcilesAtStart(storedIntent: true, onboardingShown: true))
+        #expect(!LoginItem.reconcilesAtStart(storedIntent: nil, tourCompleted: false))
+        #expect(LoginItem.reconcilesAtStart(storedIntent: nil, tourCompleted: true))
+        #expect(LoginItem.reconcilesAtStart(storedIntent: false, tourCompleted: false))
+        #expect(LoginItem.reconcilesAtStart(storedIntent: true, tourCompleted: true))
     }
 
     @Test("The tour's end registers its default only when the switch was on screen")

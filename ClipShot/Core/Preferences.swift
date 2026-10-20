@@ -25,7 +25,17 @@ final class Preferences {
 
     var copyEnabled: Bool { didSet { defaults.set(copyEnabled, forKey: Key.copyEnabled) } }
     var retention: RetentionPolicy { didSet { store(retention, Key.retention) } }
-    var onboardingShown: Bool { didSet { defaults.set(onboardingShown, forKey: Key.onboardingShown) } }
+    /// The welcome tour is not waiting in the popover: false on a fresh install and after
+    /// Settings' Replay welcome tour, true once it is done or skipped.
+    var onboardingShown: Bool {
+        didSet {
+            defaults.set(onboardingShown, forKey: Key.onboardingShown)
+            if onboardingShown, !tourCompleted { tourCompleted = true }
+        }
+    }
+    /// The tour was completed (done or skipped) at least once. A replay leaves it set, so
+    /// copying resumes at launch while the replayed tour waits.
+    var tourCompleted: Bool { didSet { defaults.set(tourCompleted, forKey: Key.tourCompleted) } }
     var launchAtLoginIntent: Bool? {
         didSet {
             if let launchAtLoginIntent {
@@ -51,7 +61,10 @@ final class Preferences {
         self.defaults = defaults
         copyEnabled = defaults.object(forKey: Key.copyEnabled) as? Bool ?? true
         retention = Self.load(RetentionPolicy.self, Key.retention, defaults) ?? .default
-        onboardingShown = defaults.object(forKey: Key.onboardingShown) as? Bool ?? false
+        let shown = defaults.object(forKey: Key.onboardingShown) as? Bool ?? false
+        onboardingShown = shown
+        // Before this key existed, a shown tour was a completed one.
+        tourCompleted = defaults.object(forKey: Key.tourCompleted) as? Bool ?? shown
         launchAtLoginIntent = defaults.object(forKey: Key.launchAtLoginIntent) as? Bool
         lastRetention = Self.load(RetentionResult.self, Key.lastRetention, defaults)
         totals = Self.load(Totals.self, Key.totals, defaults) ?? Totals()
@@ -64,6 +77,7 @@ final class Preferences {
         static let copyEnabled = "clipshot.copyEnabled"
         static let retention = "clipshot.retention"
         static let onboardingShown = "clipshot.onboardingShown"
+        static let tourCompleted = "clipshot.tourCompleted"
         static let launchAtLoginIntent = "clipshot.launchAtLoginIntent"
         static let lastRetention = "clipshot.lastRetention"
         static let totals = "clipshot.totals"

@@ -218,6 +218,27 @@ struct OnboardingTests {
         #expect(h.preferences.launchAtLoginIntent == false)
     }
 
+    /// Minor 4: Replay, then a relaunch (a restart, launch at login) before the popover was
+    /// opened: copying resumes, and the replayed tour still waits in the popover.
+    @Test func aReplayedTourDoesNotStopCopyingAfterARelaunch() async throws {
+        let h = try ModelHarness(onboardingShown: true)
+        defer { h.tearDown() }
+        h.model.replayOnboarding()
+        #expect(!h.preferences.onboardingShown)
+        #expect(h.preferences.tourCompleted)
+
+        let relaunched = try ModelHarness(onboardingShown: false, relaunching: h)
+        defer { relaunched.tearDown() }
+        relaunched.preferences.tourCompleted = h.preferences.tourCompleted
+        relaunched.model.launch()
+        #expect(relaunched.model.isWatching)
+        #expect(await eventually { await relaunched.model.watchedFolder?.path == relaunched.folder.path })
+        #expect(!relaunched.preferences.onboardingShown, "the tour still opens with the popover")
+        try relaunched.shoot("Screenshot 1.png")
+        #expect(await eventually { await relaunched.pasteboard.writes.count == 1 }, "and copying works")
+        #expect(relaunched.loginReconciles == 1, "a later start reconciles launch at login")
+    }
+
     /// A replayed tour shows and keeps the stored choice.
     @Test func aReplayedTourKeepsTheStoredChoice() async throws {
         let h = try ModelHarness(onboardingShown: true)
