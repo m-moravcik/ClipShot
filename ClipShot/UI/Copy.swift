@@ -300,6 +300,67 @@ enum Copy {
             comment: "Settings > General, after Replay welcome tour: the tour shows in the popover, not here")
     }
 
+    /// Settings > General > Command line: whether `clipshot` is linked, and Install.
+    enum CommandLine {
+        static let notInstalled = LocalizedStringResource(
+            "Not installed", comment: "Settings > General: the clipshot command is not on the PATH")
+        static func installed(_ path: String) -> LocalizedStringResource {
+            LocalizedStringResource(
+                "Installed at \(path)", comment: "Settings > General: where the clipshot command is linked")
+        }
+        static func installedByHomebrew(_ path: String) -> LocalizedStringResource {
+            LocalizedStringResource(
+                "Installed by Homebrew at \(path)",
+                comment: "Settings > General: the Homebrew cask linked the clipshot command there")
+        }
+        static let installedByHomebrewNoPath = LocalizedStringResource(
+            "Installed by Homebrew", comment: "Settings > General: the Homebrew cask owns the clipshot command")
+        static let install = LocalizedStringResource(
+            "Install…", comment: "Settings > General: links the clipshot command, asking for the password if needed")
+        static let installing = LocalizedStringResource("Installing…")
+        static let fix = LocalizedStringResource(
+            "Fix…", comment: "Settings > General: points a broken clipshot link at this ClipShot")
+        static let installNote = LocalizedStringResource(
+            "Install links clipshot into /usr/local/bin, so it works in Terminal.")
+        static let installedNote = LocalizedStringResource(
+            "In Terminal, clipshot latest prints the path of your newest screenshot. clipshot help lists the rest.")
+        static let copyCommand = LocalizedStringResource(
+            "Copy Command", comment: "Copies the Terminal command that links clipshot by hand")
+        static let commandCopied = LocalizedStringResource(
+            "Copied. Paste it into Terminal to link clipshot yourself.")
+        static let brokenLink = LocalizedStringResource(
+            "This link points to a ClipShot that is no longer there, so clipshot does not work.")
+        static let otherCopyLink = LocalizedStringResource(
+            "This link points to another copy of ClipShot, not this one.")
+        static let foreign = LocalizedStringResource(
+            "This clipshot is not a link to this ClipShot, so ClipShot leaves it as it is.")
+        static let moveToApplications = LocalizedStringResource(
+            "Move ClipShot to the Applications folder first, then install the command.")
+        static func replaceTitle(_ path: String) -> LocalizedStringResource {
+            LocalizedStringResource(
+                "Replace the link at \(path)?", comment: "Confirmation before a clipshot link is pointed at this ClipShot")
+        }
+        static func replaceMessage(_ target: String) -> LocalizedStringResource {
+            LocalizedStringResource(
+                "It points to \(target). The new link points to this ClipShot.",
+                comment: "Confirmation before a clipshot link is pointed at this ClipShot: where it points now")
+        }
+        static let replace = LocalizedStringResource("Replace Link")
+        static func prompt(_ folder: String) -> LocalizedStringResource {
+            LocalizedStringResource(
+                "ClipShot wants to link the clipshot command into \(folder).",
+                comment: "The macOS administrator password prompt, above the name and password fields")
+        }
+        static let cancelled = LocalizedStringResource("Cancelled. Nothing was changed.")
+        static let changed = LocalizedStringResource(
+            "Something else turned up there meanwhile, so nothing was replaced.")
+        static let noTool = LocalizedStringResource("This copy of ClipShot has no clipshot to link.")
+        static func failed(_ reason: String) -> LocalizedStringResource {
+            LocalizedStringResource(
+                "Could not install clipshot: \(reason)", comment: "The reason is the system's own message")
+        }
+    }
+
     enum Capture {
         static let notWatching = LocalizedStringResource(
             "ClipShot reads the screenshot settings once the welcome tour is done.")

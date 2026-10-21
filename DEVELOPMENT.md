@@ -465,8 +465,9 @@ formula; ClipShot does not need one:
 
 - **Homebrew**: the cask's `binary` stanza links the bundled tool into Homebrew's `bin`, so
   `brew install --cask m-moravcik/clipshot/clipshot` puts `clipshot` on the PATH.
-- **The ZIP** (and Sparkle updates, which keep the path): a link by hand. On Apple
-  Silicon `/usr/local/bin` may not exist and is root's:
+- **The ZIP** (and Sparkle updates, which keep the path): **Install…** in Settings >
+  General makes the link (below), or a link by hand. On Apple Silicon `/usr/local/bin`
+  may not exist and is root's:
   `sudo mkdir -p /usr/local/bin && sudo ln -s /Applications/ClipShot.app/Contents/Helpers/clipshot /usr/local/bin/clipshot`.
 - **From source**: `make install-cli` (to `/usr/local/bin/clipshot`, as VibeRes;
   `PREFIX=` to change; `sudo` when that folder is root's), `make uninstall-cli` moves it
@@ -475,6 +476,42 @@ formula; ClipShot does not need one:
   `/usr/local/bin/clipshot` too: with a hand-made link or `make install-cli` there, `brew
   install` refuses to link over it. Remove the other one first (`make uninstall-cli`, or
   move the link to the Trash).
+
+### Install from Settings
+
+Settings > General shows where `clipshot` is (`UI/CommandLineSetup.swift`).
+`CommandLineStatus.detect` reads, with `lstat` and never following a link except to
+resolve where it ends, `clipshot` in Homebrew's bin (`$HOMEBREW_PREFIX`, `/opt/homebrew`),
+`/usr/local/bin` and `~/.local/bin`. A shell's PATH is not visible to a GUI app, so these
+are the places checked. In order:
+
+- **A Homebrew copy** (`UpdaterGate.isHomebrewCopy`, the same Caskroom check the updater
+  uses) shows where the cask linked it and never offers Install.
+- **A stale link** anywhere (it may come first on the PATH): dangling (the app was moved
+  or deleted), or resolving to another `*.app/Contents/Helpers/clipshot`. **Fix…** asks
+  for confirmation, naming where it points, then replaces that link.
+- **A link that resolves to this app's tool** (`realpath`, so a relative link or a
+  symlinked `/Applications` counts): installed, with where.
+- **Anything else** named `clipshot` (a `make install-cli` copy, another program, a
+  link to one, a folder): said and left alone, with Show in Finder; no prompt.
+- **Nothing**: **Install…** links `/usr/local/bin/clipshot`; **Copy Command** copies the
+  `sudo ln -s` line with this app's path, quoted for the shell.
+
+A copy running from App Translocation (opened from Downloads without moving it) is asked to
+be moved to Applications first: a link to the translocated path breaks at the next launch.
+
+`ScriptLinker` runs `/usr/bin/osascript` with a fixed AppleScript; out of process, so the app
+keeps copying screenshots while the password prompt is open. The paths reach it as
+arguments, AppleScript quotes each with `quoted form of`, and a fixed `/bin/sh` script reads
+them as `$1` to `$3`: no path is ever spliced into code. `do shell script ... with
+administrator privileges` (the standard prompt, with a localised message) is used only when
+the folder, or the nearest one above it that exists, is not writable; otherwise the same
+script runs as the user. The script creates the folder, then either `ln -s` without `-f`
+(nothing may be at the path; a folder there is refused rather than linked into), or, for
+Fix, checks that the path is still a symlink with the target the user confirmed, makes the
+new link under a temporary name and renames it over the old one (`mv -fh`). Nothing is
+deleted and a regular file is never replaced. Its exit codes and a cancelled prompt (-128)
+come back as `CommandLineLinkResult` and are said under the row.
 
 `scripts/release-signed.sh` signs the tool with the Developer ID identity, its own
 identifier `sk.moravcik.ClipShot.cli`, the hardened runtime and a timestamp, before the
@@ -781,6 +818,7 @@ Swift Testing. Pure logic is tested; views are not, except their layout rules. T
 | `PegMomentTests`, `PegMomentModelTests` | Every moment starts where the icon rested and ends exactly on its resting pose, every frame is a template image that fits the canvas; the model plays them on real state changes only, once, never cuts a copy short, leaves no timer behind, and plays none with Reduce Motion. |
 | `PegActionMomentModelTests`, `PegHandoffTests` | Move to Trash from a row or a preview plays the release, Undo the grip, a fresh open of the popover the squeeze (`PopoverPresence`, and the reader's wiring on a real window); retention, Clean up now, "Also clean up", a refused move, a failed Undo and closing the popover play nothing; precedence (the latest of copy, release and grip wins); a moment that replaces another starts from the pose on show (drawn pixel for pixel), changes no frame of the hand-off more than the two moments do on their own, lets a falling card finish falling, and ends at rest; the squeeze moves whole pixels at 1x and 2x; Reduce Motion holds the key poses on one tick and never squeezes. |
 | `ShortcutsTests` | The actions pick what the popover lists and hand out existing files only (never one outside the folder or a symlink; a refused newest falls back to the next; Get waits for the folder on a launch; the 512 MB cap); Copy Latest Screenshot leaves exactly what the popover's Copy leaves, also while paused; Pause and Resume play the switch's moments; Clean Up keeps retention's refusals, and Preview Only counts what the run then moves; the Focus precedence matrix, a switch between pausing Focus modes, its relaunch and the launch read (known, failed, timed out); nothing runs before or during the tour, and a Focus reported during it applies at its end; the extracted metadata and the phrases in six languages. |
+| `CommandLineSetupTests` | Settings' Command line on a temporary "/": not installed, a link to this app's tool in each place (also relative or through a linked folder), a Homebrew copy never offers Install, a dangling link or one to another ClipShot is stale and fixed only at that path, a regular file, a link to another program or a folder is refused with no action, a stale link wins over a working one, the translocated app. The real linker without the prompt into temporary folders: creates the folder, never replaces anything on Install, replaces on Fix only the link still pointing where it did, paths and targets that look like shell code are data, a missing tool; osascript's answers, cancel included; the password prompt only for a folder that is not the user's. Nothing touches `/usr/local/bin`, `/opt/homebrew/bin` or `~/.local/bin`. |
 | `ControlServerTests`, `CommandLineToolTests`, `CLIBinaryTests` | The socket: a round trip; 0700 and 0600; another user's peer closed unanswered; an oversize, silent, non-JSON or other-version request refused before the handler; a symlink, file or folder at the socket path neither followed nor replaced, a stale socket replaced, a live one left to its server, a symlinked folder refused; past the connection cap the answer is `busy`; a stuck command is answered `timedOut` at its deadline and frees its place; the client gives up at its timeout (all three with a gated handler, no fixed delays); stale temporary sockets of another process are swept by rename, a file, a live one and this process's own are left. The tool: its arguments and usage errors (JSON with `--json`), one `latest` maximum shared with Shortcuts, the JSON shapes (every key, `null` included), text output; through a real socket to the model, status and why copying is paused, pause and resume as the switch (Peg, the Focus rule), latest as the popover chooses, copy as the row's Copy also while paused, copy PATH refused outside the folder, for a symlink, a non-image, a missing file, and for any image ClipShot did not see being taken (an unmarked download, a PDF, a marked but untracked file; the last copy counts), the same through `handleControl` itself; Copy Latest and the popover offer tracked screenshots only; `latest` and `copy` agree on a newest file FileTrust refuses; a pause during a Focus pause is reported as taking it over; an attention that stops copying and the unknown Focus at launch in status; right after a launch the tool waits for the socket, says not running at once, and unavailable after the grace; clean and its dry run with retention's refusals, nothing before the tour; exit 3 without the app, `socketUnavailable` when the app runs without its socket; status (with cleanup's refusal) and latest from the files without it, and the real sources write nothing. The built binary inside the app: its version, help, exit codes, a round trip, a symlink not used, status against a stale socket. |
 | `LedgerTrustTests` | A hand-written ledger listing an unmarked download makes nothing listable or copyable (copy PATH, copy, latest with and without the app, Get Latest, Copy Latest, the popover); a marked screenshot in it still is; malformed entries are dropped and logged; another version, garbage, a symlink or an oversize ledger is not read; a file swapped in at the path of the chosen one is refused by FileTrust and the copy fails. |
 | `PreviewMotionTests`, `OnboardingTests` | The swipe commits exactly where a release dismisses; the drag image is lifted off its card; Copy again reports back so the badge bounces; the first copy is celebrated once per install, the burst stays small, short and ends. |
@@ -886,9 +924,9 @@ that refuses every move. Nothing on the Mac that renders is read or changed. The
 Debug build is coverage-instrumented; its profile goes into `build/`.
 
 It also checks, in every language, that Settings > Capture with the destination
-guard keeps at least the Form's standard 20 pt under its last section, and fails
-the run when it does not; that is how Restore was kept from scrolling out of view
-in German.
+guard, and Settings > General in every state of its Command line section, keep at
+least the Form's standard 20 pt under the last section, and fails the run when one
+does not; that is how Restore was kept from scrolling out of view in German.
 
 Off-screen, the popover's material has nothing to blur, so it is drawn as a solid
 fill and the bottom soft scroll edge is left out. `CLIPSHOT_SCREENSHOTS_LIVE=1`
