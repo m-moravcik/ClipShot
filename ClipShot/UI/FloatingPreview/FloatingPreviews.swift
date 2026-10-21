@@ -185,7 +185,7 @@ final class FloatingPreviews {
         reschedule()
     }
 
-    /// The Undo for `file` is over (used, replaced or out of time): its Undo previews leave,
+    /// The Undo for `file` is over (used, failed or out of time): its Undo previews leave,
     /// except `kept`, which is saying why its Undo failed.
     func endUndo(file: CaptureFile, except kept: UUID? = nil) {
         for item in items where item.trashed && item.exit == nil && item.file.url == file.url && item.id != kept {
