@@ -388,9 +388,10 @@ words.
   process of the user, one without that access included, could have ClipShot put a Desktop
   PDF on the clipboard and read it back. The popover's rows, the floating previews and
   Copy Latest Screenshot only ever offer marked ledger screenshots or the last copy
-  (`RecentScreenshots.select`). The copy then reads the file that was chosen: FileTrust
-  compares the descriptor's device and inode with the chosen file's
-  (`Policy.expectedResourceID`) and refuses another file swapped in at the path.
+  (`RecentScreenshots.select`). The copy, Get Latest, Get Recent and `latest` then read
+  the file that was chosen: FileTrust compares the descriptor's device and inode with the
+  chosen file's (`Policy.expectedResourceID`) and refuses another file swapped in at the
+  path; the listing ones skip it for the next newest.
 - **Without the app.** `status` and `latest` read for themselves, read-only: the ledger, the
   folder macOS screenshots go to (`~/Desktop` while it is missing, as the app watches) and
   the app's own settings (the `sk.moravcik.ClipShot` defaults domain). `latest` uses the
