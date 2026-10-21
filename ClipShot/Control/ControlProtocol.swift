@@ -22,8 +22,9 @@ enum ControlProtocol {
     /// For tests and development only: `clipshot` looks for the socket and the ledger in this
     /// folder instead. The app always uses `supportDirectory`.
     static let supportDirectoryEnvironmentKey = "CLIPSHOT_SUPPORT_DIR"
-    /// For tests only, and only with `supportDirectoryEnvironmentKey`: the defaults domain
-    /// `clipshot` reads the app's settings from while the app is not running.
+    /// For tests only, read by Debug builds of `clipshot` only, and only with
+    /// `supportDirectoryEnvironmentKey`: the defaults domain the app's settings are read from
+    /// while the app is not running.
     static let defaultsDomainEnvironmentKey = "CLIPSHOT_DEFAULTS_DOMAIN"
 
     static func encoder() -> JSONEncoder {

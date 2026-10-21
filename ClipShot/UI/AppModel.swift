@@ -636,9 +636,11 @@ final class AppModel {
         await coordinator.ledgerSettled()
     }
 
-    /// `file` is one the popover's list could hold: in the ledger (seen being taken, or
-    /// adopted for cleanup) or the last copy, as the same file (resource identifier). Any
-    /// other file, an image in the folder included, is not ClipShot's to copy.
+    /// `file` is one the popover's list could hold: the last copy (held in memory, set by the
+    /// copy pipeline), or in the ledger (seen being taken, or adopted for cleanup) and still
+    /// carrying the screenshot marker, as the same file (resource identifier). The ledger is
+    /// a file any process of the user can write; the marker is read from the file itself.
+    /// Any other file, an image in the folder included, is not ClipShot's to copy.
     func isTracked(_ file: CaptureFile) async -> Bool {
         await coordinator.ledgerSettled()
         let path = FolderGuard.canonicalPath(file.url)
@@ -646,6 +648,7 @@ final class AppModel {
            FolderGuard.canonicalPath(lastCopied.url) == path {
             return true
         }
+        guard file.isScreenshot else { return false }
         return await ledger.contains(path: path, resourceID: file.resourceID)
     }
 
@@ -758,7 +761,10 @@ final class AppModel {
     /// as any copy does. False, with nothing said, when it failed; the caller says it where
     /// the user asked.
     func copyExplicitly(_ file: CaptureFile) async -> Bool {
-        let outcome = await Task.detached(priority: .userInitiated) { PNGConverter.convert(file.url) }.value
+        // The bytes come from the file that was chosen: one replaced at its path since
+        // (another resource identifier) is refused, not copied.
+        let policy = FileTrust.Policy(expectedResourceID: file.resourceID)
+        let outcome = await Task.detached(priority: .userInitiated) { PNGConverter.convert(file.url, policy: policy) }.value
         let ext = file.url.pathExtension.lowercased()
         let log = log
         guard case .png(let png) = outcome, writeClipboard(png, .again(file)) else {

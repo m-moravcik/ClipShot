@@ -237,6 +237,16 @@ still a screenshot and still expired.
   a screenshot (F17: a rename keeps the marker and the birth time, so the path is
   what tells).
 - Entries whose file is gone are pruned.
+- **An entry is no proof.** The ledger is a file in the user's Library that any process of
+  theirs can write. It is read as untrusted (`ScreenshotLedger.read`): a regular file of
+  the user (no symlink), at most 32 MB, version 1, and only well-formed entries (an
+  absolute path without `.` or `..`, a device-and-inode identifier, a size, a date); the
+  rest are dropped and the log counts them. Everything that lists or copies a ledger file
+  (the popover, Get Latest and Copy Latest, `clipshot latest` and `copy`) also requires
+  the screenshot marker on the file itself (`RecentScreenshots.select`,
+  `AppModel.isTracked`): writing that marker on a file in a protected folder already needs
+  access to the file. Only the last copy, held in memory, is listed without it (an edit
+  Markup saved without the marker). Retention revalidates the marker before every move.
 
 Retention runs at launch, every hour and after wake, one run at a time, at most
 500 files per run. It only runs on a folder the user confirmed with a preview.
@@ -302,11 +312,11 @@ App Intents in `ClipShot/Intents/ShortcutsActions.swift`, the logic in
   once (5 s timeout), applies it at once and logs it, so a Focus that ended or began while
   ClipShot was not running counts, and a Focus that ended within the grace just before
   ClipShot quit (no Focus on, the pause still the Focus's) resumes copying. When the read
-  fails or times out, copying is not left paused on a guess: a pause the Focus made is lifted, a pause by hand stays, the stored
-  Focus state is cleared, and the log names the error type. While the read runs, the
-  popover does not say a Focus paused copying. Check "Focus ends while ClipShot is quit,
-  then relaunch" on a signed build before a release: `current` with no Focus on cannot be
-  observed in tests.
+  fails or times out, copying is not left paused on a guess: a pause the Focus made is
+  lifted, a pause by hand stays, the stored Focus state is cleared, and the log names the
+  error type. While the read runs, the popover does not say a Focus paused copying. Check
+  "Focus ends while ClipShot is quit, then relaunch" on a signed build before a release:
+  `current` with no Focus on cannot be observed in tests.
 - **Phrases.** `ClipShotShortcuts` (an `AppShortcutsProvider`) has two phrases per
   action except Get Recent (its count cannot be spoken), translated in
   `Resources/AppShortcuts.xcstrings`; every translation keeps `${applicationName}`, and the
@@ -368,7 +378,8 @@ words.
   refuses until the welcome tour is completed, as Shortcuts do.
 - **`copy PATH`.** The tool makes PATH absolute against its working directory; the app
   copies it only when it is a screenshot ClipShot tracks, one the popover could list (in
-  the ledger, or the last copy, as the same file: `AppModel.isTracked`), directly in the
+  the ledger and still marked as a screenshot, or the last copy, as the same file:
+  `AppModel.isTracked`), directly in the
   watched folder (the folder's symlinks resolved, the file's never followed), and
   `FileTrust` reads it (a regular file of this user, at most 256 MB). Anything else, any
   other image in the folder included, is refused with the reason (`notInFolder`,
@@ -376,8 +387,10 @@ words.
   (Desktop, Documents and Downloads are protected by macOS): without the ledger rule, any
   process of the user, one without that access included, could have ClipShot put a Desktop
   PDF on the clipboard and read it back. The popover's rows, the floating previews and
-  Copy Latest Screenshot only ever offer ledger screenshots or the last copy
-  (`RecentScreenshots.select`).
+  Copy Latest Screenshot only ever offer marked ledger screenshots or the last copy
+  (`RecentScreenshots.select`). The copy then reads the file that was chosen: FileTrust
+  compares the descriptor's device and inode with the chosen file's
+  (`Policy.expectedResourceID`) and refuses another file swapped in at the path.
 - **Without the app.** `status` and `latest` read for themselves, read-only: the ledger, the
   folder macOS screenshots go to (`~/Desktop` while it is missing, as the app watches) and
   the app's own settings (the `sk.moravcik.ClipShot` defaults domain). `latest` uses the
@@ -426,9 +439,10 @@ launch with the app's model; never under XCTest, the harness or the probes.
   read before the rest; another version gets a clear error on both sides instead of a
   guess. An unknown command or a request that is not JSON is `badRequest`.
 - `CLIPSHOT_SUPPORT_DIR` makes the tool look for the socket and the ledger in another
-  folder: for tests and development. The app always uses its own. With it,
-  `CLIPSHOT_DEFAULTS_DOMAIN` names the defaults domain read for the app's settings, and the
-  running-app checks below are off (that socket is never the app's).
+  folder: for tests and development. The app always uses its own. With it, the running-app
+  checks below are off (that socket is never the app's), and a Debug build of the tool
+  reads the app's settings from `CLIPSHOT_DEFAULTS_DOMAIN` when set (release builds ignore
+  it).
 - **Right after a launch** the socket may not be bound yet (the server starts off the main
   thread, and waits 2 s for a quitting instance). When nothing answers but ClipShot runs and
   was launched within the last 10 s, the tool tries again every 100 ms for up to 3 s
@@ -767,6 +781,7 @@ Swift Testing. Pure logic is tested; views are not, except their layout rules. T
 | `PegActionMomentModelTests`, `PegHandoffTests` | Move to Trash from a row or a preview plays the release, Undo the grip, a fresh open of the popover the squeeze (`PopoverPresence`, and the reader's wiring on a real window); retention, Clean up now, "Also clean up", a refused move, a failed Undo and closing the popover play nothing; precedence (the latest of copy, release and grip wins); a moment that replaces another starts from the pose on show (drawn pixel for pixel), changes no frame of the hand-off more than the two moments do on their own, lets a falling card finish falling, and ends at rest; the squeeze moves whole pixels at 1x and 2x; Reduce Motion holds the key poses on one tick and never squeezes. |
 | `ShortcutsTests` | The actions pick what the popover lists and hand out existing files only (never one outside the folder or a symlink; a refused newest falls back to the next; Get waits for the folder on a launch; the 512 MB cap); Copy Latest Screenshot leaves exactly what the popover's Copy leaves, also while paused; Pause and Resume play the switch's moments; Clean Up keeps retention's refusals, and Preview Only counts what the run then moves; the Focus precedence matrix, a switch between pausing Focus modes, its relaunch and the launch read (known, failed, timed out); nothing runs before or during the tour, and a Focus reported during it applies at its end; the extracted metadata and the phrases in six languages. |
 | `ControlServerTests`, `CommandLineToolTests`, `CLIBinaryTests` | The socket: a round trip; 0700 and 0600; another user's peer closed unanswered; an oversize, silent, non-JSON or other-version request refused before the handler; a symlink, file or folder at the socket path neither followed nor replaced, a stale socket replaced, a live one left to its server, a symlinked folder refused; past the connection cap the answer is `busy`; a stuck command is answered `timedOut` at its deadline and frees its place; the client gives up at its timeout (all three with a gated handler, no fixed delays); stale temporary sockets of another process are swept by rename, a file, a live one and this process's own are left. The tool: its arguments and usage errors (JSON with `--json`), one `latest` maximum shared with Shortcuts, the JSON shapes (every key, `null` included), text output; through a real socket to the model, status and why copying is paused, pause and resume as the switch (Peg, the Focus rule), latest as the popover chooses, copy as the row's Copy also while paused, copy PATH refused outside the folder, for a symlink, a non-image, a missing file, and for any image ClipShot did not see being taken (an unmarked download, a PDF, a marked but untracked file; the last copy counts), the same through `handleControl` itself; Copy Latest and the popover offer tracked screenshots only; `latest` and `copy` agree on a newest file FileTrust refuses; a pause during a Focus pause is reported as taking it over; an attention that stops copying and the unknown Focus at launch in status; right after a launch the tool waits for the socket, says not running at once, and unavailable after the grace; clean and its dry run with retention's refusals, nothing before the tour; exit 3 without the app, `socketUnavailable` when the app runs without its socket; status (with cleanup's refusal) and latest from the files without it, and the real sources write nothing. The built binary inside the app: its version, help, exit codes, a round trip, a symlink not used, status against a stale socket. |
+| `LedgerTrustTests` | A hand-written ledger listing an unmarked download makes nothing listable or copyable (copy PATH, copy, latest with and without the app, Get Latest, Copy Latest, the popover); a marked screenshot in it still is; malformed entries are dropped and logged; another version, garbage, a symlink or an oversize ledger is not read; a file swapped in at the path of the chosen one is refused by FileTrust and the copy fails. |
 | `PreviewMotionTests`, `OnboardingTests` | The swipe commits exactly where a release dismisses; the drag image is lifted off its card; Copy again reports back so the badge bounces; the first copy is celebrated once per install, the burst stays small, short and ends. |
 
 Tests never touch real preferences (`make guards` refuses `UserDefaults` in

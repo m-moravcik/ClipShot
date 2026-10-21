@@ -46,9 +46,7 @@ struct CaptureFile: Hashable, Sendable {
             return lstat(path, &st)
         }
         guard rc == 0, (st.st_mode & S_IFMT) == S_IFREG else { return nil }
-        var id = Data()
-        withUnsafeBytes(of: st.st_dev) { id.append(contentsOf: $0) }
-        withUnsafeBytes(of: st.st_ino) { id.append(contentsOf: $0) }
+        let id = resourceID(device: st.st_dev, inode: st.st_ino)
         return CaptureFile(
             url: url,
             created: date(st.st_birthtimespec),
@@ -59,6 +57,17 @@ struct CaptureFile: Hashable, Sendable {
             isOwnedByUser: st.st_uid == owner
         )
     }
+
+    /// Device and inode, as `resourceID` holds them.
+    static func resourceID(device: dev_t, inode: ino_t) -> Data {
+        var id = Data()
+        withUnsafeBytes(of: device) { id.append(contentsOf: $0) }
+        withUnsafeBytes(of: inode) { id.append(contentsOf: $0) }
+        return id
+    }
+
+    /// How many bytes a `resourceID` has.
+    static let resourceIDSize = MemoryLayout<dev_t>.size + MemoryLayout<ino_t>.size
 
     /// The same file with its marker read by `marker`; a file another user owns is never
     /// read and never a screenshot.

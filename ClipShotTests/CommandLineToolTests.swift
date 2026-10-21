@@ -354,7 +354,6 @@ struct CommandLineToolTests {
         #expect(h.preferences.totals.copied == 0)
     }
 
-    /// `latest` skips a file `FileTrust` refuses for the next newest, as Get Latest does.
     /// The probe of the final review: the socket request itself, for an unmarked image
     /// directly in the folder, is refused and leaves the clipboard alone.
     @Test func handleControlRefusesAnUntrackedImageInTheFolder() async throws {
@@ -424,6 +423,7 @@ struct CommandLineToolTests {
         #expect(h.pasteboard.writes.count == 1)
     }
 
+    /// `latest` skips a file `FileTrust` refuses for the next newest, as Get Latest does.
     @Test func latestSkipsWhatFileTrustRefuses() throws {
         let dir = try Fixtures.makeDir()
         let files = try ["new.png", "old.png"].map { RT.file(try RT.shot($0, in: dir, age: 10, now: RT.now())) }

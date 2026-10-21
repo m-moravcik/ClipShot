@@ -9,9 +9,14 @@ let environment = ProcessInfo.processInfo.environment
 let override = environment[ControlProtocol.supportDirectoryEnvironmentKey].map { URL(fileURLWithPath: $0, isDirectory: true) }
 let support = override ?? ControlProtocol.supportDirectory
 let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
-// With another support folder, the app's settings can come from another defaults domain too
-// (tests); the app's own domain otherwise.
+// Debug builds only, and only with another support folder: the app's settings from another
+// defaults domain, so the binary's tests never read the real ones. A release build always
+// reads the app's own domain.
+#if DEBUG
 let domain = override == nil ? nil : environment[ControlProtocol.defaultsDomainEnvironmentKey]
+#else
+let domain: String? = nil
+#endif
 
 let output = await CommandLineTool(
     version: version,
