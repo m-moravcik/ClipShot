@@ -51,6 +51,12 @@ schemes:
       targets:
         - ClipShotTests
 
+  # `make cli`: the command line tool on its own (it is also built into the app).
+  clipshot-cli:
+    build:
+      targets:
+        clipshot-cli: all
+
 packages:
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
@@ -90,6 +96,15 @@ targets:
         SUVerifyUpdateBeforeExtraction: true
     dependencies:
       - package: Sparkle
+      # `clipshot` ships inside the app, at Contents/Helpers/clipshot: signed and notarized
+      # with it, always the app's version. Not Contents/MacOS: on a case-insensitive volume
+      # `clipshot` there is the app's own `ClipShot` executable.
+      - target: clipshot-cli
+        embed: true
+        codeSign: true
+        copy:
+          destination: wrapper
+          subpath: Contents/Helpers
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: sk.moravcik.ClipShot
@@ -123,3 +138,32 @@ targets:
       testTargets:
         - ClipShotTests
       gatherCoverageData: true
+
+  # The command line tool (Addendum C). It compiles the app's Core and Control sources, not a
+  # copy of them, and no UI.
+  clipshot-cli:
+    type: tool
+    platform: macOS
+    deploymentTarget: "26.0"
+    productName: clipshot
+    sources:
+      - path: ClipShot/Core
+        # Peg's frame clock times its moments with the app's design tokens.
+        excludes:
+          - PegFlash.swift
+      - path: ClipShot/Control
+      - path: ClipShotCLI
+    settings:
+      base:
+        PRODUCT_NAME: clipshot
+        # The executable is `clipshot`; the module is not. Both products land in the same
+        # directory, and on a case-insensitive volume a `clipshot.swiftmodule` next to
+        # `ClipShot.swiftmodule` would make the tests' `@testable import ClipShot` find the tool.
+        PRODUCT_MODULE_NAME: ClipShotCLI
+        PRODUCT_BUNDLE_IDENTIFIER: sk.moravcik.ClipShot.cli
+        # `clipshot --version` reads CFBundleShortVersionString (MARKETING_VERSION) from an
+        # Info.plist embedded in the binary, so it is right wherever the binary is linked from.
+        GENERATE_INFOPLIST_FILE: YES
+        CREATE_INFOPLIST_SECTION_IN_BINARY: YES
+        SKIP_INSTALL: YES
+        SWIFT_STRICT_CONCURRENCY: complete

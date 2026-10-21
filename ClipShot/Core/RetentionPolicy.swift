@@ -48,4 +48,17 @@ struct RetentionPolicy: Codable, Equatable, Sendable {
     private static func clamp(_ days: Int) -> Int {
         min(max(days, dayRange.lowerBound), dayRange.upperBound)
     }
+
+    /// Why this policy, while on, would not run on `folder` now. nil when it is off, or when
+    /// the folder does not exist (the folder attention already says so). The app's status and
+    /// `clipshot status` without the app both ask this.
+    func refusal(folder: URL, home: URL, hasTrash: FolderGuard.TrashLookup) -> Refusal? {
+        guard enabled else { return nil }
+        let resolved = URL(fileURLWithPath: CaptureSettings.realPath(folder), isDirectory: true)
+        guard let current = ConfirmedFolder.of(resolved) else { return nil }
+        if let refusal = FolderGuard.refusal(resolvedPath: current.path, home: home, hasTrash: hasTrash) {
+            return refusal
+        }
+        return confirmed == current ? nil : .notConfirmed
+    }
 }

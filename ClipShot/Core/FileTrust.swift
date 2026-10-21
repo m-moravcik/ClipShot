@@ -21,6 +21,8 @@ enum FileTrust {
         case tooManyPixels = "too many pixels"
         /// Gone, or could not be opened or read.
         case unreadable = "unreadable"
+        /// Not the file that was chosen: another file is at its path now.
+        case replaced = "not the file that was chosen"
     }
 
     struct Policy: Sendable {
@@ -30,6 +32,9 @@ enum FileTrust {
         var maxPixels = 100_000_000
         /// The user a file must belong to.
         var owner: uid_t = getuid()
+        /// The file it must be (`CaptureFile.resourceID`, device and inode), checked on the
+        /// descriptor that is read; nil for any file.
+        var expectedResourceID: Data?
 
         static var standard: Policy { Policy() }
     }
@@ -74,6 +79,8 @@ enum FileTrust {
             else if (st.st_mode & S_IFMT) != S_IFREG { .notRegular }
             else if st.st_uid != policy.owner { .notOwned }
             else if Int64(st.st_size) > policy.maxBytes { .tooLarge }
+            else if let expected = policy.expectedResourceID,
+                    CaptureFile.resourceID(device: st.st_dev, inode: st.st_ino) != expected { .replaced }
             else { nil }
         if let refusal {
             close(fd)

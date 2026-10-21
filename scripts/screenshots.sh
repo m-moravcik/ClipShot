@@ -19,7 +19,8 @@
 # least the Form's standard 20 pt under its last section; the run fails (after writing every
 # picture) when it does not. `all` is how the six real languages are checked together.
 #
-# Writes, in -light and -dark: popover, popover-one, popover-paused, popover-attention,
+# Writes, in -light and -dark: popover, popover-one, popover-paused, popover-paused-focus
+# (paused by a Focus filter), popover-attention,
 # popover-full (every row at once, Undo included: past the height cap, so the middle
 # scrolls), attention-* (one per
 # attention row), settings-{general,capture,retention,about}, settings-general-replayed,
@@ -27,7 +28,7 @@
 # onboarding-3-tidy-fresh (step 3 on a fresh install, offering the older screenshots),
 # settings-retention-older (the offer for screenshots from before ClipShot ran),
 # settings-capture-attention (the destination guard), onboarding-* (every tour step, and
-# Try it blocked by an attention), hero (popover under the menu bar, README) and banner
+# Try it blocked by an attention), hero (popover under the menu bar) and banner
 # (1920x1080). Plus icon.png, menubar-states.png, menubar-moments.png (every frame of Peg's
 # moments) with peg-frames/ (one PNG per frame, for GIFs) and menubar-optical-size.png (the
 # states beside VibeRes and Eject Guard, sized as the menu bar draws them). The floating preview:
@@ -67,6 +68,15 @@ case "$LANG_ARG" in
 esac
 DERIVED="build/screenshots-dd"
 APP="$DERIVED/Build/Products/Debug/ClipShot.app"
+# xcodebuild registers the Debug build with LaunchServices (and screenshots.sh registers it
+# again for its icon). Unregistered on exit, so this Mac's Shortcuts app never lists the
+# Debug build's actions as a second ClipShot. Only this build folder's app, never
+# /Applications.
+LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+unregister_debug() {
+    case "$APP" in /*) "$LSREGISTER" -u "$APP" ;; *) "$LSREGISTER" -u "$PWD/$APP" ;; esac >/dev/null 2>&1 || true
+}
+trap unregister_debug EXIT
 
 xcodegen generate >/dev/null
 xcodebuild -project ClipShot.xcodeproj -scheme ClipShot -configuration Debug \
@@ -76,7 +86,7 @@ xcodebuild -project ClipShot.xcodeproj -scheme ClipShot -configuration Debug \
 # NSWorkspace.icon(forFile:) and applicationIconImage after the icon changes, until the
 # bundle is registered again. Without this, icon.png and the tour kept the previous icon.
 touch "$APP"
-/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP"
+"$LSREGISTER" -f "$APP"
 
 failed=()
 for LANG_CODE in "${LANGS[@]}"; do

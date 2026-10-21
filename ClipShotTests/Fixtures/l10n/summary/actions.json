@@ -1,0 +1,68 @@
+{
+  "actions": {
+    "GetRecent": {
+      "parameters": [
+        {
+          "name": "count",
+          "valueType": {
+            "primitive": {
+              "wrapper": {
+                "typeIdentifier": 2
+              }
+            }
+          }
+        },
+        {
+          "name": "label",
+          "valueType": {
+            "primitive": {
+              "wrapper": {
+                "typeIdentifier": 0
+              }
+            }
+          }
+        }
+      ],
+      "actionConfiguration": {
+        "actionSummary": {
+          "wrapper": {
+            "otherParameterIdentifiers": [],
+            "summaryString": {
+              "formatString": "Get ${count} recent screenshots",
+              "parameterIdentifiers": [
+                "count"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "Tag": {
+      "parameters": [
+        {
+          "name": "label",
+          "valueType": {
+            "primitive": {
+              "wrapper": {
+                "typeIdentifier": 0
+              }
+            }
+          }
+        }
+      ],
+      "actionConfiguration": {
+        "actionSummary": {
+          "wrapper": {
+            "otherParameterIdentifiers": [],
+            "summaryString": {
+              "formatString": "Tag with ${label}",
+              "parameterIdentifiers": [
+                "label"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

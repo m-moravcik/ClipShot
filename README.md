@@ -4,23 +4,27 @@
 
 <p align="center"><strong>⇧⌘4, then just paste. The file is saved too.</strong></p>
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/hero-dark.gif">
+    <img src="docs/hero.gif" alt="A demo desktop: ⇧⌘4 and a selection over the chart in an Analytics window. ClipShot's floating preview slides in at the bottom right with Copied, while Peg, the clothes peg in the menu bar, takes the new picture and clamps it, shown enlarged in a loupe under the menu bar. Then ⌘V pastes the chart into a note.">
+  </picture>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/tests-505%20passing-brightgreen" alt="Tests: 505 passing">
+  <img src="https://img.shields.io/badge/macOS-26%2B-blue" alt="macOS 26 or newer">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT"></a>
+</p>
+
 ClipShot is a small macOS menu bar app that puts every screenshot on the clipboard
 the moment you take it, and leaves the file where macOS saves it. It shows its own
 floating preview, so you can mark the screenshot up, drag it somewhere or throw it
 away, and it can move old screenshots to the Trash if you want it to.
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/hero-dark.png">
-    <img src="docs/screenshots/hero-light.png" width="440" alt="ClipShot open under its menu bar icon: copying is on, the four most recent screenshots in a list, the one just taken on top with Copy again, each row with its picture, name, age and size and Copy, Show in Finder and Move to Trash, then the Copy to clipboard switch and the cleanup summary">
-  </picture>
-</p>
-
 ```sh
 brew install --cask m-moravcik/clipshot/clipshot
 ```
-
-<!-- demo video: recorded with the owner -->
 
 ## Why this exists
 
@@ -50,6 +54,16 @@ kept piling up. ClipShot is that script done properly.
   [Retention and safety](#retention-and-safety)).
 - **Changes the macOS screenshot settings for you.** The save folder and the
   preview, without Terminal, and with a way back to what you had before.
+- **Shows what just happened in the menu bar.** Peg, the clothes peg icon, pegs up
+  every copy, lets the picture drop when you move a screenshot to the Trash, grips it
+  again on Undo and gives a little squeeze when you open the popover (see
+  [Peg](#peg-the-menu-bar-icon)).
+- **Works with Shortcuts and Focus.** Get, copy and clean up screenshots from the
+  Shortcuts app, Siri or Spotlight, and pause copying while a Focus is on (see
+  [Shortcuts](#shortcuts)).
+- **Has a command line.** `clipshot latest` prints the path of the screenshot you just
+  took, for scripts and coding agents; `clipshot pause` and friends go through the
+  running app (see [Command line](#command-line)).
 
 It works in English, Slovak, Czech, German, Spanish and French. A downloaded copy
 updates itself; a Homebrew copy updates with `brew upgrade`.
@@ -63,14 +77,16 @@ brew install --cask m-moravcik/clipshot/clipshot
 ```
 
 Upgrade with `brew upgrade --cask clipshot`. A copy installed by Homebrew leaves
-updates to Homebrew and does not update itself.
+updates to Homebrew and does not update itself. The cask also puts the `clipshot`
+command on your PATH.
 
 ### Manual
 
 Download `ClipShot-<version>.zip` from the
 [latest release](https://github.com/m-moravcik/ClipShot/releases/latest), unzip
 it and move **ClipShot** to Applications. Releases are signed with Developer ID,
-notarized and stapled, so it opens with a normal double-click.
+notarized and stapled, so it opens with a normal double-click. For the `clipshot`
+command, see [Command line](#command-line).
 
 ClipShot requires macOS 26 or newer. It is a universal app, developed and tested
 on Apple silicon; the Intel part ships for the Intel Macs that macOS 26 still
@@ -102,7 +118,7 @@ If you turn the thumbnail on yourself in ⇧⌘5 > Options, ClipShot follows and
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/preview-hover-dark.png">
-    <img src="docs/screenshots/preview-hover-light.png" width="350" alt="ClipShot's floating preview in the bottom-right corner of the screen: the screenshot with a Copied badge, and Close, Copy again and Move to Trash buttons shown on hover">
+    <img src="docs/screenshots/preview-hover-light.png" width="350" alt="ClipShot's floating preview in the bottom-right corner of the screen, under the pointer: the screenshot just taken with its Copied badge, the Markup pencil in the middle, Close at the top left and Move to Trash at the bottom right">
   </picture>
 </p>
 
@@ -131,6 +147,29 @@ Markup, drag it into any app, or right-click for the menu), the name, how long a
 and the size, then Copy, Show in Finder and Move to Trash. The screenshot that is on
 the clipboard now says Copy again. Then the Copy to clipboard switch, the cleanup
 summary, and at the bottom Open Screenshots Folder, Settings, About and Quit.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/popover-dark.png">
+    <img src="docs/screenshots/popover-light.png" width="388" alt="The popover: copying is on, the four most recent screenshots in a list, the one just taken on top with Copy again, each row with its picture, name, age and size and Copy, Show in Finder and Move to Trash, then the Copy to clipboard switch and the cleanup summary">
+  </picture>
+</p>
+
+### Peg, the menu bar icon
+
+The icon is a clothes peg holding a picture on a line, and it moves only when
+something happens:
+
+- **A copy**: the old picture drops off, the new one slides in, the peg clamps it and
+  a check shows for a moment.
+- **Move to Trash**: the peg opens and the picture drops out of the menu bar; it comes
+  back a moment later.
+- **Undo**: the picture rises back into the open peg and is gripped again.
+- **Opening the popover**: a short squeeze of the peg.
+
+While copying is paused the picture has a dashed outline, and when something needs
+fixing it hangs tilted with a "!". Cleanup's moves to the Trash play nothing. With
+Reduce Motion on, Peg changes without moving.
 
 ### Move to Trash, and Undo
 
@@ -207,6 +246,117 @@ Nothing leaves your Mac: ClipShot talks to the network only to check for updates
 Its log, `~/Library/Logs/clipshot.log`, records counts and file types, never file
 names or paths.
 
+## Shortcuts
+
+ClipShot's actions are in the Shortcuts app under ClipShot, ready for your own
+shortcuts and automations. Five of them have phrases for Siri and Spotlight,
+translated into all six languages; Siri does not speak Slovak or Czech, so in those two
+the phrases work in Spotlight and the Shortcuts app.
+
+| Action | Parameters | What it does |
+|---|---|---|
+| **Get Latest Screenshot** | none | Gives the newest screenshot, as a file. |
+| **Get Recent Screenshots** | Number of Screenshots, 1 to 10 (default 1) | Gives the newest screenshots, newest first, at most 512 MB at once; it says so when it had to stop short. |
+| **Copy Latest Screenshot** | none | Copies the newest screenshot to the clipboard as an image, also while copying is paused. |
+| **Pause Copying**, **Resume Copying** | none | The Copy to clipboard switch. |
+| **Clean Up Old Screenshots Now** | Preview Only (default off) | Moves screenshots past your cleanup period to the Trash now and gives the number; with Preview Only it counts what would go and moves nothing. |
+
+Some phrases: "Copy the latest screenshot with ClipShot", "Get my last screenshot
+from ClipShot", "Pause ClipShot", "Resume ClipShot", "Clean up old screenshots with
+ClipShot".
+
+The screenshots are the ones the popover lists: those ClipShot saw being taken, in
+your screenshot folder. Get hands over a copy of the file, not a path to it; for the
+path, use [`clipshot latest`](#command-line). Clean Up is the cleanup from Settings
+with all its checks (see [Retention and safety](#retention-and-safety)); it never
+turns cleanup on, and unlike **Clean up now** in Settings it does not ask first, so
+try it with Preview Only. Until the welcome tour is done, every action says "Finish
+setting up ClipShot first" and does nothing. If ClipShot is not running, a shortcut
+starts it, and it then runs as it does at login and stays in the menu bar.
+
+### Pause copying during a Focus
+
+In System Settings > Focus, pick a Focus, then under Focus Filters click **Add
+Filter**, choose ClipShot, **Copying During Focus**, and switch on **Pause copying**.
+The option starts off, so the filter does nothing until you switch it on.
+
+While that Focus is on, new screenshots are still saved but not copied, and the
+popover says why. When the Focus ends, copying resumes.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/popover-paused-focus-dark.png">
+    <img src="docs/screenshots/popover-paused-focus-light.png" width="388" alt="The popover while a Focus is on: Paused, New screenshots are not copied while a Focus is on, the four most recent screenshots each with Copy, and the Copy to clipboard switch off">
+  </picture>
+</p>
+
+What to know:
+
+- **Your own switch wins.** A pause you set yourself is never undone when the Focus
+  ends, and if you resume copying while the Focus is on, it stays on until the Focus
+  changes.
+- **The popover says "a Focus", not which one.** macOS does not tell apps which Focus
+  is on.
+- **Two pausing Focuses in a row.** If you resumed copying by hand and then switch
+  straight from one Focus with the filter to another with it, ClipShot may not see the
+  switch, for the same reason, and copying stays on until a Focus ends.
+
+## Command line
+
+`clipshot` ships inside the app, at `ClipShot.app/Contents/Helpers/clipshot`, and is
+always the app's version.
+
+- **Homebrew**: the cask puts it on your PATH.
+- **Downloaded ZIP**: link it once. The link keeps working after updates.
+
+  ```sh
+  sudo mkdir -p /usr/local/bin && sudo ln -s /Applications/ClipShot.app/Contents/Helpers/clipshot /usr/local/bin/clipshot
+  ```
+
+  On an Intel Mac, Homebrew links into `/usr/local/bin` too, so use either this link
+  or the cask, not both.
+- **From source**: `make install-cli PREFIX=~/.local` installs to `~/.local/bin`
+  (put it on your PATH). Plain `make install-cli` installs to `/usr/local/bin`, which on
+  Apple silicon is missing or root's until you run
+  `sudo mkdir -p /usr/local/bin && sudo chown "$USER" /usr/local/bin`.
+
+```text
+clipshot [status] [--json]                 copying on or paused (and why), folder, cleanup, latest
+clipshot latest [-n N] [--json]            newest screenshot paths, newest first (N 1-10)
+clipshot copy [PATH | --latest] [--json]   copy a screenshot to the clipboard
+clipshot pause | resume [--json]           switch copying off or on
+clipshot clean [--dry-run] [--json]        move old screenshots to the Trash now
+clipshot help [COMMAND] | --version
+```
+
+```sh
+open "$(clipshot latest)"                  # the screenshot you just took, in Preview
+clipshot latest -n 3                       # the three newest paths, one per line
+clipshot copy ~/Desktop/Screenshot.png     # a screenshot ClipShot saw being taken, to the clipboard
+clipshot pause && ./record-demo.sh && clipshot resume
+clipshot clean --dry-run                   # what cleanup would move, moving nothing
+```
+
+`$(clipshot latest)` is the path of the newest screenshot, which makes it easy to hand
+a screenshot to a script or a coding agent in the terminal: take the screenshot, then
+`your-agent "Why does this dialog look wrong? $(clipshot latest)"`. Errors go to
+stderr, so they never end up in place of the path.
+
+`status` and `latest` read for themselves and work while ClipShot is not running.
+If your screenshots go to Desktop, Documents or Downloads, macOS may ask once whether
+your terminal app may read that folder.
+Everything that changes something (`copy`, `pause`, `resume`, `clean`) goes through
+the running app, over a socket only your user can open, and does exactly what the
+popover and the Shortcuts actions do: the same image on the clipboard, Peg's copy
+moment, cleanup's checks. `copy PATH` copies only a screenshot ClipShot saw being taken
+(one the popover could list), directly in the screenshot folder; any other file there,
+an image or a PDF included, is refused. Like the Shortcuts actions, every command but
+`status` waits for the welcome tour.
+
+Exit codes: `0` ok, `1` error, `2` usage, `3` ClipShot is not running (start it with
+`open -a ClipShot`). With `--json`, output is JSON, and an error is
+`{"error":{"code":...,"message":...}}` on stdout as well.
+
 ## Troubleshooting
 
 ### "macOS blocked access to Desktop"
@@ -266,7 +416,8 @@ what you had before ClipShot, use **Settings > Capture > Restore previous
 settings** before you uninstall.
 
 Without Homebrew: quit ClipShot, move it to the Trash, and move these to the Trash
-as well (the same list `--zap` uses):
+as well (the same list `--zap` uses), plus the `/usr/local/bin/clipshot` link if
+you made one:
 
 - `~/Library/Application Support/ClipShot`
 - `~/Library/Caches/sk.moravcik.ClipShot`

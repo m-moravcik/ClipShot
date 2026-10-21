@@ -2,8 +2,9 @@
 
 ClipShot ships in English, Slovak, Czech, German, Spanish and French. Every string lives in
 `ClipShot/Resources/Localizable.xcstrings` (the English text is the key, defined in
-`ClipShot/UI/Copy.swift`). The folder access prompts live in
-`ClipShot/Resources/InfoPlist.xcstrings`.
+`ClipShot/UI/Copy.swift`, or for the Shortcuts actions' titles in `ClipShot/Intents/`). The
+folder access prompts live in `ClipShot/Resources/InfoPlist.xcstrings`, the Siri and
+Spotlight phrases in `ClipShot/Resources/AppShortcuts.xcstrings`.
 
 ## Review status
 
@@ -29,6 +30,14 @@ the reviewer and the date here when that happens.
   Markup is Anotácie / Anotace in sk and cs, as Preview names it there ("Zobraziť panel
   anotácií", "Zobrazit anotační nástroje"), so "Upraviť v anotáciách" / "Upravit v anotacích";
   Markierungen / Marcación / Annoter in de, es, fr.
+- Focus is režim Môjho času / režim soustředění / Fokus / modo de concentración / mode de
+  concentration, as System Settings writes it ("keď je zapnutý režim Môjho času", "wenn ein
+  Fokus aktiviert ist"). Shortcuts action titles follow the Shortcuts app's verbs: Získať,
+  Načíst, abrufen, Obtener, Obtenir (as in "Get Latest Screenshots").
+- Siri phrases (AppShortcuts.xcstrings) keep `${applicationName}` and use plain spaces.
+  Imperative, informal in sk, cs, de and es; the infinitive in fr, which avoids both tu and
+  vous. Slovak and Czech name the app as "v aplikácii ClipShot" / "v aplikaci ClipShot", so
+  it is never declined.
 - The retention feature reads as "cleanup" in every translation (Upratovanie, Úklid,
   Aufräumen, Limpieza, Nettoyage), which is how people talk about it.
 - Counts use plural variations with every CLDR category of the language: one, few, many and

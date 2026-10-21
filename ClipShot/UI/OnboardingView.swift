@@ -643,7 +643,7 @@ private struct PausedResult: View {
     @Environment(AppModel.self) private var model
 
     private var turnOn: some View {
-        Button { model.preferences.copyEnabled = true } label: { Text(Copy.Onboarding.turnOnCopying) }
+        Button { model.setCopying(true) } label: { Text(Copy.Onboarding.turnOnCopying) }
     }
 
     var body: some View {

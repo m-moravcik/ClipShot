@@ -21,10 +21,33 @@ struct ClipShotApp: App {
         if let scheme = MotionDemo.requested {
             MotionDemo.run(scheme)
         }
+        // The README's hero animation, rendered frame by frame off screen (scripts/readme-hero.sh).
+        if let output = ReadmeHero.requestedOutput {
+            ReadmeHero.run(into: output)
+        }
+        // The real menu bar on demo data: checks that Peg's moments reach the status item
+        // while the popover is open (scripts/status-item-probe.sh). No updater, no real model.
+        if let output = StatusItemProbe.requestedOutput {
+            let model = MainActor.assumeIsolated { StatusItemProbe.makeModel() }
+            _model = State(initialValue: model)
+            updater = nil
+            updateStatus = MainActor.assumeIsolated { UpdateStatus() }
+            MainActor.assumeIsolated { StatusItemProbe.start(into: output) }
+            return
+        }
         #endif
         let model = Self.makeModel(environment: ProcessInfo.processInfo.environment)
         // Resumes watching only when onboarding was already shown; otherwise step 2 starts it.
         model?.launch()
+        if let model {
+            MainActor.assumeIsolated {
+                // Shortcuts actions and the Focus filter act on this model (Addendum C).
+                IntentHost.model = model
+                Task { await model.reconcileFocusAtLaunch { try await CopyingFocusFilter.current.pauseCopying } }
+                // `clipshot` reaches the same model over the control socket (Addendum C).
+                ControlHost.start(model: model)
+            }
+        }
         _model = State(initialValue: model)
         let updater = Self.makeUpdater(environment: ProcessInfo.processInfo.environment)
         self.updater = updater

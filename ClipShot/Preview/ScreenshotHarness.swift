@@ -77,6 +77,7 @@ enum ScreenshotHarness {
 
             try renderMain(shots, scratch: scratch, icon: icon)
             try renderPaused(shots, scratch: scratch)
+            try renderPausedByFocus(shots, scratch: scratch)
             try renderOne(shots, scratch: scratch)
             try renderAttentions(shots, scratch: scratch)
             try renderFull(shots, scratch: scratch)
@@ -250,6 +251,23 @@ enum ScreenshotHarness {
         scene.stop()
     }
 
+    /// Copying paused by a Focus filter: the status line says a Focus paused it (Addendum C).
+    /// The recent screenshots are there as on any day, none of them on the clipboard.
+    private static func renderPausedByFocus(_ shots: Shots, scratch: URL) throws {
+        let scene = try DemoScene(in: scratch)
+        try awaitTask { try await scene.recentScreenshots() }
+        scene.preferences.totals = Totals(copied: 148, freedBytes: 0, trashed: 0)
+        guard scene.start() else { fail("the demo folder was not watched") }
+        scene.model.focusChanged(pausing: true)
+        DemoScene.wait { scene.model.recent.count == RecentScreenshots.count }
+        DemoScene.settle()
+        for scheme in ColorScheme.allCases {
+            try shots.write(popoverWindow(capturePanel(PopoverPanel(scheme: scheme) { MenuContent() }
+                .harnessEnvironment(scene.model), scheme: scheme), scheme: scheme), "popover-paused-focus", scheme)
+        }
+        scene.stop()
+    }
+
     /// The popover with several things to fix, and every attention row on its own.
     private static func renderAttentions(_ shots: Shots, scratch: URL) throws {
         let scene = try DemoScene(in: scratch)
@@ -391,7 +409,8 @@ enum ScreenshotHarness {
             try shots.write(capture(PreviewDesktop(scheme: scheme) { PreviewStack(previews: scene.model.previews, files: .model(scene.model)) }
                 .harnessEnvironment(scene.model), scheme: scheme), "preview", scheme)
             try shots.write(capture(PreviewDesktop(scheme: scheme, height: PreviewCardMetrics.maxSize.height + PreviewCardMetrics.margin * 2 + 20) {
-                PreviewCard(item: single, actions: .inert, hovering: true)
+                // Just taken, so it is the screenshot on the clipboard: Copied, and no Copy again.
+                PreviewCard(item: single, actions: .inert, showsCopied: scene.model.previews.showsCopied(single), hovering: true)
                     .padding(PreviewCardMetrics.screenInset)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
             }.harnessEnvironment(scene.model), scheme: scheme), "preview-hover", scheme)

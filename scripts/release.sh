@@ -67,6 +67,8 @@ CASK="$TAP_DIR/Casks/clipshot.rb"
 DERIVED_DATA="$REPO_ROOT/build"
 APP="$DERIVED_DATA/Build/Products/Release/ClipShot.app"
 BUNDLE_ID="sk.moravcik.ClipShot"
+# The command line tool's signing identifier (Contents/Helpers/clipshot).
+CLI_ID="sk.moravcik.ClipShot.cli"
 # The team in the Developer ID certificate that signs ClipShot (and its siblings).
 # Fixed here rather than read from the keychain, so a resume on a Mac without the
 # certificate still knows whose signature to expect.
@@ -149,7 +151,7 @@ find_sparkle_tools() {
 # mismatch. Output is captured and then matched, never piped into `grep -q`:
 # under pipefail an early grep exit fails the pipeline through SIGPIPE.
 verify_app() {
-  local app="$1" archs info entitlements assessment plist value
+  local app="$1" archs info entitlements assessment plist value cli cli_archs
   [ -d "$app" ] || die "no app at $app"
   # Sparkle installs whatever bundle in the archive carries ClipShot's name or
   # bundle id, and does not compare versions: pin all three.
@@ -176,7 +178,26 @@ verify_app() {
   [[ "$assessment" == *"source=Notarized Developer ID"* ]] \
     || die "Gatekeeper does not see $app as notarized Developer ID"
   xcrun stapler validate "$app" || die "no valid stapled ticket on $app"
-  echo "verified: $BUNDLE_ID $VERSION ($BUILD), $archs, team $TEAM_ID, EdDSA key, no get-task-allow, notarized and stapled"
+  # The command line tool inside: the same team, its own identifier, the hardened
+  # runtime, universal, and the app's version. Checked before it is run.
+  cli="$app/Contents/Helpers/clipshot"
+  [ -f "$cli" ] || die "$app has no command line tool at Contents/Helpers/clipshot"
+  cli_archs="$(lipo -archs "$cli" 2>&1 || true)"
+  [ "$cli_archs" = "x86_64 arm64" ] || die "clipshot in $app is not universal: lipo -archs says '$cli_archs'"
+  codesign --verify --strict "$cli" 2>/dev/null || die "clipshot in $app does not verify"
+  info="$(codesign -dv --verbose=4 "$cli" 2>&1 || true)"
+  grep -qx "TeamIdentifier=$TEAM_ID" <<<"$info" \
+    || die "clipshot in $app is not signed by team $TEAM_ID: $(grep '^TeamIdentifier=' <<<"$info" || echo 'no team')"
+  grep -qx "Identifier=$CLI_ID" <<<"$info" || die "clipshot in $app is not signed as $CLI_ID"
+  grep -q "flags=.*runtime" <<<"$info" || die "clipshot in $app lacks the hardened runtime"
+  grep -q "^Authority=Developer ID Application" <<<"$info" || die "clipshot in $app has no Developer ID authority"
+  # None at all: a plain tool needs none, and a restricted one (the application
+  # identifier Xcode adds, say) without a provisioning profile would not launch.
+  entitlements="$(codesign -d --entitlements - --xml "$cli" 2>/dev/null || true)"
+  [ -z "$entitlements" ] || die "clipshot in $app carries entitlements: $entitlements"
+  value="$("$cli" --version 2>/dev/null || true)"
+  [ "$value" = "$VERSION" ] || die "clipshot in $app says version '$value', expected $VERSION"
+  echo "verified: $BUNDLE_ID $VERSION ($BUILD), $archs, team $TEAM_ID, EdDSA key, no get-task-allow, notarized and stapled; clipshot $value signed as $CLI_ID, no entitlements"
 }
 
 # A release archive: unpacked into a temp folder, its top level must be exactly
@@ -388,11 +409,15 @@ ACTUAL="$(stat -f%z "$PUBLIC_ZIP")"
 echo "public feed signed, and it agrees with the public asset ($LEN bytes)"
 
 # ---------------------------------------------------------------------------
-# 9. Homebrew cask: version and sha256, audit, push.
+# 9. Homebrew cask: the reference copy with version and sha256, audit, push.
 # ---------------------------------------------------------------------------
 step "Homebrew cask"
 
 SHA="$(shasum -a 256 "$PUBLIC_ZIP" | awk '{print $1}')"
+# The reference copy in Casks/ is the cask: its stanzas (the app, the clipshot
+# binary, uninstall and zap) go to the tap as reviewed here, with this release's
+# version and sha256 written into them.
+cp Casks/clipshot.rb "$CASK"
 sed -E -i '' \
   -e "s|^  version \"[^\"]+\"|  version \"${VERSION}\"|" \
   -e "s|^  sha256 \"[a-f0-9]{64}\"|  sha256 \"${SHA}\"|" \

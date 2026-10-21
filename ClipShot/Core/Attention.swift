@@ -20,6 +20,35 @@ enum Attention: Hashable, Identifiable, Sendable {
         }
     }
 
+    /// The kind, without the folder: what `clipshot status` reports.
+    var kind: String {
+        switch self {
+        case .destinationNotFile: "destinationNotFile"
+        case .folderMissing: "folderMissing"
+        case .folderAccessDenied: "folderAccessDenied"
+        case .couldNotCopy: "couldNotCopy"
+        case .retentionFolderChanged: "retentionFolderChanged"
+        case .noTrash: "noTrash"
+        }
+    }
+
+    /// Kinds while which no new screenshot reaches the clipboard: macOS saves no file, or
+    /// ClipShot may not read the folder. (A missing folder is followed to the Desktop.)
+    static let blockingKinds: Set<String> = ["destinationNotFile", "folderAccessDenied"]
+
+    /// What `clipshot status` says about a kind, in English.
+    static func describe(kind: String) -> String {
+        switch kind {
+        case "destinationNotFile": "macOS saves screenshots to the clipboard or an app, not to a file"
+        case "folderAccessDenied": "ClipShot has no access to the screenshot folder"
+        case "folderMissing": "the screenshot folder is missing; ClipShot watches the Desktop"
+        case "couldNotCopy": "a screenshot could not be copied"
+        case "retentionFolderChanged": "cleanup waits until you check the new folder"
+        case "noTrash": "the folder's volume has no Trash, so cleanup is off"
+        default: kind
+        }
+    }
+
     /// Ordered by severity. `.systemOrBroad` raises nothing: retention simply stays off
     /// and Settings explains why.
     static func from(

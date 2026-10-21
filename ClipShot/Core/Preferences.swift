@@ -7,6 +7,15 @@ struct Totals: Codable, Equatable, Sendable {
     var trashed: Int = 0
 }
 
+/// A Focus filter's pause, kept apart from the user's own switch (Addendum C): turning the
+/// Focus off resumes copying only when the Focus paused it and nobody touched the switch since.
+struct FocusPause: Codable, Equatable, Sendable {
+    /// A Focus whose ClipShot filter pauses copying is on, as last reported by the system.
+    var focusOn = false
+    /// That Focus switched copying off, and the user has not set it by hand since.
+    var pausedCopying = false
+}
+
 /// Where `Preferences` keeps its values. `UserDefaults` in the app; tests use an in-memory
 /// store so a run never creates preference files.
 protocol PreferenceStore: AnyObject {
@@ -24,6 +33,9 @@ final class Preferences {
     @ObservationIgnored private let defaults: any PreferenceStore
 
     var copyEnabled: Bool { didSet { defaults.set(copyEnabled, forKey: Key.copyEnabled) } }
+    /// Who paused copying, when a Focus did (`AppModel.focusChanged`). Kept across launches, so
+    /// a Focus that ends while ClipShot is not running still resumes what it paused.
+    var focusPause: FocusPause { didSet { store(focusPause, Key.focusPause) } }
     var retention: RetentionPolicy { didSet { store(retention, Key.retention) } }
     /// The welcome tour is not waiting in the popover: false on a fresh install and after
     /// Settings' Replay welcome tour, true once it is done or skipped.
@@ -60,6 +72,7 @@ final class Preferences {
     init(store defaults: any PreferenceStore = UserDefaults.standard) {
         self.defaults = defaults
         copyEnabled = defaults.object(forKey: Key.copyEnabled) as? Bool ?? true
+        focusPause = Self.load(FocusPause.self, Key.focusPause, defaults) ?? FocusPause()
         retention = Self.load(RetentionPolicy.self, Key.retention, defaults) ?? .default
         let shown = defaults.object(forKey: Key.onboardingShown) as? Bool ?? false
         onboardingShown = shown
@@ -75,6 +88,7 @@ final class Preferences {
 
     private enum Key {
         static let copyEnabled = "clipshot.copyEnabled"
+        static let focusPause = "clipshot.focusPause"
         static let retention = "clipshot.retention"
         static let onboardingShown = "clipshot.onboardingShown"
         static let tourCompleted = "clipshot.tourCompleted"

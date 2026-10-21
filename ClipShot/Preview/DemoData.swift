@@ -26,9 +26,11 @@ final class DemoScene {
     /// `hasTrash: false` gives the folder a volume without a Trash, for that attention.
     /// `liveMotion`: Peg's moments run on real timers, for the live motion demo (the render
     /// harness draws the phases itself); `reduceMotion` stands in for the system setting.
+    /// `trashInHome`: Move to Trash moves into a Trash folder in the demo home, so Move to
+    /// Trash and Undo run their real paths (`StatusItemProbe`); otherwise every move is refused.
     init(
         in root: URL, onboardingShown: Bool = true, hasTrash: Bool = true, liveMotion: Bool = false,
-        reduceMotion: Bool = false
+        reduceMotion: Bool = false, trashInHome: Bool = false
     ) throws {
         let fm = FileManager.default
         let base = root.appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -65,7 +67,9 @@ final class DemoScene {
             events: DirectoryEventSource(),
             pasteboard: pasteboard,
             ledger: ledger,
-            trasher: DemoTrasher(),
+            trasher: trashInHome
+                ? DemoHomeTrasher(trash: home.appendingPathComponent(".Trash", isDirectory: true)) as any Trashing
+                : DemoTrasher(),
             hasTrash: { _ in hasTrash },
             clock: { Date() },
             pollInterval: .milliseconds(100),
@@ -248,6 +252,18 @@ final class DemoPasteboard: PasteboardWriting {
 /// Refuses every move, so nothing can reach the Trash.
 struct DemoTrasher: Trashing {
     func trash(_ url: URL) throws -> URL? { throw CocoaError(.fileWriteNoPermission) }
+}
+
+/// Moves into a Trash folder inside the demo home, never the user's Trash.
+struct DemoHomeTrasher: Trashing {
+    let trash: URL
+
+    func trash(_ url: URL) throws -> URL? {
+        try FileManager.default.createDirectory(at: trash, withIntermediateDirectories: true)
+        let target = trash.appendingPathComponent("\(UUID().uuidString)-\(url.lastPathComponent)")
+        try FileManager.default.moveItem(at: url, to: target)
+        return target
+    }
 }
 
 @MainActor

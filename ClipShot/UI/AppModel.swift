@@ -28,6 +28,9 @@ final class AppModel {
     private(set) var flashFrom: StatusIconState = .idle
     /// Reduce Motion as read when the current flash started.
     private(set) var flashReduceMotion = false
+    /// The pose on show when the current moment replaced one still playing, which it starts
+    /// from; nil when it started at rest.
+    private(set) var flashHandoff: Peg.Pose?
     private(set) var attentions: [Attention] = []
     /// Goes up once each time a problem appears that was not there before; the popover's
     /// header nods on it.
@@ -118,9 +121,13 @@ final class AppModel {
     }
 
     /// What the menu bar draws now: the resting pose, or the frame of the moment playing.
-    var iconPose: Peg.Pose {
-        Peg.pose(rest: restingIconState, moment: flashPhase > 0 ? flashMoment : nil, phase: flashPhase,
-                 from: flashFrom, reduceMotion: flashReduceMotion)
+    var iconPose: Peg.Pose { iconPose(rest: restingIconState) }
+
+    /// What the menu bar draws with `rest` as the resting state: before a change of state is
+    /// applied, the pose still on show.
+    private func iconPose(rest: StatusIconState) -> Peg.Pose {
+        Peg.pose(rest: rest, moment: flashPhase > 0 ? flashMoment : nil, phase: flashPhase,
+                 from: flashFrom, reduceMotion: flashReduceMotion, handoff: flashHandoff)
     }
 
     /// The popover header: copying on, paused or needs attention. Never the brief copied state.
@@ -183,7 +190,7 @@ final class AppModel {
     @ObservationIgnored let edits: EditSession
     @ObservationIgnored private let trasher: any Trashing
     @ObservationIgnored private let undoLifetime: Duration
-    @ObservationIgnored private let timerClock: any TimerClock
+    @ObservationIgnored let timerClock: any TimerClock
     @ObservationIgnored private let locateTrash: AppDependencies.LocateTrash
     @ObservationIgnored private let makePreviewHost: @MainActor (AppModel) -> AnyObject?
     @ObservationIgnored let openMarkup: @MainActor (URL, @escaping @MainActor (MarkupResult) -> Void) -> Void
@@ -231,6 +238,16 @@ final class AppModel {
     @ObservationIgnored private var observedPolicy: RetentionPolicy?
     /// The Copy to clipboard switch as last seen, so only a real flip plays pause or resume.
     @ObservationIgnored private var observedCopyEnabled = true
+    /// Names the resume a Focus that ended has scheduled, so a pausing Focus reported within
+    /// `focusOffGrace` (a switch straight to another one) cancels it (Shortcuts).
+    @ObservationIgnored var focusOffGeneration = 0
+    /// Grace periods after a Focus ended that have run out, resumed or not; tests wait on it.
+    @ObservationIgnored var focusGracesSettled = 0
+    /// The Focus filter's last report while the tour was not completed yet; applied when it is.
+    @ObservationIgnored var focusDuringTour: Bool?
+    /// False while the launch reads whether a pausing Focus is on: until then the popover does
+    /// not say a Focus paused copying.
+    var focusStateKnown = true
     /// The panel that shows `previews`, made when watching first starts.
     @ObservationIgnored private var previewHost: AnyObject?
     /// The pasteboard's change count right after ClipShot's last write: when it differs, the
@@ -359,6 +376,8 @@ final class AppModel {
             }
         }
         preferences.onboardingShown = true
+        // A Focus reported while the tour ran applies now that it is done.
+        applyFocusReportedDuringTour()
     }
 
     /// Settings > General: shows the welcome tour again the next time the popover opens.
@@ -390,11 +409,14 @@ final class AppModel {
 
     /// The popover opened or closed. Opening re-reads what it shows: a screenshot deleted in
     /// Finder meanwhile leaves the list, and Copy again moves off a screenshot that is no
-    /// longer on the clipboard.
-    func popoverVisibilityChanged(_ visible: Bool) {
+    /// longer on the clipboard. Peg answers the click that opened it with a squeeze, as the
+    /// popover appears (`freshOpen`: the window was ordered out before, so a click opened it,
+    /// not an occlusion round trip); closing it plays nothing.
+    func popoverVisibilityChanged(_ visible: Bool, freshOpen: Bool = true) {
         guard visible != popoverVisible else { return }
         popoverVisible = visible
         if visible {
+            if freshOpen { play(.squeeze, from: restingIconState) }
             forgetClipboardIfReplaced()
             refreshRecent()
             refreshStatus()
@@ -509,6 +531,34 @@ final class AppModel {
         }
     }
 
+    /// The newest `count` screenshots, newest first, chosen as the popover's list chooses them
+    /// (existing files only, direct children of the watched folder), for Shortcuts. Waits for
+    /// the folder on a launch that has just started watching, at most `folderWait`.
+    func recentScreenshots(count: Int) async -> [CaptureFile] {
+        guard isWatching, await watchedFolderSettled() != nil else { return [] }
+        await coordinator.ledgerSettled()
+        guard isWatching, let folder = watchedFolder else { return [] }
+        let entries = await ledger.entries()
+        let lastCopied = lastCopied
+        return await Task.detached(priority: .userInitiated) {
+            RecentScreenshots.select(lastCopied: lastCopied, ledger: entries, folder: folder, count: count)
+        }.value
+    }
+
+    /// How long `recentScreenshots` waits for the coordinator to name the folder.
+    static let folderWait: Duration = .seconds(2)
+
+    /// The watched folder, waiting up to `folderWait` for the coordinator to name it after
+    /// `startWatching()`: Shortcuts and `clipshot` may launch or reach ClipShot just to ask.
+    func watchedFolderSettled() async -> URL? {
+        let clock = ContinuousClock()
+        let deadline = clock.now + Self.folderWait
+        while isWatching, watchedFolder == nil, clock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        return isWatching ? watchedFolder : nil
+    }
+
     // MARK: - Test hooks
     //
     // Completion signals, so a test that says "nothing (else) happened" waits for the work it
@@ -586,6 +636,22 @@ final class AppModel {
         await coordinator.ledgerSettled()
     }
 
+    /// `file` is one the popover's list could hold: the last copy (held in memory, set by the
+    /// copy pipeline), or in the ledger (seen being taken, or adopted for cleanup) and still
+    /// carrying the screenshot marker, as the same file (resource identifier). The ledger is
+    /// a file any process of the user can write; the marker is read from the file itself.
+    /// Any other file, an image in the folder included, is not ClipShot's to copy.
+    func isTracked(_ file: CaptureFile) async -> Bool {
+        await coordinator.ledgerSettled()
+        let path = FolderGuard.canonicalPath(file.url)
+        if let lastCopied, lastCopied.resourceID == file.resourceID,
+           FolderGuard.canonicalPath(lastCopied.url) == path {
+            return true
+        }
+        guard file.isScreenshot else { return false }
+        return await ledger.contains(path: path, resourceID: file.resourceID)
+    }
+
     private func copyFailed(_ file: CaptureFile) {
         copyFailure = clock()
         failedCapture = file
@@ -608,18 +674,29 @@ final class AppModel {
 
     /// Plays `moment` in the menu bar, from the state the icon rested in.
     ///
+    /// Precedence (`PegMoment.replaces`): among copy, release and grip the latest wins; a
+    /// change of state (attention, pause, resume) replaces anything but a copy and gives way to
+    /// nothing below it; the squeeze replaces only a squeeze. A copy is never cut short by a
+    /// change of state (it ends on the new resting card instead). A moment that may replace
+    /// the one playing starts from the pose on show (`flashHandoff`), so nothing jumps; one
+    /// that may not does not play.
+    ///
     /// One timer at a time: a moment during another restarts the phases on the same frame
-    /// timer. With Reduce Motion the copy is one hold on a single timer, so anything during
-    /// it starts on a fresh timer, and the other moments do not play at all: their state
-    /// changes in one frame. A copy is never cut short by a change of state: it ends on the
-    /// new resting card instead.
-    private func play(_ moment: PegMoment, from: StatusIconState) {
+    /// timer. With Reduce Motion a copy, release or grip is one hold on a single timer, so
+    /// anything during it starts on a fresh timer; the other moments do not play at all: their
+    /// state changes in one frame, ending a lower hold so it shows at once.
+    ///
+    /// `shown`: the pose on show, when the state it was drawn with has changed already.
+    private func play(_ moment: PegMoment, from: StatusIconState, shown: Peg.Pose? = nil) {
         let reduce = reduceMotion()
-        if moment != .copied {
-            guard !reduce else { return }
-            if flashPhase > 0, flashMoment == .copied { return }
+        let playing = flashPhase > 0 ? flashMoment : nil
+        if let playing, !moment.replaces(playing) { return }
+        guard !reduce || moment.reduceMotionHold != nil else {
+            if playing != nil { endFlash() }
+            return
         }
-        let next = PegFlash(moment, reduceMotion: moment == .copied && reduce)
+        let handoff = playing != nil && !reduce && !flashReduceMotion ? shown ?? iconPose : nil
+        let next = PegFlash(moment, reduceMotion: reduce)
         if flashTimer != nil, flash.timerInterval != next.timerInterval || flash.reduceMotion {
             flashTimer?.invalidate()
             flashTimer = nil
@@ -628,6 +705,7 @@ final class AppModel {
         flashReduceMotion = next.reduceMotion
         flashMoment = moment
         flashFrom = from
+        flashHandoff = handoff
         if flashTimer == nil {
             flashTimer = makeFlashTimer(flash.timerInterval, PegFlash.tolerance) { [weak self] in
                 self?.tickFlash()
@@ -669,7 +747,24 @@ final class AppModel {
     /// note above the popover's list, with the alert sound and VoiceOver.
     @discardableResult
     func copyAgain(file: CaptureFile, fromPreview preview: UUID? = nil) async -> Bool {
-        let outcome = await Task.detached(priority: .userInitiated) { PNGConverter.convert(file.url) }.value
+        guard await copyExplicitly(file) else {
+            actionFailed(.copy, preview: preview)
+            return false
+        }
+        if let preview { previews.clearFailure(on: preview) }
+        return true
+    }
+
+    /// The user's own Copy of `file`, wherever it was asked for (a row, a preview, an attention
+    /// row, Shortcuts): converted to PNG off the main actor, then through `writeClipboard` as
+    /// `.again`, so it works while paused and counts, owns the clipboard and plays Peg's copy
+    /// as any copy does. False, with nothing said, when it failed; the caller says it where
+    /// the user asked.
+    func copyExplicitly(_ file: CaptureFile) async -> Bool {
+        // The bytes come from the file that was chosen: one replaced at its path since
+        // (another resource identifier) is refused, not copied.
+        let policy = FileTrust.Policy(expectedResourceID: file.resourceID)
+        let outcome = await Task.detached(priority: .userInitiated) { PNGConverter.convert(file.url, policy: policy) }.value
         let ext = file.url.pathExtension.lowercased()
         let log = log
         guard case .png(let png) = outcome, writeClipboard(png, .again(file)) else {
@@ -678,10 +773,8 @@ final class AppModel {
             } else {
                 Task { await log.error("copy again failed ext=\(ext)") }
             }
-            actionFailed(.copy, preview: preview)
             return false
         }
-        if let preview { previews.clearFailure(on: preview) }
         Task { await log.info("copied again ext=\(ext)") }
         return true
     }
@@ -958,6 +1051,22 @@ final class AppModel {
         retentionPreview = preview
     }
 
+    /// What a retention run would move now, with the policy in force (not as if it were on):
+    /// the scan `RetentionPass` would make, read off the main actor and moving nothing. A
+    /// refusal is why a run would move nothing (an unconfirmed folder above all).
+    func retentionScanNow() async -> Result<RetentionScan, Refusal> {
+        let entries = await ledger.entries()
+        let settings = settings
+        let policy = preferences.retention
+        let now = clock()
+        let home = home
+        let hasTrash = hasTrash
+        return await Task.detached(priority: .userInitiated) {
+            RetentionScanner.scan(
+                folder: settings.folder(), policy: policy, ledger: entries, now: now, home: home, hasTrash: hasTrash)
+        }.value
+    }
+
     /// Stores the folder the preview showed as confirmed. False when there is no preview,
     /// or the screenshot folder is no longer the one it showed.
     @discardableResult
@@ -1057,13 +1166,7 @@ final class AppModel {
     nonisolated static func retentionRefusal(
         folder: URL, policy: RetentionPolicy, home: URL, hasTrash: FolderGuard.TrashLookup
     ) -> Refusal? {
-        guard policy.enabled else { return nil }
-        let resolved = URL(fileURLWithPath: CaptureSettings.realPath(folder), isDirectory: true)
-        guard let current = ConfirmedFolder.of(resolved) else { return nil }
-        if let refusal = FolderGuard.refusal(resolvedPath: current.path, home: home, hasTrash: hasTrash) {
-            return refusal
-        }
-        return policy.confirmed == current ? nil : .notConfirmed
+        policy.refusal(folder: folder, home: home, hasTrash: hasTrash)
     }
 
     private func recomputeAttentions() {
@@ -1079,6 +1182,7 @@ final class AppModel {
         guard next != attentions else { return }
         let added = next.contains { !attentions.contains($0) }
         let before = restingIconState
+        let shown = iconPose
         let first = attentions.isEmpty && !next.isEmpty
         attentions = next
         if added {
@@ -1087,7 +1191,7 @@ final class AppModel {
         }
         // Peg swings into the attention pose once, when something first needs fixing; more
         // problems while it already shows "!" change nothing in the menu bar.
-        if first { play(.attention, from: before) }
+        if first { play(.attention, from: before, shown: shown) }
         // Fixed while it still swings: the icon goes to its resting pose at once, so the "!"
         // never swings in after the problem is gone and agrees with what VoiceOver reads.
         if attentions.isEmpty, flashPhase > 0, flashMoment == .attention { endFlash() }
@@ -1109,10 +1213,13 @@ final class AppModel {
         guard isWatching, token == observationToken else { return }
         coordinator.isEnabled = preferences.copyEnabled
         if preferences.copyEnabled != observedCopyEnabled {
+            // The pose on show before the switch: the resting state it was drawn with.
+            let shown = iconPose(rest: .resolve(copyEnabled: observedCopyEnabled, attentions: attentions, flashing: false))
             observedCopyEnabled = preferences.copyEnabled
             // The switch's answer, where it shows: unless "!" covers both states.
             if attentions.isEmpty {
-                preferences.copyEnabled ? play(.resume, from: .paused) : play(.pause, from: .idle)
+                preferences.copyEnabled
+                    ? play(.resume, from: .paused, shown: shown) : play(.pause, from: .idle, shown: shown)
             }
         }
         if preferences.retention != observedPolicy {
@@ -1260,6 +1367,9 @@ extension AppModel {
             TrashedScreenshot(file: file, inTrash: $0, adopted: entry?.adopted ?? false, listed: listed)
         }
         offerUndo(trashed)
+        // The user's own Move to Trash, seen in the menu bar: Peg lets the picture go.
+        // Retention and "Also clean up" never come here.
+        play(.release, from: restingIconState)
         if let preview, trashed != nil {
             previews.offerUndo(preview)
             previews.dismiss(file: file, .trash, except: preview)
@@ -1331,6 +1441,8 @@ extension AppModel {
         if undoable == trashed { undoable = nil }
         preferences.totals.trashed = max(0, preferences.totals.trashed - 1)
         refreshRecent()
+        // Back, and Peg grips it again.
+        play(.grip, from: restingIconState)
         announce(Copy.Recent.putBack)
         return true
     }

@@ -119,14 +119,15 @@ enum Design {
         static let chip: Animation = .snappy(duration: 0.25, extraBounce: 0.1)
 
         // The menu bar copy animation (`Peg`): every copy confirms itself in the menu bar,
-        // playful and clearly noticeable: the new card is pinned slowly enough to follow in
-        // the corner of the eye, and it is all over in 2.4 s, as VibeRes's switch animation.
+        // playful and clearly noticeable: the old card is seen leaving and the new one pinned,
+        // slowly enough to follow in the corner of the eye. 2.4 s at first, as VibeRes's switch
+        // animation; 2.9 s since the swap was slowed for the owner (2026-10-21).
         // A MenuBarExtra label is a static image, so it is drawn frame by frame on a timer
         // that runs only while it plays (`PegFlash`).
 
         /// The whole animation, from the first frame back to rest.
-        static let menuBarCopy: TimeInterval = 2.4
-        /// Frames per second while it plays: smooth for small moves, 72 redraws per copy.
+        static let menuBarCopy: TimeInterval = 2.9
+        /// Frames per second while it plays: smooth for small moves, 87 redraws per copy.
         static let menuBarFrameRate: Double = 30
         /// Reduce Motion: the copied pose, held, with no movement.
         static let menuBarHold: TimeInterval = 1.4
@@ -140,6 +141,20 @@ enum Design {
         static let menuBarPause: TimeInterval = 0.6
         /// Copy to clipboard on: the outline joins up, the peg bites again.
         static let menuBarResume: TimeInterval = 0.9
+        /// The user's own actions, seen in place where they act, so shorter than the copy.
+        /// Move to Trash from the popover or a preview: the jaws open, the card drops out and
+        /// fades, the jaws close empty, the resting card comes back. Reduce Motion: the open,
+        /// empty jaws held as long.
+        static let menuBarRelease: TimeInterval = 1.2
+        /// Undo of that move: a picture rises into the open jaws and Peg clamps. Reduce Motion:
+        /// the picture under the open jaws held as long.
+        static let menuBarGrip: TimeInterval = 0.9
+        /// The click that opens the popover: the handles squeeze, the jaws open a point, and Peg
+        /// springs back, as the popover opens. Reduce Motion: nothing.
+        static let menuBarSqueeze: TimeInterval = 0.2
+        /// A moment that replaces one still playing starts from the pose on show and eases
+        /// into its own course within this, so the icon never jumps.
+        static let menuBarHandoff: TimeInterval = 0.15
 
         // The tour's Try it: the first real copy is the strongest moment in the app.
 

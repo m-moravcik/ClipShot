@@ -83,13 +83,13 @@ struct LocalisationGateTests {
     private static let repo = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent().deletingLastPathComponent()
 
-    private func check(_ fixture: String) throws -> (status: Int32, output: String) {
+    private func check(_ fixture: String, metadata: String? = nil) throws -> (status: Int32, output: String) {
+        let fixtures = Self.repo.appendingPathComponent("ClipShotTests/Fixtures/l10n")
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/bash")
-        process.arguments = [
-            Self.repo.appendingPathComponent("scripts/check-localisation.sh").path,
-            "--catalog", Self.repo.appendingPathComponent("ClipShotTests/Fixtures/l10n/\(fixture)").path,
-        ]
+        process.arguments = [Self.repo.appendingPathComponent("scripts/check-localisation.sh").path]
+            + (metadata.map { ["--metadata", fixtures.appendingPathComponent($0).path] } ?? [])
+            + ["--catalog", fixtures.appendingPathComponent(fixture).path]
         var environment = ProcessInfo.processInfo.environment
         environment["L10N_LANGS"] = "en sk"
         process.environment = environment
@@ -115,6 +115,17 @@ struct LocalisationGateTests {
         let result = try check(fixture)
         #expect(result.status != 0, "\(fixture) passed: \(result.output)")
         #expect(result.output.contains(expected), "\(result.output)")
+    }
+
+    /// A Shortcuts summary that puts a number parameter next to a word agreeing with it
+    /// ("Get 1 recent screenshots") fails; a count-neutral one passes.
+    @Test func failsOnANumberThatAgreesWithAWordInASummary() throws {
+        let bad = try check("summary/bad.xcstrings", metadata: "summary/actions.json")
+        #expect(bad.status != 0, "\(bad.output)")
+        #expect(bad.output.contains("en 'Get ${count} recent screenshots' puts the number ${count}"), "\(bad.output)")
+        #expect(!bad.output.contains("Tag with"), "a text parameter may sit anywhere")
+        let valid = try check("summary/valid.xcstrings", metadata: "summary/actions.json")
+        #expect(valid.status == 0, "\(valid.output)")
     }
 
     @Test func passesACompleteCatalog() throws {

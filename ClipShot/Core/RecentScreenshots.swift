@@ -7,6 +7,9 @@ import Foundation
 enum RecentScreenshots {
     /// How many rows the list shows: the current screenshot and the 3 before it.
     static let count = 4
+    /// The most screenshots handed out at once: by Get Recent Screenshots
+    /// (`AppModel.shortcutMaxCount`) and `clipshot latest -n` (`CLIParser.maxCount`).
+    static let maxRequested = 10
 
     /// Reads the files. Candidates are the screenshots in the ledger (seen being taken, or
     /// older ones the user adopted for cleanup) and the last copied one, each listed once,
@@ -23,7 +26,8 @@ enum RecentScreenshots {
         // is in the ledger too; when it is not (an edit saved without the screenshot marker),
         // it is still listed.
         var copied = lastCopied.flatMap { file in
-            inFolder(FolderGuard.canonicalPath(file.url)) ? current(file.url, resourceID: file.resourceID) : nil
+            inFolder(FolderGuard.canonicalPath(file.url))
+                ? current(file.url, resourceID: file.resourceID, requiringMarker: false) : nil
         }
         // Its ledger entry is the same file; one gone or replaced since leaves the entry be.
         let copiedPath = copied.map { FolderGuard.canonicalPath($0.url) }
@@ -35,7 +39,10 @@ enum RecentScreenshots {
                 copied = nil
                 if files.count == count { return files }
             }
-            guard let file = current(URL(fileURLWithPath: entry.path), resourceID: entry.resourceID) else { continue }
+            // The ledger is a file of the user's that any process of theirs can write, so an
+            // entry alone is no proof: the file itself must still carry the screenshot marker.
+            guard let file = current(URL(fileURLWithPath: entry.path), resourceID: entry.resourceID, requiringMarker: true)
+            else { continue }
             files.append(file)
             if files.count == count { return files }
         }
@@ -43,9 +50,12 @@ enum RecentScreenshots {
         return files
     }
 
-    /// The file at `url` now, if it is still the same one.
-    private static func current(_ url: URL, resourceID: Data) -> CaptureFile? {
+    /// The file at `url` now, if it is still the same one and, with `requiringMarker`, still
+    /// a screenshot of this user. The last copy is held in memory only (an edit Markup saved
+    /// without the marker stays listed); a ledger entry always needs the marker.
+    private static func current(_ url: URL, resourceID: Data, requiringMarker: Bool) -> CaptureFile? {
         guard let file = CaptureFile.inspect(url), file.resourceID == resourceID else { return nil }
+        guard file.isScreenshot || !requiringMarker else { return nil }
         return file
     }
 }

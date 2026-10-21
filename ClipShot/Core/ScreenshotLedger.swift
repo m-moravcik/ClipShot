@@ -37,6 +37,16 @@ struct LedgerEntry: Codable, Hashable, Sendable {
             adopted: try c.decodeIfPresent(Bool.self, forKey: .adopted) ?? false)
     }
 
+    /// What a ledger ClipShot wrote holds: an absolute path without `.` or `..` parts or a
+    /// NUL, a device-and-inode resource identifier, a size and a real date.
+    var isWellFormed: Bool {
+        let parts = path.split(separator: "/", omittingEmptySubsequences: false).dropFirst()
+        return path.hasPrefix("/") && !path.contains("\0") && !parts.isEmpty
+            && !parts.contains { $0.isEmpty || $0 == "." || $0 == ".." }
+            && resourceID.count == CaptureFile.resourceIDSize
+            && size >= 0 && created.timeIntervalSince1970.isFinite
+    }
+
     /// Same path **and** same resource identifier.
     func matches(_ file: CaptureFile) -> Bool {
         path == FolderGuard.canonicalPath(file.url) && resourceID == file.resourceID
@@ -148,22 +158,67 @@ actor ScreenshotLedger {
         return true
     }
 
+    /// The largest ledger read: about 100,000 entries. A larger file is not ClipShot's.
+    static let maxBytes: Int64 = 32 * 1_024 * 1_024
+
     private func load() -> [String: LedgerEntry] {
         if let byPath { return byPath }
-        var map: [String: LedgerEntry] = [:]
-        if let data = try? Data(contentsOf: fileURL) {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .secondsSince1970
-            if let payload = try? decoder.decode(Payload.self, from: data) {
-                for entry in payload.entries { map[entry.path] = entry }
-            } else {
-                // Unreadable: start empty, which only ever means "move less".
-                let log = log
-                Task { await log.error("ledger unreadable, starting empty") }
-            }
+        let (map, problem) = Self.read(fileURL)
+        if let problem {
+            // Unreadable or refused: start with what was usable, which only ever means "move
+            // less" and "list less".
+            let log = log
+            Task { await log.error("ledger: \(problem)") }
         }
         byPath = map
         return map
+    }
+
+    /// The entries of the ledger at `url`, and what was wrong with it, if anything.
+    ///
+    /// The ledger is a file in the user's Library that any process of theirs can write, so
+    /// it is read as untrusted: a regular file of this user (no symlink), at most `maxBytes`,
+    /// version 1, and only well-formed entries (`LedgerEntry.isWellFormed`); the rest are
+    /// dropped and counted. No entry is proof on its own: whoever lists or copies a file
+    /// also checks the screenshot marker on the file itself.
+    static func read(_ url: URL) -> (entries: [String: LedgerEntry], problem: String?) {
+        var st = stat()
+        if lstat(url.path, &st) != 0, errno == ENOENT { return ([:], nil) }
+        let data: Data
+        switch FileTrust.read(url, policy: FileTrust.Policy(maxBytes: maxBytes)) {
+        case .success(let read): data = read
+        case .failure(let refusal): return ([:], "refused (\(refusal.rawValue)), starting empty")
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+        guard let payload = try? decoder.decode(LenientPayload.self, from: data) else {
+            return ([:], "unreadable, starting empty")
+        }
+        guard payload.version == 1 else { return ([:], "unknown version \(payload.version), starting empty") }
+        var map: [String: LedgerEntry] = [:]
+        var dropped = 0
+        for item in payload.entries {
+            guard let entry = item.entry, entry.isWellFormed else {
+                dropped += 1
+                continue
+            }
+            map[entry.path] = entry
+        }
+        return (map, dropped > 0 ? "dropped \(dropped) malformed entries" : nil)
+    }
+
+    /// The ledger's shape, each entry decoded on its own so one bad entry drops only itself.
+    private struct LenientPayload: Decodable {
+        let version: Int
+        let entries: [LenientEntry]
+    }
+
+    private struct LenientEntry: Decodable {
+        let entry: LedgerEntry?
+
+        init(from decoder: any Decoder) throws {
+            entry = try? LedgerEntry(from: decoder)
+        }
     }
 
     private func save(_ map: [String: LedgerEntry]) {

@@ -34,7 +34,7 @@ struct MenuContent: View {
         .fixedSize(horizontal: false, vertical: true)
         .background(.ultraThinMaterial)
         // The window outlives a closed popover, so its views do not say when it opens.
-        .background(WindowVisibilityReader { model.popoverVisibilityChanged($0) })
+        .background(WindowVisibilityReader { model.popoverVisibilityChanged($0, freshOpen: $1) })
     }
 
     private var main: some View {
@@ -157,16 +157,21 @@ struct HeaderStatus: Equatable {
         /// Preview mode macOS: copying waits, with Copy at once next to it (A1).
         case thumbnailWait
         case paused
+        /// Paused by a Focus filter (Addendum C): says why.
+        case pausedByFocus
         case issues(Int)
     }
 
     let state: StatusIconState
     let detail: Detail
 
-    static func of(state: StatusIconState, previewMode: PreviewMode, showsThumbnailWait: Bool, attentions: Int) -> HeaderStatus {
+    static func of(
+        state: StatusIconState, previewMode: PreviewMode, showsThumbnailWait: Bool, attentions: Int,
+        pausedByFocus: Bool = false
+    ) -> HeaderStatus {
         switch state {
         case .attention: HeaderStatus(state: .attention, detail: .issues(attentions))
-        case .paused: HeaderStatus(state: .paused, detail: .paused)
+        case .paused: HeaderStatus(state: .paused, detail: pausedByFocus ? .pausedByFocus : .paused)
         case .idle, .copied:
             HeaderStatus(
                 state: .idle,
@@ -205,6 +210,7 @@ struct HeaderStatus: Equatable {
         case .pasteAfterThumbnail: Copy.Header.pasteAfterThumbnail
         case .thumbnailWait: Copy.ThumbnailWait.hint
         case .paused: Copy.Header.pausedDetail
+        case .pausedByFocus: Copy.Header.pausedByFocus
         case .issues(let count): Copy.Header.attentionDetail(count)
         }
     }
@@ -220,7 +226,8 @@ private struct PopoverHeader: View {
     var body: some View {
         let status = HeaderStatus.of(
             state: model.headerState, previewMode: model.previewMode,
-            showsThumbnailWait: model.showsThumbnailWait, attentions: model.attentions.count)
+            showsThumbnailWait: model.showsThumbnailWait, attentions: model.attentions.count,
+            pausedByFocus: model.pausedByFocus)
         HStack(alignment: .firstTextBaseline, spacing: Design.Spacing.m) {
             Image(systemName: status.symbol)
                 .font(.system(size: 13))
@@ -371,8 +378,11 @@ private struct CopyToggleRow: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        @Bindable var preferences = model.preferences
-        SwitchRow(title: Copy.copyToClipboard, isOn: $preferences.copyEnabled, icon: "doc.on.clipboard")
+        // Through the model: the switch is the user's own, so it ends a Focus's pause.
+        SwitchRow(
+            title: Copy.copyToClipboard,
+            isOn: Binding(get: { model.preferences.copyEnabled }, set: { model.setCopying($0) }),
+            icon: "doc.on.clipboard")
     }
 }
 
@@ -622,8 +632,23 @@ private struct MenuRow: View {
 /// Reports whether the window this view sits in is on screen. A MenuBarExtra's window is
 /// ordered out, not torn down, when the popover closes, so `onAppear` and `onDisappear`
 /// cannot tell an open popover from a closed one; the window's occlusion state can.
+///
+/// It is also how ClipShot knows the menu bar icon was clicked: a `.window` MenuBarExtra
+/// gives no click callback, and its status item button belongs to SwiftUI. Becoming key
+/// counts as open as well as being unoccluded, so the squeeze can start with the click
+/// whichever the window server reports first (on a stand-in panel, key came first; the real
+/// popover is still to be checked live). Closing reports closed once the window is off screen.
+/// Only an open after the window was ordered out is a fresh one, the click's: an occlusion
+/// round trip while it stays ordered in (a display asleep, another Space) reopens it without
+/// a click (`PopoverPresence`).
 struct WindowVisibilityReader: NSViewRepresentable {
-    let changed: @MainActor (Bool) -> Void
+    /// Open or closed, and for an open whether it is fresh (the window was ordered out before).
+    let changed: @MainActor (_ open: Bool, _ fresh: Bool) -> Void
+
+    /// Open: ordered in, and either key (the click that opened it) or unoccluded.
+    nonisolated static func isOpen(visible: Bool, key: Bool, unoccluded: Bool) -> Bool {
+        visible && (key || unoccluded)
+    }
 
     func makeNSView(context: Context) -> ReaderView {
         let view = ReaderView()
@@ -636,33 +661,70 @@ struct WindowVisibilityReader: NSViewRepresentable {
     }
 
     final class ReaderView: NSView {
-        var changed: @MainActor (Bool) -> Void = { _ in }
-        private var observer: NSObjectProtocol?
+        var changed: @MainActor (_ open: Bool, _ fresh: Bool) -> Void = { _, _ in }
+        private var observers: [NSObjectProtocol] = []
+        private var presence = PopoverPresence()
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
-            if let observer { NotificationCenter.default.removeObserver(observer) }
-            observer = nil
+            for observer in observers { NotificationCenter.default.removeObserver(observer) }
+            observers = []
             if let window {
-                observer = NotificationCenter.default.addObserver(
-                    forName: NSWindow.didChangeOcclusionStateNotification, object: window, queue: .main
-                ) { [weak self] _ in
-                    MainActor.assumeIsolated { self?.report() }
+                let names = [
+                    NSWindow.didChangeOcclusionStateNotification, NSWindow.didBecomeKeyNotification,
+                    NSWindow.didResignKeyNotification,
+                ]
+                observers = names.map { name in
+                    NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
+                        MainActor.assumeIsolated { self?.report() }
+                    }
                 }
             }
             report()
         }
 
         private func report() {
-            changed(window.map { $0.isVisible && $0.occlusionState.contains(.visible) } ?? false)
+            let change = presence.update(
+                visible: window?.isVisible ?? false, key: window?.isKeyWindow ?? false,
+                unoccluded: window?.occlusionState.contains(.visible) ?? false)
+            switch change {
+            case .opened(let fresh)?: changed(true, fresh)
+            case .closed?: changed(false, false)
+            case nil: break
+            }
         }
 
         override func hitTest(_ point: NSPoint) -> NSView? { nil }
         override func isAccessibilityElement() -> Bool { false }
 
         isolated deinit {
-            if let observer { NotificationCenter.default.removeObserver(observer) }
+            for observer in observers { NotificationCenter.default.removeObserver(observer) }
         }
+    }
+}
+
+/// Whether the popover's window is open, and whether an open is a fresh one: the window was
+/// ordered out (or never shown) since it was last open, so a click opened it. Only a fresh
+/// open plays Peg's squeeze; a window that only went occluded and came back does not.
+struct PopoverPresence {
+    enum Change: Equatable {
+        case opened(fresh: Bool)
+        case closed
+    }
+
+    private(set) var isOpen = false
+    /// Ordered out since it was last open, or never open yet.
+    private var orderedOut = true
+
+    /// The window's state now; the change it makes, nil when open or closed stays as it was.
+    mutating func update(visible: Bool, key: Bool, unoccluded: Bool) -> Change? {
+        if !visible { orderedOut = true }
+        let open = WindowVisibilityReader.isOpen(visible: visible, key: key, unoccluded: unoccluded)
+        guard open != isOpen else { return nil }
+        isOpen = open
+        guard open else { return .closed }
+        defer { orderedOut = false }
+        return .opened(fresh: orderedOut)
     }
 }
 
