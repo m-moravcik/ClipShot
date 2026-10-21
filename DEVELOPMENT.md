@@ -488,10 +488,14 @@ are the places checked. In order:
 - **A Homebrew copy** (`UpdaterGate.isHomebrewCopy`, the same Caskroom check the updater
   uses) shows where the cask linked it and never offers Install.
 - **A stale link** anywhere (it may come first on the PATH): dangling (the app was moved
-  or deleted), or resolving to another `*.app/Contents/Helpers/clipshot`. **Fix…** asks
-  for confirmation, naming where it points, then replaces that link.
+  or deleted), or resolving to another `*.app/Contents/Helpers/clipshot` that Homebrew did
+  not install. **Fix…** asks for confirmation, naming where it points, then replaces that
+  link.
 - **A link that resolves to this app's tool** (`realpath`, so a relative link or a
   symlinked `/Applications` counts): installed, with where.
+- **A link into a ClipShot.app the cask installed** (`CommandLineLocations.homebrewBundles`,
+  its Caskroom entries resolved), seen from any other copy such as a Debug build: the cask's
+  own link, shown as installed by Homebrew; never offered Fix.
 - **Anything else** named `clipshot` (a `make install-cli` copy, another program, a
   link to one, a folder): said and left alone, with Show in Finder; no prompt.
 - **Nothing**: **Install…** links `/usr/local/bin/clipshot`; **Copy Command** copies the

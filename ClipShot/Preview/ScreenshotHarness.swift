@@ -935,6 +935,7 @@ enum DemoCommandLine: String, CaseIterable {
             helper: helper,
             candidates: [brewBin, localBin, userBin].map { $0.appending(path: tool) },
             installTarget: localBin.appending(path: tool),
+            homebrewBundles: [],
             isHomebrewCopy: state == .homebrew,
             home: home,
             displayRoot: root)

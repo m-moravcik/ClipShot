@@ -17,6 +17,9 @@ struct CommandLineLocations: Sendable {
     var candidates: [URL]
     /// Where Install creates the link.
     var installTarget: URL
+    /// The ClipShot.app copies the Homebrew cask installed (its Caskroom entries). A link into
+    /// one is the cask's own, never offered to fix.
+    var homebrewBundles: [URL]
     /// The Homebrew cask installed this copy and links the tool itself: no Install.
     var isHomebrewCopy: Bool
     /// Shown as "~".
@@ -42,12 +45,13 @@ struct CommandLineLocations: Sendable {
         var seen = Set<String>()
         let candidates = folders.filter { seen.insert(URL(fileURLWithPath: $0).standardizedFileURL.path).inserted }
             .map { URL(fileURLWithPath: $0).appending(path: toolName) }
+        let homebrewBundles = UpdaterGate.caskroomBundleURLs(environment: environment)
         return CommandLineLocations(
             helper: bundleURL.appending(path: "Contents/Helpers/\(toolName)"),
             candidates: candidates,
             installTarget: URL(fileURLWithPath: installFolder).appending(path: toolName),
-            isHomebrewCopy: UpdaterGate.isHomebrewCopy(
-                bundleURL: bundleURL, caskroomBundleURLs: UpdaterGate.caskroomBundleURLs(environment: environment)),
+            homebrewBundles: homebrewBundles,
+            isHomebrewCopy: UpdaterGate.isHomebrewCopy(bundleURL: bundleURL, caskroomBundleURLs: homebrewBundles),
             home: home)
     }
 
@@ -87,18 +91,22 @@ enum CommandLineEntry: Equatable, Sendable {
     case linked
     /// A symlink to nothing: an app that was moved or deleted.
     case broken(target: String)
+    /// A symlink into a ClipShot.app the Homebrew cask installed: the cask's own link.
+    case homebrew
     /// A symlink to the tool of another ClipShot.app.
     case otherCopy(target: String)
     /// Anything else: a copy from `make install-cli`, another program, a folder.
     case foreign
 
-    static func inspect(_ url: URL, helper resolvedHelper: String) -> CommandLineEntry {
+    /// `resolvedHelper` and `homebrewBundles` as `realpath` gives them.
+    static func inspect(_ url: URL, helper resolvedHelper: String, homebrewBundles: [String]) -> CommandLineEntry {
         var info = stat()
         guard lstat(url.path, &info) == 0 else { return .absent }
         guard info.st_mode & S_IFMT == S_IFLNK else { return .foreign }
         let target = (try? FileManager.default.destinationOfSymbolicLink(atPath: url.path)) ?? ""
         guard let resolved = CommandLineStatus.resolvedPath(url.path) else { return .broken(target: target) }
         if resolved == resolvedHelper { return .linked }
+        if homebrewBundles.contains(where: { resolved.hasPrefix($0 + "/") }) { return .homebrew }
         if resolved.hasSuffix(".app/Contents/Helpers/\(CommandLineLocations.toolName)") {
             return .otherCopy(target: target)
         }
@@ -123,12 +131,15 @@ enum CommandLineStatus: Equatable, Sendable {
     case foreign(URL)
 
     /// In order: a Homebrew copy, a stale link anywhere (it may come first on the PATH),
-    /// a link to this app, something else, nothing.
+    /// a link to this app, the cask's link to its own copy, something else, nothing.
     static func detect(_ locations: CommandLineLocations) -> CommandLineStatus {
         guard let helper = resolvedPath(locations.helper.path),
               FileManager.default.isExecutableFile(atPath: helper)
         else { return .unavailable }
-        let found = locations.candidates.map { ($0, CommandLineEntry.inspect($0, helper: helper)) }
+        let homebrewBundles = locations.homebrewBundles.compactMap { resolvedPath($0.path) }
+        let found = locations.candidates.map {
+            ($0, CommandLineEntry.inspect($0, helper: helper, homebrewBundles: homebrewBundles))
+        }
         let linked = found.first { $0.1 == .linked }?.0
         if locations.isHomebrewCopy { return .homebrew(linked) }
         if locations.helper.path.contains("/AppTranslocation/") { return .needsMove }
@@ -136,10 +147,11 @@ enum CommandLineStatus: Equatable, Sendable {
             switch entry {
             case .broken(let target): return .stale(url, target: target, missing: true)
             case .otherCopy(let target): return .stale(url, target: target, missing: false)
-            case .absent, .linked, .foreign: continue
+            case .absent, .linked, .homebrew, .foreign: continue
             }
         }
         if let linked { return .linked(linked) }
+        if let cask = found.first(where: { $0.1 == .homebrew }) { return .homebrew(cask.0) }
         if let foreign = found.first(where: { $0.1 == .foreign }) { return .foreign(foreign.0) }
         return .notInstalled
     }

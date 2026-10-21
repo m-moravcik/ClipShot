@@ -38,11 +38,12 @@ struct CommandLineSetupTests {
             try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
         }
 
-        func locations(homebrew: Bool = false) -> CommandLineLocations {
+        func locations(homebrew: Bool = false, homebrewBundles: [URL] = []) -> CommandLineLocations {
             CommandLineLocations(
                 helper: helper,
                 candidates: [brewBin, localBin, userBin].map { $0.appending(path: "clipshot") },
                 installTarget: localBin.appending(path: "clipshot"),
+                homebrewBundles: homebrewBundles,
                 isHomebrewCopy: homebrew,
                 home: home,
                 displayRoot: root)
@@ -53,8 +54,8 @@ struct CommandLineSetupTests {
                 atPath: folder.appending(path: "clipshot").path, withDestinationPath: target)
         }
 
-        func status(homebrew: Bool = false) -> CommandLineStatus {
-            .detect(locations(homebrew: homebrew))
+        func status(homebrew: Bool = false, homebrewBundles: [URL] = []) -> CommandLineStatus {
+            .detect(locations(homebrew: homebrew, homebrewBundles: homebrewBundles))
         }
     }
 
@@ -128,6 +129,33 @@ struct CommandLineSetupTests {
         let link = fs.userBin.appending(path: "clipshot")
         #expect(fs.status() == .stale(link, target: other.path, missing: false))
         #expect(fs.status().action(installTarget: fs.locations().installTarget)?.link == link)
+    }
+
+    @Test("The cask's link into the copy Homebrew installed is Homebrew's, for any other copy: no Fix")
+    func caskLinkIsHomebrews() throws {
+        // A Debug build runs while the cask's copy sits in /Applications, which the Caskroom
+        // entry links to, and the cask links Homebrew's bin to its tool.
+        let fs = try Root(app: "Users/you/Library/Developer/Xcode/DerivedData/ClipShot.app")
+        let caskApp = fs.root.appending(path: "Applications/ClipShot.app")
+        try Root.tool(at: caskApp.appending(path: "Contents/Helpers/clipshot"))
+        let caskroom = fs.root.appending(path: "opt/homebrew/Caskroom/clipshot/0.9.1/ClipShot.app")
+        try FileManager.default.createDirectory(
+            at: caskroom.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: caskroom, withDestinationURL: caskApp)
+        try fs.link(fs.brewBin, to: caskApp.appending(path: "Contents/Helpers/clipshot").path)
+
+        let status = fs.status(homebrewBundles: [caskroom])
+        #expect(status == .homebrew(fs.brewBin.appending(path: "clipshot")))
+        #expect(status.action(installTarget: fs.locations().installTarget) == nil)
+
+        // A link to a copy Homebrew did not install stays stale, whatever the cask installed.
+        let other = fs.home.appending(path: "Downloads/ClipShot.app/Contents/Helpers/clipshot")
+        try Root.tool(at: other)
+        try fs.link(fs.userBin, to: other.path)
+        let link = fs.userBin.appending(path: "clipshot")
+        #expect(fs.status(homebrewBundles: [caskroom]) == .stale(link, target: other.path, missing: false))
+        #expect(fs.status(homebrewBundles: [caskroom]).action(installTarget: fs.locations().installTarget)?.link
+            == link)
     }
 
     @Test("A regular file, or a link to some other program, is refused: no action, no prompt")
@@ -218,7 +246,7 @@ struct CommandLineSetupTests {
         var locations = CommandLineLocations(
             helper: URL(fileURLWithPath: "/Applications/ClipShot.app/Contents/Helpers/clipshot"),
             candidates: [], installTarget: URL(fileURLWithPath: "/usr/local/bin/clipshot"),
-            isHomebrewCopy: false, home: URL(fileURLWithPath: "/Users/you"))
+            homebrewBundles: [], isHomebrewCopy: false, home: URL(fileURLWithPath: "/Users/you"))
         #expect(locations.manualCommand
             == "sudo mkdir -p /usr/local/bin && sudo ln -s /Applications/ClipShot.app/Contents/Helpers/clipshot /usr/local/bin/clipshot")
         locations.helper = URL(fileURLWithPath: "/Users/you/My Apps/It's $(here)/ClipShot.app/Contents/Helpers/clipshot")
