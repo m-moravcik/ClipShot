@@ -50,15 +50,22 @@ enum UpdaterGate {
         // never installed.
         guard isDeveloperIDSigned else { return .disabled(reason: .notSigned) }
 
-        let resolved = bundleURL.resolvingSymlinksInPath().standardizedFileURL
-        let managedByHomebrew = caskroomBundleURLs.contains {
-            $0.resolvingSymlinksInPath().standardizedFileURL == resolved
+        if isHomebrewCopy(bundleURL: bundleURL, caskroomBundleURLs: caskroomBundleURLs) {
+            return .disabled(reason: .managedByHomebrew)
         }
-        if managedByHomebrew { return .disabled(reason: .managedByHomebrew) }
 
         guard bundleURL.pathExtension == "app" else { return .disabled(reason: .notABundle) }
 
         return .enabled
+    }
+
+    /// Whether the cask installed this copy: one of its Caskroom entries resolves to the
+    /// running bundle. Settings > General uses it too: the cask links `clipshot` itself.
+    static func isHomebrewCopy(bundleURL: URL, caskroomBundleURLs: [URL]) -> Bool {
+        let resolved = bundleURL.resolvingSymlinksInPath().standardizedFileURL
+        return caskroomBundleURLs.contains {
+            $0.resolvingSymlinksInPath().standardizedFileURL == resolved
+        }
     }
 
     /// App bundles Homebrew has recorded for this cask, across the prefixes it

@@ -86,7 +86,7 @@ Download `ClipShot-<version>.zip` from the
 [latest release](https://github.com/m-moravcik/ClipShot/releases/latest), unzip
 it and move **ClipShot** to Applications. Releases are signed with Developer ID,
 notarized and stapled, so it opens with a normal double-click. For the `clipshot`
-command, see [Command line](#command-line).
+command, click **Install…** in Settings > General; see [Command line](#command-line).
 
 ClipShot requires macOS 26 or newer. It is a universal app, developed and tested
 on Apple silicon; the Intel part ships for the Intel Macs that macOS 26 still
@@ -190,7 +190,8 @@ where you clicked.
 
 ### Settings
 
-- **General**: launch at login, copy to clipboard and replay the welcome tour.
+- **General**: launch at login, copy to clipboard, replay the welcome tour, and
+  whether the `clipshot` command is installed, with **Install…** when it is not.
   There is no copy sound: macOS's own shutter sound already confirms each
   screenshot, and the menu bar icon shows every copy.
 - **Capture**: the folder macOS saves screenshots to, the preview, and Restore
@@ -307,7 +308,16 @@ What to know:
 always the app's version.
 
 - **Homebrew**: the cask puts it on your PATH.
-- **Downloaded ZIP**: link it once. The link keeps working after updates.
+- **Downloaded ZIP**: open **Settings > General** and click **Install…** next to
+  `clipshot`. It links `/usr/local/bin/clipshot` to the tool inside the app, after the
+  standard macOS password prompt, and the link keeps working after updates. The row
+  says where `clipshot` is once it is installed, and offers **Fix…** when an old link
+  points to a ClipShot that was moved or deleted, or to another copy of it. The
+  Homebrew cask's own link is never touched, and anything else named `clipshot` is
+  left alone.
+
+  Or make the link yourself (**Copy Command** next to Install copies this line with
+  your app's path):
 
   ```sh
   sudo mkdir -p /usr/local/bin && sudo ln -s /Applications/ClipShot.app/Contents/Helpers/clipshot /usr/local/bin/clipshot
@@ -417,7 +427,7 @@ settings** before you uninstall.
 
 Without Homebrew: quit ClipShot, move it to the Trash, and move these to the Trash
 as well (the same list `--zap` uses), plus the `/usr/local/bin/clipshot` link if
-you made one:
+you installed it:
 
 - `~/Library/Application Support/ClipShot`
 - `~/Library/Caches/sk.moravcik.ClipShot`

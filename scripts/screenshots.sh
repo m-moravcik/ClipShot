@@ -15,15 +15,19 @@
 # run fails if a popover is taller than the cap, or if the everyday popover with the Undo
 # strip (popover-undo, popover-undo-top) would scroll.
 #
-# Checks: in every language, Settings > Capture with the destination guard must keep at
-# least the Form's standard 20 pt under its last section; the run fails (after writing every
-# picture) when it does not. `all` is how the six real languages are checked together.
+# Checks: in every language, Settings > Capture with the destination guard, and Settings >
+# General in every state of its Command line section, must keep at least the Form's standard
+# 20 pt under the last section; the run fails (after writing every picture) when one does
+# not. `all` is how the six real languages are checked together.
 #
 # Writes, in -light and -dark: popover, popover-one, popover-paused, popover-paused-focus
 # (paused by a Focus filter), popover-attention,
 # popover-full (every row at once, Undo included: past the height cap, so the middle
 # scrolls), attention-* (one per
 # attention row), settings-{general,capture,retention,about}, settings-general-replayed,
+# settings-general-cli-* (the Command line section: not-installed, installing, cancelled,
+# failed, copied, installed, homebrew, broken, other-copy, foreign, move; on demo folders,
+# never the real /usr/local/bin),
 # settings-retention-{cleaned,trash-not-opened,nothing-moved} (just after Clean up now),
 # onboarding-3-tidy-fresh (step 3 on a fresh install, offering the older screenshots),
 # settings-retention-older (the offer for screenshots from before ClipShot ran),

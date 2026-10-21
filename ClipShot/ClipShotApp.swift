@@ -5,6 +5,8 @@ struct ClipShotApp: App {
     /// Nil under XCTest so the test host stays inert (no watcher, no pasteboard writes).
     @State private var model: AppModel?
     @State private var router = SettingsRouter()
+    /// Settings > General > Command line. Nil with the model, so the test host reads nothing.
+    @State private var commandLine: CommandLineSetup? = nil
     /// Nil under XCTest, like the model: no Sparkle, no network.
     private let updater: (any UpdaterProviding)?
     /// The updater's, or a status that never turns on when there is no updater.
@@ -49,6 +51,9 @@ struct ClipShotApp: App {
             }
         }
         _model = State(initialValue: model)
+        if model != nil {
+            _commandLine = State(initialValue: MainActor.assumeIsolated { CommandLineSetup() })
+        }
         let updater = Self.makeUpdater(environment: ProcessInfo.processInfo.environment)
         self.updater = updater
         updateStatus = MainActor.assumeIsolated { updater?.updateStatus ?? UpdateStatus() }
@@ -88,6 +93,7 @@ struct ClipShotApp: App {
                 SettingsView()
                     .environment(model)
                     .environment(router)
+                    .environment(commandLine)
                     .environment(updateStatus)
                     .environment(\.updater, updater)
             }

@@ -48,7 +48,7 @@ enum ScreenshotHarness {
     /// Popover pictures from the window on screen (ScreenCaptureKit), not off-screen. Opt-in.
     static var liveCapture: Bool { ProcessInfo.processInfo.environment[liveKey] == "1" }
 
-    /// Checks made while rendering (`checkCaptureMargin`); the run fails at the end when one
+    /// Checks made while rendering (`checkMargin`); the run fails at the end when one
     /// did not hold, after every picture is written.
     private static var failedChecks: [String] = []
 
@@ -117,6 +117,8 @@ enum ScreenshotHarness {
         DemoScene.wait { scene.model.recent.count == RecentScreenshots.count }
 
         let updater = DemoUpdater()
+        // Settings > General as a downloaded copy first shows it: clipshot not installed yet.
+        let commandLine = try DemoCommandLine.make(.notInstalled, in: scratch)
         measure("popover", MenuContent().harnessEnvironment(scene.model, updater: updater), mustFit: true)
         for scheme in ColorScheme.allCases {
             let popover = capturePanel(PopoverPanel(scheme: scheme) { MenuContent() }
@@ -136,7 +138,7 @@ enum ScreenshotHarness {
 
             for tab in SettingsTab.allCases {
                 let window = capture(SettingsWindow(tab: tab, scheme: scheme)
-                    .harnessEnvironment(scene.model, updater: updater), scheme: scheme)
+                    .harnessEnvironment(scene.model, updater: updater, commandLine: commandLine), scheme: scheme)
                 try shots.write(render(WindowShadow(window: window, scheme: scheme)), "settings-\(tab.name)", scheme)
             }
         }
@@ -212,11 +214,25 @@ enum ScreenshotHarness {
             scene.model.showUndoForHarness(nil)
         }
 
+        // General's Command line section in each of its states.
+        for state in DemoCommandLine.allCases {
+            let setup = try DemoCommandLine.make(state, in: scratch)
+            for scheme in ColorScheme.allCases {
+                // Again for each picture: leaving the pane clears an outcome.
+                try awaitTask { await DemoCommandLine.settle(setup, state) }
+                let window = capture(SettingsWindow(tab: .general, scheme: scheme)
+                    .harnessEnvironment(scene.model, updater: updater, commandLine: setup), scheme: scheme)
+                checkMargin(window, "settings-general-cli-\(state.rawValue)", scheme: scheme)
+                try shots.write(render(WindowShadow(window: window, scheme: scheme)), "settings-general-cli-\(state.rawValue)", scheme)
+            }
+        }
+
         // General just after "Replay welcome tour": the tour waits in the popover.
         scene.model.replayOnboarding()
         for scheme in ColorScheme.allCases {
             let window = capture(SettingsWindow(tab: .general, scheme: scheme, replayed: true)
-                .harnessEnvironment(scene.model, updater: updater), scheme: scheme)
+                .harnessEnvironment(scene.model, updater: updater, commandLine: commandLine), scheme: scheme)
+            checkMargin(window, "settings-general-replayed", scheme: scheme)
             try shots.write(render(WindowShadow(window: window, scheme: scheme)), "settings-general-replayed", scheme)
         }
         scene.stop()
@@ -283,7 +299,7 @@ enum ScreenshotHarness {
             // The destination guard as Settings shows it, next to its fix.
             let window = capture(SettingsWindow(tab: .capture, scheme: scheme)
                 .harnessEnvironment(scene.model), scheme: scheme)
-            checkCaptureMargin(window, scheme: scheme)
+            checkMargin(window, "settings-capture-attention", scheme: scheme)
             try shots.write(render(WindowShadow(window: window, scheme: scheme)), "settings-capture-attention", scheme)
         }
 
@@ -695,18 +711,21 @@ enum ScreenshotHarness {
     /// The Form's standard margin: what it leaves above its first section.
     static let standardMargin: CGFloat = 20
 
-    /// Settings > Capture with the destination guard showing must keep at least the Form's
-    /// standard margin under its last section, in every language: less means Restore is
-    /// about to be pushed out of the window, which then scrolls. Measured on the picture:
-    /// rows of the pane's own fill, counted up from the window's bottom edge.
-    private static func checkCaptureMargin(_ window: NSBitmapImageRep, scheme: ColorScheme) {
+    /// A Settings pane must keep at least the Form's standard margin under its last section,
+    /// in every language: less means the last row is about to be pushed out of the window,
+    /// which then scrolls. Settings > Capture with the destination guard (Restore at the
+    /// bottom) and Settings > General in every state of its Command line section are checked.
+    /// Measured on the picture: rows of the pane's own fill, counted up from the window's
+    /// bottom edge.
+    private static func checkMargin(_ window: NSBitmapImageRep, _ name: String, scheme: ColorScheme) {
         let margin = bottomMargin(window)
         let language = DemoContent.language
-        print("check: settings-capture-attention \(scheme == .dark ? "dark" : "light") [\(language)] "
+        let appearance = scheme == .dark ? "dark" : "light"
+        print("check: \(name) \(appearance) [\(language)] "
             + "bottom margin \(Int(margin.rounded(.down))) pt (minimum \(Int(standardMargin)))")
         if margin < standardMargin {
-            failedChecks.append("Settings > Capture with the destination guard leaves \(margin) pt under its last "
-                + "section in \(language) (\(scheme == .dark ? "dark" : "light")), less than the standard \(standardMargin) pt")
+            failedChecks.append("\(name) leaves \(margin) pt under its last section in \(language) (\(appearance)), "
+                + "less than the standard \(standardMargin) pt")
         }
     }
 
@@ -844,14 +863,110 @@ private extension SettingsTab {
 
 private extension View {
     func harnessEnvironment(
-        _ model: AppModel, updater: (any UpdaterProviding)? = nil, updateStatus: UpdateStatus = UpdateStatus()
+        _ model: AppModel, updater: (any UpdaterProviding)? = nil, updateStatus: UpdateStatus = UpdateStatus(),
+        commandLine: CommandLineSetup? = nil
     ) -> some View {
         environment(model)
             .environment(SettingsRouter())
+            .environment(commandLine)
             .environment(updateStatus)
             .environment(\.updater, updater)
             .environment(\.offscreenCapture, !ScreenshotHarness.liveCapture)
             .environment(\.displayNow, DemoContent.renderNow)
+    }
+}
+
+/// Settings > General > Command line on demo folders: a folder in the scratch directory
+/// stands for "/", with the app, /usr/local/bin, Homebrew's bin and ~/.local/bin in it, shown
+/// as the real paths. Nothing outside it is read or written, and the links are never made
+/// through the real installer: Install and Fix answer from `DemoLinker`.
+@MainActor
+enum DemoCommandLine: String, CaseIterable {
+    case notInstalled = "not-installed"
+    case installing
+    case cancelled
+    case failed
+    case copied
+    case installed
+    case homebrew
+    case broken
+    case otherCopy = "other-copy"
+    case foreign
+    case move
+
+    static func make(_ state: DemoCommandLine, in scratch: URL) throws -> CommandLineSetup {
+        let fm = FileManager.default
+        let root = scratch.appendingPathComponent("cli-\(state.rawValue)", isDirectory: true)
+        let home = root.appending(path: "Users/you")
+        let app = state == .move
+            ? root.appending(path: "private/var/folders/xy/AppTranslocation/1F2E/d/ClipShot.app")
+            : root.appending(path: "Applications/ClipShot.app")
+        let helper = app.appending(path: "Contents/Helpers/clipshot")
+        let localBin = root.appending(path: "usr/local/bin"), brewBin = root.appending(path: "opt/homebrew/bin")
+        let userBin = home.appending(path: ".local/bin")
+        for folder in [helper.deletingLastPathComponent(), localBin, brewBin, userBin] {
+            try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        }
+        try Data("#!/bin/sh\n".utf8).write(to: helper)
+        try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: helper.path)
+
+        let tool = "clipshot"
+        switch state {
+        case .installed:
+            try fm.createSymbolicLink(at: localBin.appending(path: tool), withDestinationURL: helper)
+        case .homebrew:
+            try fm.createSymbolicLink(at: brewBin.appending(path: tool), withDestinationURL: helper)
+        case .broken:
+            try fm.createSymbolicLink(
+                atPath: localBin.appending(path: tool).path,
+                withDestinationPath: root.appending(path: "Applications/Old/ClipShot.app/Contents/Helpers/clipshot").path)
+        case .otherCopy:
+            let other = home.appending(path: "Downloads/ClipShot.app/Contents/Helpers/clipshot")
+            try fm.createDirectory(at: other.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data("#!/bin/sh\n".utf8).write(to: other)
+            try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: other.path)
+            try fm.createSymbolicLink(at: localBin.appending(path: tool), withDestinationURL: other)
+        case .foreign:
+            try Data("#!/bin/sh\n".utf8).write(to: userBin.appending(path: tool))
+        case .notInstalled, .installing, .cancelled, .failed, .copied, .move:
+            break
+        }
+        let locations = CommandLineLocations(
+            helper: helper,
+            candidates: [brewBin, localBin, userBin].map { $0.appending(path: tool) },
+            installTarget: localBin.appending(path: tool),
+            homebrewBundles: [],
+            isHomebrewCopy: state == .homebrew,
+            home: home,
+            displayRoot: root)
+        let result: CommandLineLinkResult = switch state {
+        case .cancelled: .cancelled
+        case .failed: .failed("The operation couldn’t be completed. (Disk full)")
+        default: .linked
+        }
+        return CommandLineSetup(locations: locations, linker: DemoLinker(result: result))
+    }
+
+    /// Puts the section in the state's moment: after Install, during it, or after Copy
+    /// Command (set, not clicked: the real button writes the clipboard).
+    static func settle(_ setup: CommandLineSetup, _ state: DemoCommandLine) async {
+        switch state {
+        case .cancelled, .failed: await setup.install()
+        case .installing: setup.activity = .working
+        case .copied: setup.commandCopied = true
+        default: break
+        }
+    }
+}
+
+/// Answers Install and Fix without touching anything.
+private struct DemoLinker: CommandLineLinking {
+    let result: CommandLineLinkResult
+
+    func link(
+        helper: URL, at link: URL, replacing: String?, asAdministrator: Bool, prompt: String
+    ) async -> CommandLineLinkResult {
+        result
     }
 }
 
@@ -958,7 +1073,7 @@ private struct SettingsWindow: View {
             }
 
             pane
-                .frame(width: Design.Layout.settingsSize.width, height: Design.Layout.settingsSize.height)
+                .frame(width: tab.size.width, height: tab.size.height)
                 .background(dark ? Color(white: 0.13) : Color(white: 0.98))
         }
         .frame(width: Design.Layout.settingsSize.width)

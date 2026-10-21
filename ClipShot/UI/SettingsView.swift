@@ -3,6 +3,15 @@ import SwiftUI
 
 enum SettingsTab: Hashable {
     case general, capture, retention, about
+
+    /// The pane's size. Set on each tab rather than on the TabView, so the window resizes to
+    /// the chosen tab.
+    var size: CGSize {
+        switch self {
+        case .general: CGSize(width: Design.Layout.settingsSize.width, height: Design.Layout.generalSettingsHeight)
+        case .capture, .retention, .about: Design.Layout.settingsSize
+        }
+    }
 }
 
 /// Which Settings tab to show. The popover sets it before opening Settings ("Settings…"
@@ -21,19 +30,22 @@ struct SettingsView: View {
         @Bindable var router = router
         TabView(selection: $router.tab) {
             GeneralSettings()
+                .frame(width: SettingsTab.general.size.width, height: SettingsTab.general.size.height)
                 .tabItem { Label { Text(Copy.Tab.general) } icon: { Image(systemName: "gearshape") } }
                 .tag(SettingsTab.general)
             CaptureSettingsPane()
+                .frame(width: SettingsTab.capture.size.width, height: SettingsTab.capture.size.height)
                 .tabItem { Label { Text(Copy.Tab.capture) } icon: { Image(systemName: "camera.viewfinder") } }
                 .tag(SettingsTab.capture)
             RetentionSettings()
+                .frame(width: SettingsTab.retention.size.width, height: SettingsTab.retention.size.height)
                 .tabItem { Label { Text(Copy.Tab.retention) } icon: { Image(systemName: "trash") } }
                 .tag(SettingsTab.retention)
             AboutSettings()
+                .frame(width: SettingsTab.about.size.width, height: SettingsTab.about.size.height)
                 .tabItem { Label { Text(Copy.Tab.about) } icon: { Image(systemName: "info.circle") } }
                 .tag(SettingsTab.about)
         }
-        .frame(width: Design.Layout.settingsSize.width, height: Design.Layout.settingsSize.height)
     }
 }
 
@@ -110,6 +122,8 @@ extension Note where Action == EmptyView {
 
 struct GeneralSettings: View {
     @Environment(AppModel.self) private var model
+    /// Optional, so a pane drawn without one (a probe, a preview) has no Command line section.
+    @Environment(CommandLineSetup.self) private var commandLine: CommandLineSetup?
     /// Replay was clicked while this pane was open: the button gives way to where the tour is.
     @State private var replayRequested: Bool
 
@@ -151,11 +165,200 @@ struct GeneralSettings: View {
             } else if replayRequested {
                 Section { Note(text: Copy.General.replayNote, systemImage: "menubar.arrow.up.rectangle") }
             }
+
+            if let commandLine, commandLine.status != .unavailable {
+                CommandLineSection(setup: commandLine)
+            }
         }
         .formStyle(.grouped)
         .onChange(of: preferences.onboardingShown) { _, shown in
             if shown { replayRequested = false }
         }
+    }
+}
+
+/// Settings > General > Command line: where `clipshot` is, laid out as the save folder in
+/// Capture (symbol, name, where it is, the action), with Install or Fix when it is missing
+/// or broken. How Install ended is said in the footer, in place of the hint, so the pane fits
+/// General's height without scrolling in every language. Commands and paths are monospaced.
+private struct CommandLineSection: View {
+    let setup: CommandLineSetup
+    @State private var confirmingFix = false
+
+    private var locations: CommandLineLocations { setup.locations }
+
+    var body: some View {
+        Section {
+            row
+                .confirmationDialog(
+                    replaceTitle, isPresented: $confirmingFix, titleVisibility: .visible
+                ) {
+                    Button { install() } label: { Text(Copy.CommandLine.replace) }
+                    Button(role: .cancel) {} label: { Text(Copy.Retention.cancel) }
+                } message: {
+                    replaceMessage
+                }
+            statusNote
+        } header: {
+            Text(Copy.CommandLine.header)
+        } footer: {
+            footer
+        }
+        .onAppear { setup.refresh() }
+        .onDisappear { setup.reset() }
+    }
+
+    private var row: some View {
+        HStack(spacing: Design.Spacing.m) {
+            Image(systemName: "apple.terminal.fill")
+                .font(.system(size: 18))
+                .foregroundStyle(Color.accentColor)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(verbatim: CommandLineLocations.toolName)
+                    .monospaced()
+                    .lineLimit(1)
+                subtitle
+                    .font(Design.Typography.note)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            .accessibilityElement(children: .combine)
+            Spacer(minLength: Design.Spacing.m)
+            trailing
+        }
+    }
+
+    private var subtitle: Text {
+        switch setup.status {
+        case .linked(let url):
+            Text(Copy.CommandLine.installed(locations.display(url)))
+        case .homebrew(let url?):
+            Text(Copy.CommandLine.installedByHomebrew(locations.display(url)))
+        case .homebrew(nil):
+            Text(Copy.CommandLine.installedByHomebrewNoPath)
+        case .stale(let url, _, _), .foreign(let url):
+            Text(verbatim: locations.display(url)).monospaced()
+        case .notInstalled, .needsMove, .unavailable:
+            Text(Copy.CommandLine.notInstalled)
+        }
+    }
+
+    @ViewBuilder
+    private var trailing: some View {
+        if setup.activity == .working {
+            HStack(spacing: Design.Spacing.s) {
+                ProgressView().controlSize(.small)
+                Text(Copy.CommandLine.installing)
+                    .font(Design.Typography.note)
+                    .foregroundStyle(.secondary)
+            }
+        } else {
+            switch setup.status {
+            case .notInstalled:
+                Button { install() } label: { Text(Copy.CommandLine.install) }
+            case .linked, .homebrew:
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .accessibilityHidden(true)
+            case .stale, .foreign, .needsMove, .unavailable:
+                EmptyView()
+            }
+        }
+    }
+
+    /// Why the command does not work as it is, with its fix: a row of its own, as the
+    /// destination guard in Capture.
+    @ViewBuilder
+    private var statusNote: some View {
+        switch setup.status {
+        case .stale(_, _, let missing):
+            Note(
+                text: missing ? Copy.CommandLine.brokenLink : Copy.CommandLine.otherCopyLink,
+                systemImage: "exclamationmark.triangle.fill", tint: .orange
+            ) {
+                Button { confirmingFix = true } label: { Text(Copy.CommandLine.fix) }
+                    .disabled(setup.activity == .working)
+            }
+        case .foreign(let url):
+            Note(text: Copy.CommandLine.foreign, systemImage: "info.circle") {
+                Button {
+                    NSWorkspace.shared.activateFileViewerSelecting([url])
+                } label: { Text(Copy.Action.showInFinder) }
+            }
+        case .needsMove:
+            Note(text: Copy.CommandLine.moveToApplications, systemImage: "exclamationmark.triangle.fill", tint: .orange)
+        case .notInstalled, .linked, .homebrew, .unavailable:
+            EmptyView()
+        }
+    }
+
+    /// How the last Install or Fix ended when it did not link, until the next one.
+    private var outcome: (text: LocalizedStringResource, failed: Bool)? {
+        guard case .ended(let result) = setup.activity else { return nil }
+        switch result {
+        case .cancelled: return (Copy.CommandLine.cancelled, false)
+        case .changed: return (Copy.CommandLine.changed, true)
+        case .noTool: return (Copy.CommandLine.noTool, true)
+        case .failed(let reason): return (Copy.CommandLine.failed(reason), true)
+        case .linked: return nil
+        }
+    }
+
+    /// The outcome of the last attempt, else `hint`.
+    @ViewBuilder
+    private func outcomeOr(_ hint: LocalizedStringResource?) -> some View {
+        if let outcome {
+            if outcome.failed {
+                Note(text: outcome.text, systemImage: "exclamationmark.triangle.fill", tint: .red)
+            } else {
+                Note(text: outcome.text)
+            }
+        } else if let hint {
+            Note(text: hint)
+        }
+    }
+
+    @ViewBuilder
+    private var footer: some View {
+        switch setup.status {
+        case .notInstalled:
+            // As the save folder's footer: the note, and the way to do it by hand as a link.
+            HStack(alignment: .firstTextBaseline) {
+                outcomeOr(setup.commandCopied ? Copy.CommandLine.commandCopied : Copy.CommandLine.installNote)
+                Spacer(minLength: Design.Spacing.m)
+                Button { setup.copyCommand() } label: { Text(Copy.CommandLine.copyCommand) }
+                    .buttonStyle(.link)
+                    .font(Design.Typography.note)
+                    .fixedSize()
+            }
+        case .linked, .homebrew:
+            outcomeOr(Copy.CommandLine.installedNote)
+        case .stale, .foreign, .needsMove, .unavailable:
+            outcomeOr(nil)
+        }
+    }
+
+    private var replaceTitle: Text {
+        if case .stale(let url, _, _) = setup.status {
+            Text(Copy.CommandLine.replaceTitle(locations.display(url)))
+        } else {
+            Text(verbatim: "")
+        }
+    }
+
+    private var replaceMessage: Text {
+        if case .stale(_, let target, _) = setup.status {
+            Text(Copy.CommandLine.replaceMessage(
+                target.hasPrefix("/") ? locations.display(URL(fileURLWithPath: target)) : target))
+        } else {
+            Text(verbatim: "")
+        }
+    }
+
+    private func install() {
+        Task { await setup.install() }
     }
 }
 
