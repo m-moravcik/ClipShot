@@ -89,14 +89,14 @@ struct RecentSection: View {
 /// The current screenshot and the ones before it, newest first, one row each in one rounded
 /// group with hairlines between them, as Eject Guard lists its disks. Every row looks the
 /// same: only its place and its age say which one is the current screenshot. While Undo is
-/// offered, the screenshot just moved to the Trash keeps its place as a short Undo strip.
+/// offered, each screenshot moved to the Trash keeps its place as a short Undo strip.
 ///
 /// Motion, on `Design.Motion.layout`: a row moved to the Trash shrinks into the Undo strip
 /// in one continuous change (same place, so its height animates while the contents
 /// crossfade), and Undo grows it back, the screenshot arriving from just smaller as it
-/// fades in, so it reads as having come back. Once Undo is over the strip closes, the rows under it
-/// move up and the older screenshot fades in on the last row; the rows above never move. A
-/// new screenshot fades in on top while the others make room. Reduce Motion: the same
+/// fades in, so it reads as having come back. Once Undo is over the strips close, the rows under
+/// them move up and the older screenshots fade in on the last rows; the rows above never move.
+/// A new screenshot fades in on top while the others make room. Reduce Motion: the same
 /// crossfades on `quick`.
 struct RecentList: View {
     @Environment(AppModel.self) private var model
@@ -106,6 +106,9 @@ struct RecentList: View {
 
     var body: some View {
         let slots = model.recentSlots
+        // ⌘Z belongs to one strip only, the latest move's: two buttons with the same key
+        // equivalent would fight over it.
+        let commandZ = model.latestUndo?.file
         VStack(spacing: 0) {
             ForEach(Array(slots.enumerated()), id: \.element.id) { index, slot in
                 Group {
@@ -115,8 +118,8 @@ struct RecentList: View {
                             file: file, image: model.thumbnails[file], position: index + 1, count: slots.count,
                             onClipboard: model.isOnClipboard(file), hovering: index == hoveredRecent)
                             .transition(RecentRow.transition(reduceMotion: reduceMotion))
-                    case .trashed:
-                        UndoStrip(inTrash: model.undoable?.inTrash)
+                    case .trashed(let file):
+                        UndoStrip(file: file, answersCommandZ: file == commandZ)
                             .transition(.opacity)
                     }
                 }
@@ -142,15 +145,17 @@ struct RecentList: View {
     }
 }
 
-/// For 5 seconds after a move to the Trash, from a row or the floating preview, in that
-/// screenshot's place in the list: "Moved to the Trash" and Undo (⌘Z), which puts it back
-/// there (A6). A second move replaces it; the trash can bounces to say so.
+/// After a move to the Trash, from a row or the floating preview, in that screenshot's place
+/// in the list: "Moved to the Trash" and Undo, which puts that screenshot back there (A6).
+/// Every move has its own strip; they all stay until 5 seconds after the latest move. ⌘Z is
+/// the Undo of the latest one (`AppModel.latestUndo`), so only its strip carries the key.
 struct UndoStrip: View {
-    /// Where the file went; a new one bounces the trash can.
-    let inTrash: URL?
+    /// The screenshot this strip stands for.
+    let file: CaptureFile
+    /// This strip's Undo answers ⌘Z.
+    let answersCommandZ: Bool
 
     @Environment(AppModel.self) private var model
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         // Undo beside the sentence, or under it when a translation makes it too wide there.
@@ -159,25 +164,27 @@ struct UndoStrip: View {
             Image(systemName: "trash")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
-                .symbolEffect(.bounce, options: .nonRepeating, value: reduceMotion ? nil : inTrash)
                 .frame(width: RecentRow.thumbnailSize.width)
                 .accessibilityHidden(true)
             Text(Copy.Recent.moved)
                 .font(Design.Typography.body)
                 .fixedSize(horizontal: false, vertical: true)
             Button {
-                Task { await model.putBack() }
+                let file = file
+                Task { await model.putBack(file) }
             } label: {
                 PillLabel(symbol: "arrow.uturn.backward", title: Copy.Recent.undo)
             }
             .buttonStyle(PillButtonStyle())
             .fixedSize()
-            .keyboardShortcut("z")
+            .keyboardShortcut(answersCommandZ ? KeyboardShortcut("z") : nil)
             .help(Text(Copy.Recent.undo))
         }
         .padding(.horizontal, Design.Spacing.l)
         .padding(.vertical, Design.Spacing.m)
+        // Named by its screenshot, so VoiceOver tells several strips apart.
         .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text(verbatim: file.url.lastPathComponent))
     }
 }
 

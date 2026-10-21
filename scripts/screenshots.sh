@@ -11,9 +11,10 @@
 # from the README.
 #
 # Measures: "measure:" lines give the popover's content height and its shown height (capped
-# at 600 pt) for popover, popover-one, popover-undo, popover-undo-top and popover-full; the
-# run fails if a popover is taller than the cap, or if the everyday popover with the Undo
-# strip (popover-undo, popover-undo-top) would scroll.
+# at 600 pt) for popover, popover-one, popover-undo, popover-undo-top, popover-undo-two,
+# popover-undo-three, popover-undo-previews and popover-full; the run fails if a popover is
+# taller than the cap, or if the everyday popover with Undo strips (popover-undo*) would
+# scroll.
 #
 # Checks: in every language, Settings > Capture with the destination guard, and Settings >
 # General in every state of its Command line section, must keep at least the Form's standard
@@ -46,7 +47,10 @@
 # popover-undo is the popover just after Move to Trash on the second row, the Undo strip in
 # that row's place, popover-undo-top the same for the screenshot just taken (as from its
 # floating preview), and popover-note the note above the list saying why a Move to Trash
-# did not happen; preview-undo is a preview that
+# did not happen; popover-undo-two and popover-undo-three are the popover after real
+# moves of the second, the top and then the last row within one Undo window (a strip in
+# each place), popover-undo-previews after moves from two of three floating previews, and
+# preview-undo-several those previews, each with its own Undo; preview-undo is a preview that
 # moved its screenshot to the Trash (Undo on the preview) above one whose move failed,
 # saying why on the preview. Popover and tour
 # pictures carry the window's rounded corners and shadow on a transparent margin.

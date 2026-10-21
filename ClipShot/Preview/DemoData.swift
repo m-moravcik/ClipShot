@@ -28,9 +28,11 @@ final class DemoScene {
     /// harness draws the phases itself); `reduceMotion` stands in for the system setting.
     /// `trashInHome`: Move to Trash moves into a Trash folder in the demo home, so Move to
     /// Trash and Undo run their real paths (`StatusItemProbe`); otherwise every move is refused.
+    /// `undoLifetime`: how long Undo is offered after such a move; the render harness keeps it
+    /// for as long as it draws.
     init(
         in root: URL, onboardingShown: Bool = true, hasTrash: Bool = true, liveMotion: Bool = false,
-        reduceMotion: Bool = false, trashInHome: Bool = false
+        reduceMotion: Bool = false, trashInHome: Bool = false, undoLifetime: Duration = AppModel.defaultUndoLifetime
     ) throws {
         let fm = FileManager.default
         let base = root.appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -92,7 +94,8 @@ final class DemoScene {
             appVersion: version,
             osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
             // Previews stay while the harness draws them; no panel ever opens.
-            previewLifetime: .seconds(3_600)))
+            previewLifetime: .seconds(3_600),
+            undoLifetime: undoLifetime))
     }
 
     /// Starts watching and waits until the folder is watched (or the watch has failed).

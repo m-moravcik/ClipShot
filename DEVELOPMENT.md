@@ -212,8 +212,10 @@ In the app:
   degrees and fades a little, with a Force Touch trackpad tick; a file drag
   carries the picture larger, raised and shadowed while the card ghosts; "+N"
   pops in.
-- Popover: a row Undo puts back grows into the strip's place; the header's
-  symbol nods once per new problem.
+- Popover: a row Undo puts back grows into the strip's place; with several
+  strips (one per move to the Trash in the same window) each closes in its own
+  place, and all close together when the window ends; the header's symbol nods
+  once per new problem.
 - Tour: each step's symbol appears with draw-on (a fade for symbols without draw
   data, which `folder`, `camera.viewfinder` and `trash` are on macOS 26); the
   folder turns into the viewfinder in place; while Try it waits, the viewfinder
@@ -820,6 +822,7 @@ Swift Testing. Pure logic is tested; views are not, except their layout rules. T
 | `PrefsBackupTests` | Restore removes keys the backup did not have (F16). |
 | `PreviewModeTests`, `EditSessionTests`, `TrashTests` | The mode follows the system thumbnail; the Markup exemption; only ledger files in the watched folder go to the Trash, and Undo puts them back. |
 | `FloatingPreviewsTests`, `UndoAndFailureTests` | Copied, the hover's Copy again and the popover's rows follow one owner, compared by resource ID; a failed Copy, Move to Trash or Undo is said where the user acted. |
+| `MultiUndoTests` | Several moves to the Trash in one window: each keeps its own strip in its own place and its preview's Undo, also when the moves overlap; one shared window, extended by each move and not by an Undo, ends them all (on a `ManualTimerClock`); ⌘Z puts back the latest first, a strip or preview only its own; a failed put-back ends only that Undo; totals and Peg follow every move and Undo; where the strips go when a new screenshot or a preview's file joins them, or there are more than places. |
 | `UpdaterGateTests`, `SparkleConfigurationTests` | Ad-hoc and Homebrew copies never self-update; the feed and key are what releases expect. |
 | `LocalisationTests` | The l10n gate fails on the broken catalogs in `ClipShotTests/Fixtures/l10n`. |
 | `StatusIconStateTests`, `PegFlashTests`, `PopoverLayoutTests` | The menu bar label is never scaled and fits its frame; every state has its own silhouette; Peg matches the siblings' height, width and stroke; the copy animation starts and ends at rest, one timer tick per frame and none after; Reduce Motion holds the copied pose; the bounces are derived from Peg's clamp; the popover's bottom soft scroll edge. |
