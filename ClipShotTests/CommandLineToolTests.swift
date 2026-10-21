@@ -437,6 +437,16 @@ struct CommandLineToolTests {
         #expect(ControlScreenshots.trusted(files, count: 1).map(\.url.lastPathComponent) == ["old.png"])
     }
 
+    /// A file replaced at its path since it was chosen (a save that renames a new file over
+    /// it) is not the screenshot `latest` chose: skipped for the next newest.
+    @Test func latestSkipsAFileReplacedAtItsPath() throws {
+        let dir = try Fixtures.makeDir()
+        let files = try ["new.png", "old.png"].map { RT.file(try RT.shot($0, in: dir, age: 10, now: RT.now())) }
+        let replacement = try RT.shot("replacement.png", in: dir, age: 10, now: RT.now())
+        #expect(rename(replacement.path, files[0].url.path) == 0)
+        #expect(ControlScreenshots.trusted(files, count: 1).map(\.url.lastPathComponent) == ["old.png"])
+    }
+
     @Test func cleanIsRetentionsOwnRunAndItsDryRunListsWhatWouldGo() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }

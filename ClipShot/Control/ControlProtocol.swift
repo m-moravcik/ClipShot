@@ -218,10 +218,13 @@ extension Refusal {
 enum ControlScreenshots {
     /// The newest `count` of `candidates` (already newest first, as `RecentScreenshots.select`
     /// gives them) that `FileTrust` would read: as Get Latest Screenshot skips a refused file
-    /// for the next newest, so does `clipshot latest`. Opens each file, reads nothing.
+    /// for the next newest, so does `clipshot latest`. Opens each file, reads nothing; one
+    /// replaced at its path since it was chosen is refused.
     static func trusted(_ candidates: [CaptureFile], count: Int, policy: FileTrust.Policy = .standard) -> [CaptureFile] {
         var picked: [CaptureFile] = []
         for file in candidates where picked.count < count {
+            var policy = policy
+            policy.expectedResourceID = file.resourceID
             guard case .success = FileTrust.open(file.url, policy: policy) else { continue }
             picked.append(file)
         }

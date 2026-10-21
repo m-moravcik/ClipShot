@@ -219,8 +219,8 @@ extension AppModel {
     // MARK: Actions
 
     /// Get Latest Screenshot (`count` 1) and Get Recent Screenshots: the newest screenshots
-    /// the popover would list, newest first, each read through `FileTrust`. A file refused or
-    /// gone since it was chosen is skipped and the next newest taken instead. The reading
+    /// the popover would list, newest first, each read through `FileTrust`. A file refused,
+    /// gone or replaced since it was chosen is skipped and the next newest taken instead. The reading
     /// stops before the files read would pass `shortcutMaxBytes` (`cutShort`).
     func shortcutScreenshots(
         count: Int, maxBytes: Int = AppModel.shortcutMaxBytes
@@ -232,7 +232,8 @@ extension AppModel {
             var read: [ShortcutFile] = []
             var total = 0
             for file in candidates where read.count < wanted {
-                guard case .success(let data) = FileTrust.read(file.url) else { continue }
+                let policy = FileTrust.Policy(expectedResourceID: file.resourceID)
+                guard case .success(let data) = FileTrust.read(file.url, policy: policy) else { continue }
                 if !read.isEmpty, total + data.count > maxBytes {
                     return ShortcutScreenshots(files: read, cutShort: true)
                 }
