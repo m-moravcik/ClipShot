@@ -17,7 +17,8 @@
 #
 # Checks: in every language, Settings > Capture with the destination guard, and Settings >
 # General in every state of its Command line section, must keep at least the Form's standard
-# 20 pt under the last section; the run fails (after writing every picture) when one does not. `all` is how the six real languages are checked together.
+# 20 pt under the last section; the run fails (after writing every picture) when one does
+# not. `all` is how the six real languages are checked together.
 #
 # Writes, in -light and -dark: popover, popover-one, popover-paused, popover-paused-focus
 # (paused by a Focus filter), popover-attention,

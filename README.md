@@ -312,7 +312,8 @@ always the app's version.
   `clipshot`. It links `/usr/local/bin/clipshot` to the tool inside the app, after the
   standard macOS password prompt, and the link keeps working after updates. The row
   says where `clipshot` is once it is installed, and offers **Fix…** when an old link
-  points to a ClipShot that was moved or deleted. Anything else named `clipshot` is
+  points to a ClipShot that was moved or deleted, or to another copy of it. The
+  Homebrew cask's own link is never touched, and anything else named `clipshot` is
   left alone.
 
   Or make the link yourself (**Copy Command** next to Install copies this line with
