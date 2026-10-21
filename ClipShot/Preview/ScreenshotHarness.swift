@@ -1073,7 +1073,7 @@ private struct SettingsWindow: View {
             }
 
             pane
-                .frame(width: Design.Layout.settingsSize.width, height: Design.Layout.settingsSize.height)
+                .frame(width: tab.size.width, height: tab.size.height)
                 .background(dark ? Color(white: 0.13) : Color(white: 0.98))
         }
         .frame(width: Design.Layout.settingsSize.width)

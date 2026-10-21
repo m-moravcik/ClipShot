@@ -479,7 +479,11 @@ formula; ClipShot does not need one:
 
 ### Install from Settings
 
-Settings > General shows where `clipshot` is (`UI/CommandLineSetup.swift`).
+Settings > General shows where `clipshot` is (`UI/CommandLineSetup.swift`), in a Command
+line section with commands and paths in the monospaced font (Markdown code spans in the
+strings, kept by every translation). General is 470x450, the other tabs keep the siblings'
+470x400: each tab sets its own size and the window resizes to the chosen tab, as macOS
+Settings windows do.
 `CommandLineStatus.detect` reads, with `lstat` and never following a link except to
 resolve where it ends, `clipshot` in Homebrew's bin (`$HOMEBREW_PREFIX`, `/opt/homebrew`),
 `/usr/local/bin` and `~/.local/bin`. A shell's PATH is not visible to a GUI app, so these

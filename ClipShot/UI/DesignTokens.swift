@@ -28,8 +28,12 @@ enum Design {
         /// The leading symbol column of footer rows and attention rows, as in Eject Guard.
         static let iconColumn: CGFloat = 16
         static let thumbnailSize = CGSize(width: 64, height: 44)
-        /// The Settings window, the same size as VibeRes and Eject Guard.
+        /// The Settings window, the same size as VibeRes and Eject Guard: the width of every
+        /// tab and the height of all but General.
         static let settingsSize = CGSize(width: 470, height: 400)
+        /// General is taller, for its Command line section. The window takes each tab's size
+        /// when the tab is chosen, as macOS Settings windows do.
+        static let generalSettingsHeight: CGFloat = 450
     }
 
     enum Typography {

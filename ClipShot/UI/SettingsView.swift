@@ -3,6 +3,15 @@ import SwiftUI
 
 enum SettingsTab: Hashable {
     case general, capture, retention, about
+
+    /// The pane's size. Set on each tab rather than on the TabView, so the window resizes to
+    /// the chosen tab.
+    var size: CGSize {
+        switch self {
+        case .general: CGSize(width: Design.Layout.settingsSize.width, height: Design.Layout.generalSettingsHeight)
+        case .capture, .retention, .about: Design.Layout.settingsSize
+        }
+    }
 }
 
 /// Which Settings tab to show. The popover sets it before opening Settings ("Settings…"
@@ -21,19 +30,22 @@ struct SettingsView: View {
         @Bindable var router = router
         TabView(selection: $router.tab) {
             GeneralSettings()
+                .frame(width: SettingsTab.general.size.width, height: SettingsTab.general.size.height)
                 .tabItem { Label { Text(Copy.Tab.general) } icon: { Image(systemName: "gearshape") } }
                 .tag(SettingsTab.general)
             CaptureSettingsPane()
+                .frame(width: SettingsTab.capture.size.width, height: SettingsTab.capture.size.height)
                 .tabItem { Label { Text(Copy.Tab.capture) } icon: { Image(systemName: "camera.viewfinder") } }
                 .tag(SettingsTab.capture)
             RetentionSettings()
+                .frame(width: SettingsTab.retention.size.width, height: SettingsTab.retention.size.height)
                 .tabItem { Label { Text(Copy.Tab.retention) } icon: { Image(systemName: "trash") } }
                 .tag(SettingsTab.retention)
             AboutSettings()
+                .frame(width: SettingsTab.about.size.width, height: SettingsTab.about.size.height)
                 .tabItem { Label { Text(Copy.Tab.about) } icon: { Image(systemName: "info.circle") } }
                 .tag(SettingsTab.about)
         }
-        .frame(width: Design.Layout.settingsSize.width, height: Design.Layout.settingsSize.height)
     }
 }
 
@@ -167,8 +179,8 @@ struct GeneralSettings: View {
 
 /// Settings > General > Command line: where `clipshot` is, laid out as the save folder in
 /// Capture (symbol, name, where it is, the action), with Install or Fix when it is missing
-/// or broken. No header, and how Install ended is said in the footer, in place of the hint:
-/// the pane keeps the Settings window's 400 pt without scrolling in every language.
+/// or broken. How Install ended is said in the footer, in place of the hint, so the pane fits
+/// General's height without scrolling in every language. Commands and paths are monospaced.
 private struct CommandLineSection: View {
     let setup: CommandLineSetup
     @State private var confirmingFix = false
@@ -187,6 +199,8 @@ private struct CommandLineSection: View {
                     replaceMessage
                 }
             statusNote
+        } header: {
+            Text(Copy.CommandLine.header)
         } footer: {
             footer
         }
@@ -202,6 +216,7 @@ private struct CommandLineSection: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
                 Text(verbatim: CommandLineLocations.toolName)
+                    .monospaced()
                     .lineLimit(1)
                 subtitle
                     .font(Design.Typography.note)
@@ -224,7 +239,7 @@ private struct CommandLineSection: View {
         case .homebrew(nil):
             Text(Copy.CommandLine.installedByHomebrewNoPath)
         case .stale(let url, _, _), .foreign(let url):
-            Text(verbatim: locations.display(url))
+            Text(verbatim: locations.display(url)).monospaced()
         case .notInstalled, .needsMove, .unavailable:
             Text(Copy.CommandLine.notInstalled)
         }

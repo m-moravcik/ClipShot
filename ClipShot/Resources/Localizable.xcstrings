@@ -4193,6 +4193,47 @@
         }
       }
     },
+    "Command line" : {
+      "comment" : "Settings section header",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Command line"
+          }
+        },
+        "sk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Príkazový riadok"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Příkazový řádek"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Befehlszeile"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Línea de comandos"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ligne de commande"
+          }
+        }
+      }
+    },
     "Copied" : {
       "comment" : "Badge on ClipShot's floating preview: the screenshot is on the clipboard",
       "localizations" : {
@@ -4316,36 +4357,36 @@
         }
       }
     },
-    "Copied. Paste it into Terminal to link clipshot yourself." : {
+    "Copied. Paste it into Terminal to link `clipshot` yourself." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Copied. Paste it into Terminal to link clipshot yourself."
+            "value" : "Copied. Paste it into Terminal to link `clipshot` yourself."
           }
         },
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Skopírované. Vlož ho do Terminálu a prepoj clipshot sám."
+            "value" : "Skopírované. Vlož ho do Terminálu a prepoj `clipshot` sám."
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Zkopírováno. Vlož ho do Terminálu a propoj clipshot sám."
+            "value" : "Zkopírováno. Vlož ho do Terminálu a propoj `clipshot` sám."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kopiert. Füge ihn ins Terminal ein, um clipshot selbst zu verlinken."
+            "value" : "Kopiert. Füge ihn ins Terminal ein, um `clipshot` selbst zu verlinken."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Copiado. Pégalo en Terminal para enlazar clipshot tú mismo."
+            "value" : "Copiado. Pégalo en Terminal para enlazar `clipshot` tú mismo."
           }
         },
         "fr" : {
@@ -5091,43 +5132,43 @@
         }
       }
     },
-    "Could not install clipshot: %@" : {
+    "Could not install `clipshot`: %@" : {
       "comment" : "The reason is the system's own message",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Could not install clipshot: %@"
+            "value" : "Could not install `clipshot`: %@"
           }
         },
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Inštalácia clipshot zlyhala: %@"
+            "value" : "Inštalácia `clipshot` zlyhala: %@"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Instalace clipshot selhala: %@"
+            "value" : "Instalace `clipshot` selhala: %@"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Installation von clipshot fehlgeschlagen: %@"
+            "value" : "Installation von `clipshot` fehlgeschlagen: %@"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No se pudo instalar clipshot: %@"
+            "value" : "No se pudo instalar `clipshot`: %@"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Impossible d’installer clipshot : %@"
+            "value" : "Impossible d’installer `clipshot` : %@"
           }
         }
       }
@@ -5906,123 +5947,123 @@
         }
       }
     },
-    "In Terminal, clipshot latest prints the path of your newest screenshot. clipshot help lists the rest." : {
+    "In Terminal, `clipshot latest` prints the path of your newest screenshot. `clipshot help` lists the rest." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "In Terminal, clipshot latest prints the path of your newest screenshot. clipshot help lists the rest."
+            "value" : "In Terminal, `clipshot latest` prints the path of your newest screenshot. `clipshot help` lists the rest."
           }
         },
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "V Termináli vypíše clipshot latest cestu k tvojej najnovšej snímke. clipshot help ukáže ostatné príkazy."
+            "value" : "V Termináli vypíše `clipshot latest` cestu k tvojej najnovšej snímke. `clipshot help` ukáže ostatné príkazy."
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "V Terminálu vypíše clipshot latest cestu k tvému nejnovějšímu snímku. clipshot help ukáže ostatní příkazy."
+            "value" : "V Terminálu vypíše `clipshot latest` cestu k tvému nejnovějšímu snímku. `clipshot help` ukáže ostatní příkazy."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Im Terminal gibt clipshot latest den Pfad deines neuesten Bildschirmfotos aus. clipshot help zeigt den Rest."
+            "value" : "Im Terminal gibt `clipshot latest` den Pfad deines neuesten Bildschirmfotos aus. `clipshot help` zeigt den Rest."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "En Terminal, clipshot latest muestra la ruta de tu captura más reciente. clipshot help muestra el resto."
+            "value" : "En Terminal, `clipshot latest` muestra la ruta de tu captura más reciente. `clipshot help` muestra el resto."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dans Terminal, clipshot latest affiche le chemin de votre dernière capture. clipshot help montre le reste."
+            "value" : "Dans Terminal, `clipshot latest` affiche le chemin de votre dernière capture. `clipshot help` montre le reste."
           }
         }
       }
     },
-    "Install links clipshot into /usr/local/bin, so it works in Terminal." : {
+    "Install links `clipshot` into `/usr/local/bin`, so it works in Terminal." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Install links clipshot into /usr/local/bin, so it works in Terminal."
+            "value" : "Install links `clipshot` into `/usr/local/bin`, so it works in Terminal."
           }
         },
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Inštalácia prepojí clipshot do /usr/local/bin, takže funguje v Termináli."
+            "value" : "Inštalácia prepojí `clipshot` do `/usr/local/bin`, takže funguje v Termináli."
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Instalace propojí clipshot do /usr/local/bin, takže funguje v Terminálu."
+            "value" : "Instalace propojí `clipshot` do `/usr/local/bin`, takže funguje v Terminálu."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Installieren verlinkt clipshot nach /usr/local/bin, damit es im Terminal funktioniert."
+            "value" : "Installieren verlinkt `clipshot` nach `/usr/local/bin`, damit es im Terminal funktioniert."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Instalar enlaza clipshot en /usr/local/bin para que funcione en Terminal."
+            "value" : "Instalar enlaza `clipshot` en `/usr/local/bin` para que funcione en Terminal."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Installer crée un lien vers clipshot dans /usr/local/bin pour l’utiliser dans Terminal."
+            "value" : "Installer crée un lien vers `clipshot` dans `/usr/local/bin` pour l’utiliser dans Terminal."
           }
         }
       }
     },
-    "Installed at %@" : {
+    "Installed at `%@`" : {
       "comment" : "Settings > General: where the clipshot command is linked",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Installed at %@"
+            "value" : "Installed at `%@`"
           }
         },
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nainštalovaný v %@"
+            "value" : "Nainštalovaný v `%@`"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nainstalovaný v %@"
+            "value" : "Nainstalovaný v `%@`"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Installiert unter %@"
+            "value" : "Installiert unter `%@`"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Instalado en %@"
+            "value" : "Instalado en `%@`"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Installé dans %@"
+            "value" : "Installé dans `%@`"
           }
         }
       }
@@ -6068,43 +6109,43 @@
         }
       }
     },
-    "Installed by Homebrew at %@" : {
+    "Installed by Homebrew at `%@`" : {
       "comment" : "Settings > General: the Homebrew cask linked the clipshot command there",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Installed by Homebrew at %@"
+            "value" : "Installed by Homebrew at `%@`"
           }
         },
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nainštalovaný cez Homebrew v %@"
+            "value" : "Nainštalovaný cez Homebrew v `%@`"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nainstalovaný přes Homebrew v %@"
+            "value" : "Nainstalovaný přes Homebrew v `%@`"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Von Homebrew installiert unter %@"
+            "value" : "Von Homebrew installiert unter `%@`"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Instalado con Homebrew en %@"
+            "value" : "Instalado con Homebrew en `%@`"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Installé par Homebrew dans %@"
+            "value" : "Installé par Homebrew dans `%@`"
           }
         }
       }
@@ -11187,122 +11228,122 @@
         }
       }
     },
-    "This clipshot is not a link to this ClipShot, so ClipShot leaves it as it is." : {
+    "This `clipshot` is not a link to this ClipShot, so ClipShot leaves it as it is." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This clipshot is not a link to this ClipShot, so ClipShot leaves it as it is."
+            "value" : "This `clipshot` is not a link to this ClipShot, so ClipShot leaves it as it is."
           }
         },
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tento clipshot nie je odkaz na tento ClipShot, preto ho ClipShot nechá tak."
+            "value" : "Tento `clipshot` nie je odkaz na tento ClipShot, preto ho ClipShot nechá tak."
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tento clipshot není odkaz na tento ClipShot, proto ho ClipShot nechá být."
+            "value" : "Tento `clipshot` není odkaz na tento ClipShot, proto ho ClipShot nechá být."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dieses clipshot ist kein Link auf dieses ClipShot, daher lässt ClipShot es, wie es ist."
+            "value" : "Dieses `clipshot` ist kein Link auf dieses ClipShot, daher lässt ClipShot es, wie es ist."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Este clipshot no es un enlace a este ClipShot, así que ClipShot lo deja como está."
+            "value" : "Este `clipshot` no es un enlace a este ClipShot, así que ClipShot lo deja como está."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ce clipshot n’est pas un lien vers ce ClipShot : ClipShot le laisse tel quel."
+            "value" : "Ce `clipshot` n’est pas un lien vers ce ClipShot : ClipShot le laisse tel quel."
           }
         }
       }
     },
-    "This copy of ClipShot has no clipshot to link." : {
+    "This copy of ClipShot has no `clipshot` to link." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This copy of ClipShot has no clipshot to link."
+            "value" : "This copy of ClipShot has no `clipshot` to link."
           }
         },
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Táto kópia aplikácie ClipShot nemá clipshot na prepojenie."
+            "value" : "Táto kópia aplikácie ClipShot nemá `clipshot` na prepojenie."
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tato kopie aplikace ClipShot nemá clipshot k propojení."
+            "value" : "Tato kopie aplikace ClipShot nemá `clipshot` k propojení."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Diese Kopie von ClipShot enthält kein clipshot zum Verlinken."
+            "value" : "Diese Kopie von ClipShot enthält kein `clipshot` zum Verlinken."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Esta copia de ClipShot no incluye clipshot para enlazar."
+            "value" : "Esta copia de ClipShot no incluye `clipshot` para enlazar."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cette copie de ClipShot ne contient pas clipshot à lier."
+            "value" : "Cette copie de ClipShot ne contient pas `clipshot` à lier."
           }
         }
       }
     },
-    "This link points to a ClipShot that is no longer there, so clipshot does not work." : {
+    "This link points to a ClipShot that is no longer there, so `clipshot` does not work." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This link points to a ClipShot that is no longer there, so clipshot does not work."
+            "value" : "This link points to a ClipShot that is no longer there, so `clipshot` does not work."
           }
         },
         "sk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tento odkaz vedie na ClipShot, ktorý tu už nie je, takže clipshot nefunguje."
+            "value" : "Tento odkaz vedie na ClipShot, ktorý tu už nie je, takže `clipshot` nefunguje."
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tento odkaz vede na ClipShot, který tu už není, takže clipshot nefunguje."
+            "value" : "Tento odkaz vede na ClipShot, který tu už není, takže `clipshot` nefunguje."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dieser Link zeigt auf ein ClipShot, das es nicht mehr gibt, daher funktioniert clipshot nicht."
+            "value" : "Dieser Link zeigt auf ein ClipShot, das es nicht mehr gibt, daher funktioniert `clipshot` nicht."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Este enlace apunta a un ClipShot que ya no está, así que clipshot no funciona."
+            "value" : "Este enlace apunta a un ClipShot que ya no está, así que `clipshot` no funciona."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ce lien pointe vers un ClipShot qui n’existe plus, donc clipshot ne fonctionne pas."
+            "value" : "Ce lien pointe vers un ClipShot qui n’existe plus, donc `clipshot` ne fonctionne pas."
           }
         }
       }

@@ -51,6 +51,9 @@ the reviewer and the date here when that happens.
 - Quotation marks around a folder name follow the language as macOS writes it: “ ” in
   en and es, „ “ in sk, cs and de, « » with no-break spaces in fr. No spaces inside the
   marks except in French.
+- Commands and paths (`clipshot`, `clipshot latest`, `/usr/local/bin`, a path argument) are
+  Markdown code spans in the strings, drawn in the monospaced font: keep the backticks
+  around them wherever the sentence puts them.
 - No em dash anywhere.
 
 ## Checks

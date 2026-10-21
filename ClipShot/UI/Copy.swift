@@ -300,17 +300,19 @@ enum Copy {
             comment: "Settings > General, after Replay welcome tour: the tour shows in the popover, not here")
     }
 
-    /// Settings > General > Command line: whether `clipshot` is linked, and Install.
+    /// Settings > General > Command line: whether `clipshot` is linked, and Install. Commands
+    /// and paths are Markdown code spans, drawn in the monospaced font; translations keep them.
     enum CommandLine {
+        static let header = LocalizedStringResource("Command line", comment: "Settings section header")
         static let notInstalled = LocalizedStringResource(
             "Not installed", comment: "Settings > General: the clipshot command is not on the PATH")
         static func installed(_ path: String) -> LocalizedStringResource {
             LocalizedStringResource(
-                "Installed at \(path)", comment: "Settings > General: where the clipshot command is linked")
+                "Installed at `\(path)`", comment: "Settings > General: where the clipshot command is linked")
         }
         static func installedByHomebrew(_ path: String) -> LocalizedStringResource {
             LocalizedStringResource(
-                "Installed by Homebrew at \(path)",
+                "Installed by Homebrew at `\(path)`",
                 comment: "Settings > General: the Homebrew cask linked the clipshot command there")
         }
         static let installedByHomebrewNoPath = LocalizedStringResource(
@@ -321,19 +323,19 @@ enum Copy {
         static let fix = LocalizedStringResource(
             "Fix…", comment: "Settings > General: points a broken clipshot link at this ClipShot")
         static let installNote = LocalizedStringResource(
-            "Install links clipshot into /usr/local/bin, so it works in Terminal.")
+            "Install links `clipshot` into `/usr/local/bin`, so it works in Terminal.")
         static let installedNote = LocalizedStringResource(
-            "In Terminal, clipshot latest prints the path of your newest screenshot. clipshot help lists the rest.")
+            "In Terminal, `clipshot latest` prints the path of your newest screenshot. `clipshot help` lists the rest.")
         static let copyCommand = LocalizedStringResource(
             "Copy Command", comment: "Copies the Terminal command that links clipshot by hand")
         static let commandCopied = LocalizedStringResource(
-            "Copied. Paste it into Terminal to link clipshot yourself.")
+            "Copied. Paste it into Terminal to link `clipshot` yourself.")
         static let brokenLink = LocalizedStringResource(
-            "This link points to a ClipShot that is no longer there, so clipshot does not work.")
+            "This link points to a ClipShot that is no longer there, so `clipshot` does not work.")
         static let otherCopyLink = LocalizedStringResource(
             "This link points to another copy of ClipShot, not this one.")
         static let foreign = LocalizedStringResource(
-            "This clipshot is not a link to this ClipShot, so ClipShot leaves it as it is.")
+            "This `clipshot` is not a link to this ClipShot, so ClipShot leaves it as it is.")
         static let moveToApplications = LocalizedStringResource(
             "Move ClipShot to the Applications folder first, then install the command.")
         static func replaceTitle(_ path: String) -> LocalizedStringResource {
@@ -354,10 +356,10 @@ enum Copy {
         static let cancelled = LocalizedStringResource("Cancelled. Nothing was changed.")
         static let changed = LocalizedStringResource(
             "Something else turned up there meanwhile, so nothing was replaced.")
-        static let noTool = LocalizedStringResource("This copy of ClipShot has no clipshot to link.")
+        static let noTool = LocalizedStringResource("This copy of ClipShot has no `clipshot` to link.")
         static func failed(_ reason: String) -> LocalizedStringResource {
             LocalizedStringResource(
-                "Could not install clipshot: \(reason)", comment: "The reason is the system's own message")
+                "Could not install `clipshot`: \(reason)", comment: "The reason is the system's own message")
         }
     }
 
