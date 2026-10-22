@@ -6,28 +6,29 @@
     <description>Updates for ClipShot</description>
     <language>en</language>
     <item>
-      <title>Version 0.9.1</title>
-      <pubDate>Wed, 21 Oct 2026 20:42:44 +0000</pubDate>
-      <sparkle:version>2</sparkle:version>
-      <sparkle:shortVersionString>0.9.1</sparkle:shortVersionString>
+      <title>Version 0.9.2</title>
+      <pubDate>Thu, 22 Oct 2026 04:49:56 +0000</pubDate>
+      <sparkle:version>3</sparkle:version>
+      <sparkle:shortVersionString>0.9.2</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<p>The <code>clipshot</code> command is now one click away for a downloaded copy.</p>
+<p>Undo now keeps up when you clean up several screenshots in a row.</p>
 <ul>
-<li>Settings &gt; General shows whether <code>clipshot</code> is installed and where. When it is not, <strong>Install…</strong> links it into <code>/usr/local/bin</code> after the standard macOS password prompt, so <code>clipshot latest</code> works in Terminal. <strong>Copy Command</strong> copies the same link as a Terminal line, for anyone who prefers to make it by hand.</li>
-<li>A <code>clipshot</code> link left pointing to a ClipShot that was moved or deleted, or to another copy of it, is reported, with <strong>Fix…</strong>. Anything else named <code>clipshot</code> is left as it is. A copy installed with Homebrew already has the command and is not offered the button.</li>
+<li>Every screenshot you move to the Trash, from the popover or from a floating preview, keeps its own <strong>Moved to the Trash</strong> strip with <strong>Undo</strong> in its own place in the list. A second move no longer takes away the Undo of the first.</li>
+<li>All of them stay until five seconds after your last move; then the rows below move up and older screenshots fill the list, as before. Nothing jumps while you are still deciding.</li>
+<li><strong>Undo</strong> on a strip or a preview puts back that screenshot. ⌘Z puts back the last one you moved, and pressed again the one before.</li>
 </ul>
 <p>Signed with Developer ID, notarized and stapled. Requires macOS 26.</p>
       ]]></description>
       <sparkle:fullReleaseNotesLink>https://github.com/m-moravcik/ClipShot/releases</sparkle:fullReleaseNotesLink>
-      <enclosure url="https://github.com/m-moravcik/ClipShot/releases/download/v0.9.1/ClipShot-0.9.1.zip"
-                 sparkle:edSignature="VBba4chJleuL/aENVaneAy8vRGdmuKbP5q8vTnEwGu1/hR+1cAoG0czaERNRoRmV+au66DitdzwvYAQYxNRBDA=="
-                 length="6111349"
+      <enclosure url="https://github.com/m-moravcik/ClipShot/releases/download/v0.9.2/ClipShot-0.9.2.zip"
+                 sparkle:edSignature="tMMRvqnXGXUfrPyHvPxv0sYJUj0Sclt+Zss8g3tCSDazsEJJn8zylxTTmA5yoLRQyWNS3teTF/C8eYiD/wZrAA=="
+                 length="6139345"
                  type="application/octet-stream" />
     </item>
   </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: 7xlUWYycDdmPbdOBf3WXRE3Rby2n6qLCGmNFE7YYWYSZh+rY7NWPYY/v+yvLdPKwweYiGJCUrXmqSFjUrNWtDg==
-length: 2006
+edSignature: QmyaB0EjqmoDyxIKq8JYCCQgzEiGt8hTBGzsTLSf/b7g567baZWD9MWr3ZIiO4rRPEyZShPbJNyEuoz7EGeNAw==
+length: 1908
 -->
