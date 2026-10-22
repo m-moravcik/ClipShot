@@ -218,7 +218,7 @@ struct RecentTests {
         let c = try row(h, "C.png")
         try await h.model.trash(c)
         #expect(slots(h) == ["E.png", "D.png", "undo:C.png", "B.png"], "at once, before the folder is read")
-        #expect(h.model.undoable?.original == c.url)
+        #expect(h.model.undoables.map(\.original) == [c.url])
         #expect(await eventually { await self.names(h.model.recent) == ["E.png", "D.png", "B.png", "A.png"] })
         #expect(slots(h) == ["E.png", "D.png", "undo:C.png", "B.png"], "A waits for Undo to be over")
         #expect(await h.model.undoTrash())
@@ -250,7 +250,7 @@ struct RecentTests {
         #expect(await eventually { await h.model.recent.count == 4 })
         try await h.model.trash(try row(h, "D.png"))
         #expect(slots(h) == ["E.png", "undo:D.png", "C.png", "B.png"])
-        #expect(await eventually(timeout: .seconds(2)) { await h.model.undoable == nil })
+        #expect(await eventually(timeout: .seconds(2)) { await h.model.undoables.isEmpty })
         #expect(await eventually { await self.slots(h) == ["E.png", "C.png", "B.png", "A.png"] })
     }
 
@@ -285,7 +285,7 @@ struct RecentTests {
         #expect(await h.start())
         #expect(await eventually { await self.names(h.model.recent) == ["D.png", "C.png", "B.png", "A.png"] })
         try await h.model.trash(files[0])
-        #expect(h.model.undoable?.listed == false)
+        #expect(h.model.undoables.map(\.listed) == [false])
         #expect(slots(h) == ["undo:Old.png", "D.png", "C.png", "B.png"])
     }
 
@@ -323,17 +323,20 @@ struct RecentTests {
             }
         }
         let rows = [file("E", 10), file("D", 20), file("B", 40), file("A", 50)]
-        #expect(names(RecentScreenshots.slots(files: rows, trashed: nil)) == ["E", "D", "B", "A"])
-        #expect(names(RecentScreenshots.slots(files: rows, trashed: file("C", 30))) == ["E", "D", "undo:C", "B"])
-        #expect(names(RecentScreenshots.slots(files: rows, trashed: file("New", 1))) == ["undo:New", "E", "D", "B"])
-        #expect(names(RecentScreenshots.slots(files: rows, trashed: file("Old", 90))) == ["undo:Old", "E", "D", "B"],
+        func moved(_ file: CaptureFile, listed: Bool = false) -> [RecentScreenshots.Moved] {
+            [RecentScreenshots.Moved(file: file, listed: listed)]
+        }
+        #expect(names(RecentScreenshots.slots(files: rows)) == ["E", "D", "B", "A"])
+        #expect(names(RecentScreenshots.slots(files: rows, trashed: moved(file("C", 30)))) == ["E", "D", "undo:C", "B"])
+        #expect(names(RecentScreenshots.slots(files: rows, trashed: moved(file("New", 1)))) == ["undo:New", "E", "D", "B"])
+        #expect(names(RecentScreenshots.slots(files: rows, trashed: moved(file("Old", 90)))) == ["undo:Old", "E", "D", "B"],
                 "not among the rows: on top")
-        #expect(names(RecentScreenshots.slots(files: Array(rows.prefix(2)), trashed: file("Old", 90))) == ["E", "D", "undo:Old"],
+        #expect(names(RecentScreenshots.slots(files: Array(rows.prefix(2)), trashed: moved(file("Old", 90)))) == ["E", "D", "undo:Old"],
                 "fewer rows: where it was")
-        #expect(names(RecentScreenshots.slots(files: [], trashed: file("Only", 1))) == ["undo:Only"])
-        #expect(names(RecentScreenshots.slots(files: rows, trashed: file("Old", 90), wasListed: true)) == ["E", "D", "B", "undo:Old"],
+        #expect(names(RecentScreenshots.slots(files: [], trashed: moved(file("Only", 1)))) == ["undo:Only"])
+        #expect(names(RecentScreenshots.slots(files: rows, trashed: moved(file("Old", 90), listed: true))) == ["E", "D", "B", "undo:Old"],
                 "a row that was listed keeps the last place")
-        #expect(names(RecentScreenshots.slots(files: rows, trashed: file("C", 30), wasListed: true)) == ["E", "D", "undo:C", "B"],
+        #expect(names(RecentScreenshots.slots(files: rows, trashed: moved(file("C", 30), listed: true))) == ["E", "D", "undo:C", "B"],
                 "in its natural place when there is room")
         #expect(RecentScreenshots.inserting(file("C", 30), into: rows).map(\.url.lastPathComponent) == ["E", "D", "C", "B"])
     }
@@ -365,8 +368,9 @@ struct RecentTests {
         #expect(await eventually { await self.names(h.model.recent) == ["Screenshot 1.png", "Earlier.png"] })
     }
 
-    /// On a manual clock, so "not yet over" is checked a moment before the end, exactly.
-    @Test func undoShownFiveSeconds() async throws {
+    /// On a manual clock, so "not yet over" is checked a moment before the end, exactly. One
+    /// window for every Undo on offer: a second move gives both 5 s from it (0.9.2).
+    @Test func undoShownFiveSecondsAfterTheLatestMove() async throws {
         #expect(AppModel.defaultUndoLifetime == .seconds(5))
         let clock = ManualTimerClock()
         let h = try ModelHarness(timerClock: clock)
@@ -375,23 +379,22 @@ struct RecentTests {
         #expect(await h.start())
         #expect(await eventually { await h.model.recent.count == 3 })
 
-        // One Undo at a time: a second trash replaces the first one's.
         try await h.model.trash(files[0])
         clock.advance(by: .milliseconds(2_500))
         try await h.model.trash(files[1])
-        #expect(h.model.undoable?.original == files[1].url)
+        #expect(h.model.undoables.map(\.original) == [files[0].url, files[1].url], "the second move adds its own Undo")
         // Both timers wait before time moves on, so the first one waking is what is tested.
         #expect(await eventually { clock.registered == 2 })
-        // The first one's time is up; its timer wakes and must not end the second's.
+        // The first move's 5 s are up; its timer wakes and must end nothing.
         clock.advance(by: .milliseconds(2_500))
-        #expect(await eventually { clock.waiting == 1 }, "only the second's timer still waits")
-        #expect(h.model.undoable?.original == files[1].url)
+        #expect(await eventually { clock.waiting == 1 }, "only the latest move's timer still waits")
+        #expect(h.model.undoables.count == 2)
         clock.advance(by: .milliseconds(2_499))
-        #expect(h.model.undoable?.original == files[1].url, "a moment before its 5 s")
+        #expect(h.model.undoables.count == 2, "a moment before 5 s after the latest move")
 
-        // After its time, Undo is gone.
+        // After that, every Undo is gone.
         clock.advance(by: .milliseconds(1))
-        #expect(await eventually { await h.model.undoable == nil })
+        #expect(await eventually { await h.model.undoables.isEmpty })
         #expect(await h.model.undoTrash() == false)
         #expect(!RT.exists(files[1].url))
         #expect(!RT.exists(files[0].url))

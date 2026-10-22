@@ -64,17 +64,21 @@ final class AppModel {
     /// ones before it, newest first, at most `RecentScreenshots.count`, existing files only.
     /// Changes once the thumbnails are decoded (or failed to), so rows never flash empty.
     private(set) var recent: [CaptureFile] = []
-    /// The list as the popover shows it: the rows, with the Undo strip in the place of the
-    /// screenshot just moved to the Trash while its Undo is offered (Task 12i fix 1).
+    /// The list as the popover shows it: the rows, with an Undo strip in the place of each
+    /// screenshot moved to the Trash while Undo is offered (Task 12i fix 1, 0.9.2).
     var recentSlots: [RecentSlot] {
-        RecentScreenshots.slots(files: recent, trashed: undoable?.file, wasListed: undoable?.listed ?? false)
+        RecentScreenshots.slots(files: recent, trashed: undoables.map { RecentScreenshots.Moved(file: $0.file, listed: $0.listed) })
     }
     /// Decoded thumbnails of the listed screenshots, so a popover that opens, or a row that
     /// moves up, never waits for a decode.
     private(set) var thumbnails: [CaptureFile: CGImage] = [:]
-    /// The screenshot just moved to the Trash while its Undo is offered (Addendum A6). One at
-    /// a time: a newer trash replaces it.
-    private(set) var undoable: TrashedScreenshot?
+    /// The screenshots moved to the Trash whose Undo is offered (Addendum A6), in the order
+    /// they were moved, the latest last. One shared window: each move gives every Undo on
+    /// offer `undoLifetime` from that move, and when it ends they all end together.
+    private(set) var undoables: [TrashedScreenshot] = []
+    /// Undos putting their file back (by where it is in the Trash): a repeat on one of them is
+    /// the same Undo, and ⌘Z goes to the one before.
+    private(set) var restoringUndos: Set<URL> = []
     /// A Copy, Move to Trash or Undo from the popover that failed, said in a note above the
     /// list for `undoLifetime` (Addendum A6). One at a time.
     private(set) var actionNote: ActionNote?
@@ -218,10 +222,11 @@ final class AppModel {
     /// version: `CaptureFile` equality covers the resource ID, size and modification date, so
     /// a file that was still being written is decoded again once it changes.
     @ObservationIgnored private var undecodable: Set<CaptureFile> = []
-    /// Names the Undo on offer, so the timer of a replaced one does not end the newer one.
+    /// Names the Undo window, so the timer of a window a later move extended does not end it.
     @ObservationIgnored private var undoGeneration = 0
-    /// An Undo is putting its file back: a second one waits for nothing and fails.
-    @ObservationIgnored private var restoring = false
+    /// Counts the moves to the Trash as they are asked for, so the order of the Undos (⌘Z
+    /// puts back the latest first) is the order of the clicks, also when moves overlap.
+    @ObservationIgnored private var trashRequests = 0
     /// Names the note on show, so the timer of a replaced one does not end the newer one.
     @ObservationIgnored private var noteGeneration = 0
     @ObservationIgnored private var flash = PegFlash()
@@ -605,8 +610,8 @@ final class AppModel {
     }
 
     private func show(_ files: [CaptureFile], images: [CaptureFile: CGImage]) {
-        // Only what is on show, plus the file an Undo may bring back.
-        let keep = Set(files + [undoable?.file].compactMap { $0 })
+        // Only what is on show, plus the files an Undo may bring back.
+        let keep = Set(files + undoables.map(\.file))
         let cache = thumbnails.merging(images) { old, _ in old }.filter { keep.contains($0.key) }
         undecodable.formIntersection(keep)
         if cache != thumbnails { thumbnails = cache }
@@ -1245,8 +1250,8 @@ final class AppModel {
 
 // MARK: - Move to Trash and Undo (Addendum A6)
 
-/// In this file so `undoable`, the note and their generations stay `private(set)` or
-/// `private`: only these methods keep Undo one at a time and generation-guarded (R-3).
+/// In this file so `undoables`, the note and their generations stay `private(set)` or
+/// `private`: only these methods keep the Undo window shared and generation-guarded (R-3).
 extension AppModel {
     // MARK: - Trash
 
@@ -1271,6 +1276,8 @@ extension AppModel {
         /// It was a row of the popover's list when it was moved: its Undo strip keeps a place
         /// in the list (the last one at worst), never jumping to the top.
         var listed = false
+        /// When the move was asked for, among all moves: ⌘Z puts back the latest first.
+        var order = 0
 
         var original: URL { file.url }
     }
@@ -1293,13 +1300,22 @@ extension AppModel {
         }
     }
 
-    /// Undo, from the popover's Undo strip or a preview's. `file`: the screenshot that
-    /// preview moved, so a preview never brings back a newer one; nil for the popover strip.
-    /// A repeat while that Undo is still putting the file back (a double click, ⌘Z held) is
-    /// the same Undo, so it does nothing, and says nothing.
+    /// Undo, from a strip in the popover or a preview: `file` is the screenshot that strip or
+    /// preview stands for, so each puts back only its own. nil is ⌘Z: the latest move still
+    /// offering Undo (`latestUndo`). A repeat on an Undo that is still putting its file back
+    /// (a double click) is the same Undo, so it does nothing, and says nothing.
     func putBack(_ file: CaptureFile? = nil, fromPreview preview: UUID? = nil) async {
-        guard !restoring else { return }
+        if let file {
+            if let trashed = undoables.last(where: { $0.file == file }), restoringUndos.contains(trashed.inTrash) { return }
+        } else if latestUndo == nil, !restoringUndos.isEmpty {
+            return
+        }
         if await !undoTrash(expecting: file, fromPreview: preview) { actionFailed(.undo, preview: preview) }
+    }
+
+    /// The Undo ⌘Z puts back: the latest move still offering one, not already being put back.
+    var latestUndo: TrashedScreenshot? {
+        undoables.last { !restoringUndos.contains($0.inTrash) }
     }
 
     private func actionFailed(_ failure: ScreenshotActionFailure, preview: UUID?) {
@@ -1326,6 +1342,8 @@ extension AppModel {
     /// has a Trash), and only through `FileManager.trashItem`. No confirmation: it can be put
     /// back, from the popover or, when `preview` moved it, from that preview itself.
     func trash(_ file: CaptureFile, fromPreview preview: UUID? = nil) async throws(TrashError) {
+        trashRequests += 1
+        let order = trashRequests
         guard let folder = watchedFolder else { throw .outsideFolder }
         let path = FolderGuard.canonicalPath(file.url)
         // A screenshot copied a moment ago may still be on its way into the ledger.
@@ -1361,10 +1379,13 @@ extension AppModel {
             throw error
         }
         let entry = await ledger.remove(path: path, resourceID: file.resourceID)
+        // A row on show, not one waiting below the places the list has.
         let name = file.url.lastPathComponent
-        let listed = recent.contains { $0.url.lastPathComponent == name }
+        let listed = recentSlots.contains { slot in
+            if case .screenshot(let shown) = slot { shown.url.lastPathComponent == name } else { false }
+        }
         let trashed = inTrash.map {
-            TrashedScreenshot(file: file, inTrash: $0, adopted: entry?.adopted ?? false, listed: listed)
+            TrashedScreenshot(file: file, inTrash: $0, adopted: entry?.adopted ?? false, listed: listed, order: order)
         }
         offerUndo(trashed)
         // The user's own Move to Trash, seen in the menu bar: Peg lets the picture go.
@@ -1384,41 +1405,52 @@ extension AppModel {
         Task { await log.info("trashed ext=\(ext)") }
     }
 
-    /// Offers Undo for `trashed` for `undoLifetime`, in place of any earlier one. A trash
-    /// whose place in the Trash is unknown offers none, and ends the earlier one too, so Undo
-    /// never brings back a file other than the one just moved.
+    /// Offers Undo for `trashed` beside the ones already on offer, and gives them all
+    /// `undoLifetime` from now: one window, extended by each move. A move whose place in the
+    /// Trash is unknown offers no Undo of its own and leaves the others as they are, so no
+    /// Undo ever brings back a file other than its own.
     private func offerUndo(_ trashed: TrashedScreenshot?) {
-        undoGeneration += 1
-        if let earlier = undoable { previews.endUndo(file: earlier.file) }
-        undoable = trashed
         guard let trashed else { return }
+        // In the order the moves were asked for: overlapping moves may finish in another.
+        let index = undoables.firstIndex { $0.order > trashed.order } ?? undoables.endIndex
+        undoables.insert(trashed, at: index)
+        undoGeneration += 1
         let generation = undoGeneration
         let clock = timerClock
-        // Counted from the trash, not from when the task first runs.
+        // Counted from the move, not from when the task first runs.
         let end = clock.now + undoLifetime
         Task { [weak self] in
             try? await clock.sleep(until: end)
             guard let self, self.undoGeneration == generation else { return }
-            self.undoable = nil
-            self.previews.endUndo(file: trashed.file)
+            self.endUndoWindow()
         }
     }
 
-    /// Puts the screenshot last moved to the Trash back where it was, back in the ledger and
-    /// back on show. False when no Undo is on offer (none, or its time is up), when it is for
-    /// another screenshot than `file` (when given), or when its place is taken. Its Undo
-    /// previews leave either way, except `preview`, which says why it failed.
+    /// The shared window is over: every Undo on offer ends, its strip and its preview go,
+    /// except one putting its file back right now, which ends when that is done.
+    private func endUndoWindow() {
+        let ending = undoables.filter { !restoringUndos.contains($0.inTrash) }
+        guard !ending.isEmpty else { return }
+        undoables.removeAll { !restoringUndos.contains($0.inTrash) }
+        for trashed in ending { previews.endUndo(file: trashed.file) }
+    }
+
+    /// Puts a screenshot moved to the Trash back where it was, back in the ledger and back
+    /// on show: `file`'s, or with none the latest move still offering Undo (⌘Z). False when
+    /// there is no such Undo (none, or its time is up), or when its place is taken; that one
+    /// Undo then ends, its previews leave except `preview`, which says why it failed, and the
+    /// other Undos and their window stay as they are.
     ///
     /// The Undo strip stays in the row's place until the file is back, then the row takes
     /// its place again in the same step, so the list never shows the gap or the older
     /// screenshot in between.
     @discardableResult
     func undoTrash(expecting file: CaptureFile? = nil, fromPreview preview: UUID? = nil) async -> Bool {
-        guard !restoring, let trashed = undoable, file == nil || trashed.file == file else { return false }
-        restoring = true
-        defer { restoring = false }
-        // Its timer no longer ends it; this does.
-        undoGeneration += 1
+        let wanted = file.map { file in undoables.last { $0.file == file } } ?? latestUndo
+        guard let trashed = wanted, !restoringUndos.contains(trashed.inTrash) else { return false }
+        // The window no longer ends it while it is put back; this does.
+        restoringUndos.insert(trashed.inTrash)
+        defer { restoringUndos.remove(trashed.inTrash) }
         let restored = await Task.detached(priority: .userInitiated) { () -> CaptureFile? in
             guard !FileManager.default.fileExists(atPath: trashed.original.path) else { return nil }
             do {
@@ -1429,7 +1461,7 @@ extension AppModel {
             return CaptureFile.inspect(trashed.original)
         }.value
         guard let restored else {
-            if undoable == trashed { undoable = nil }
+            undoables.removeAll { $0 == trashed }
             previews.endUndo(file: trashed.file, except: preview)
             return false
         }
@@ -1438,7 +1470,7 @@ extension AppModel {
         // Back in its place, in the strip's step.
         if let image = thumbnails[trashed.file], thumbnails[restored] == nil { thumbnails[restored] = image }
         recent = RecentScreenshots.inserting(restored, into: recent)
-        if undoable == trashed { undoable = nil }
+        undoables.removeAll { $0 == trashed }
         preferences.totals.trashed = max(0, preferences.totals.trashed - 1)
         refreshRecent()
         // Back, and Peg grips it again.
@@ -1448,9 +1480,10 @@ extension AppModel {
     }
 
     #if DEBUG
-    /// The render harness draws the Undo strip without a real Trash (its demo Trash refuses).
+    /// The render harness draws an Undo strip without a real Trash (its demo Trash refuses):
+    /// `trashed` alone, or none.
     func showUndoForHarness(_ trashed: TrashedScreenshot?) {
-        undoable = trashed
+        undoables = trashed.map { [$0] } ?? []
     }
 
     /// The render harness draws a failure note.

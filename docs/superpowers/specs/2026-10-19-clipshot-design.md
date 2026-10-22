@@ -451,6 +451,20 @@ of 4 became one list.
   the next older screenshot fills the last row only once Undo is over. A
   screenshot moved from its floating preview gets its strip where its row was
   in time order, or on top when it was not among the rows.
+- Several moves (updated 2026-10-21, 0.9.2, owner request: "when I delete
+  several screenshots one after another, Undo stays only at the first one"):
+  a newer move no longer replaces the earlier Undo. Every screenshot moved to
+  the Trash, from a row or a floating preview, keeps its own strip in its own
+  place (by the rule above) and its preview keeps its own Undo. One shared
+  window: each move gives every Undo on offer 5 s from that move; when it ends
+  all strips go together and the older screenshots fill the rows. No row moves
+  while any Undo is offered, and the list never has more than its 4 places
+  (with more moves than places the latest keep theirs). A strip's Undo puts
+  back its own screenshot; ⌘Z puts back the latest move still on offer, again
+  the one before, and only that strip carries the key. Putting one back leaves
+  the others and the window as they are; a failed put-back is said where the
+  user acted and ends only that one. Each move releases Peg and each Undo grips
+  it; cleanups never offer Undo.
 - The ledger drops the entry; the list updates.
 
 ### A7. Retention visibility

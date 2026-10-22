@@ -120,7 +120,7 @@ struct PegActionMomentModelTests {
         await h.model.moveToTrash(file)
         try playOut(h, .release)
         await h.model.putBack()
-        #expect(h.model.undoable == nil)
+        #expect(h.model.undoables.isEmpty)
         #expect(h.model.flashMoment == .grip)
         #expect(h.model.flashPhase == 1)
         #expect(h.model.flashHandoff == nil)
@@ -171,6 +171,7 @@ struct PegActionMomentModelTests {
         #expect(await eventually { await h.preferences.totals.trashed == 4 })
         #expect(h.model.flashPhase == 0)
         #expect(h.timers.isEmpty, "no moment ever started")
+        #expect(h.model.undoables.isEmpty, "a cleanup offers no Undo")
     }
 
     /// The click that opens the popover squeezes the peg; closing plays nothing, and a

@@ -30,13 +30,13 @@ struct UndoAndFailureTests {
         #expect(!RT.exists(file.url))
         let item = try #require(h.model.previews.visible.first { $0.id == id })
         #expect(item.trashed, "the preview stays, as Moved to the Trash with Undo")
-        #expect(h.model.undoable?.file == file, "the popover offers the same Undo")
+        #expect(h.model.undoables.map(\.file) == [file], "the popover offers the same Undo")
         #expect(!h.model.previews.showsCopied(item), "an Undo preview says no Copied")
         #expect(h.announced.contains(Copy.Recent.moved.key))
 
         await h.model.putBack(file, fromPreview: id)
         #expect(RT.exists(file.url))
-        #expect(h.model.undoable == nil)
+        #expect(h.model.undoables.isEmpty)
         #expect(!h.model.previews.visible.contains { $0.id == id }, "used: the Undo preview leaves")
         #expect(h.announced.contains(Copy.Recent.putBack.key))
         #expect(h.alerts == 0)
@@ -49,13 +49,13 @@ struct UndoAndFailureTests {
         let (file, id) = try await shotWithPreview(h)
         await h.model.moveToTrash(file, fromPreview: id)
         #expect(h.model.previews.visible.first { $0.id == id }?.trashed == true)
-        #expect(await eventually { await h.model.undoable == nil })
+        #expect(await eventually { await h.model.undoables.isEmpty })
         #expect(!h.model.previews.visible.contains { $0.id == id })
     }
 
-    /// One Undo at a time: a newer trash ends an older preview's Undo, and an Undo on that
-    /// older preview never brings back the newer screenshot.
-    @Test func anOlderPreviewNeverUndoesANewerTrash() async throws {
+    /// Each preview keeps its own Undo (0.9.2): a newer move leaves an older preview's Undo
+    /// on offer, and each preview puts back only its own screenshot.
+    @Test func eachPreviewKeepsAndUsesItsOwnUndo() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }
         #expect(await h.start())
@@ -63,11 +63,38 @@ struct UndoAndFailureTests {
         let (second, secondID) = try await shotWithPreview(h, "Screenshot 2.png")
         await h.model.moveToTrash(first, fromPreview: firstID)
         await h.model.moveToTrash(second, fromPreview: secondID)
-        #expect(!h.model.previews.visible.contains { $0.id == firstID }, "replaced: the older Undo preview left")
+        #expect(h.model.previews.visible.filter { $0.trashed }.map(\.id) == [firstID, secondID], "both offer Undo")
+        #expect(h.model.undoables.map(\.file) == [first, second])
+
         await h.model.putBack(first, fromPreview: firstID)
+        #expect(RT.exists(first.url), "the older preview put back its own screenshot")
         #expect(!RT.exists(second.url), "the newer screenshot stays in the Trash")
-        #expect(h.model.undoable?.file == second)
+        #expect(!h.model.previews.visible.contains { $0.id == firstID }, "used: its Undo preview leaves")
+        #expect(h.model.previews.visible.first { $0.id == secondID }?.trashed == true, "the other one still offers Undo")
+        #expect(h.model.undoables.map(\.file) == [second])
+        #expect(h.alerts == 0)
+    }
+
+    /// A failed Undo on one preview is said on that preview and ends only its Undo.
+    @Test func aFailedUndoOnOnePreviewLeavesTheOthers() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        #expect(await h.start())
+        let (first, firstID) = try await shotWithPreview(h, "Screenshot 1.png")
+        let (second, secondID) = try await shotWithPreview(h, "Screenshot 2.png")
+        await h.model.moveToTrash(first, fromPreview: firstID)
+        await h.model.moveToTrash(second, fromPreview: secondID)
+        // Another file takes the first one's name meanwhile.
+        try Fixtures.write(named: "Screenshot 1.png", contents: Fixtures.pngImage(size: 30), in: h.folder)
+
+        await h.model.putBack(first, fromPreview: firstID)
+        #expect(h.model.previews.visible.first { $0.id == firstID }?.failure == .undo, "said on that preview")
+        #expect(h.model.actionNote == nil, "not in the popover")
         #expect(h.alerts == 1)
+        #expect(h.model.undoables.map(\.file) == [second], "only its Undo ended")
+        #expect(h.model.previews.visible.first { $0.id == secondID }?.trashed == true)
+        await h.model.putBack(second, fromPreview: secondID)
+        #expect(RT.exists(second.url))
     }
 
     @Test func aFailedTrashFromThePopoverIsSaidThere() async throws {

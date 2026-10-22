@@ -61,9 +61,9 @@ enum RecentScreenshots {
 }
 
 /// One place in the popover's list: a screenshot's row, or, while its Undo is offered, the
-/// strip that stands in for the screenshot just moved to the Trash. Both are named by the
-/// file's name, unique in the folder, so a row and the strip that replaces it are the same
-/// place and one turns into the other.
+/// strip that stands in for a screenshot moved to the Trash. Both are named by the file's
+/// name, unique in the folder, so a row and the strip that replaces it are the same place and
+/// one turns into the other.
 enum RecentSlot: Equatable, Identifiable, Sendable {
     case screenshot(CaptureFile)
     case trashed(CaptureFile)
@@ -78,23 +78,53 @@ enum RecentSlot: Equatable, Identifiable, Sendable {
 }
 
 extension RecentScreenshots {
-    /// The list's places: `files` (newest first), with the Undo strip for `trashed` where its
-    /// row was in time order, never more than `count`. While the strip is there, the older
-    /// screenshot that will take the last row waits until Undo is over.
+    /// A screenshot moved to the Trash whose Undo is offered, as the list places its strip.
+    struct Moved: Equatable, Sendable {
+        let file: CaptureFile
+        /// It was a row on show when it was moved.
+        var listed = false
+    }
+
+    /// The list's places: `files` (newest first), with an Undo strip for each of `trashed`
+    /// (in the order they were moved, the latest last) where its row was in time order,
+    /// never more than `count` places. While any strip is there, the older screenshots that
+    /// will take the rows the strips hold wait until Undo is over: the strips take places
+    /// from the rows, not new ones.
     ///
-    /// Where time order puts the strip past the last place: a row that was in the list
-    /// (`wasListed`: a newer screenshot arrived meanwhile) keeps the last place, never
-    /// jumping; a file that never was (moved from its floating preview) gets the top.
-    static func slots(
-        files: [CaptureFile], trashed: CaptureFile?, wasListed: Bool = false, count: Int = count
-    ) -> [RecentSlot] {
-        guard count > 0, let trashed else { return files.prefix(count).map(RecentSlot.screenshot) }
-        let name = trashed.url.lastPathComponent
-        var slots = files.filter { $0.url.lastPathComponent != name }.map(RecentSlot.screenshot)
-        let index = slots.firstIndex { $0.file.created < trashed.created } ?? slots.count
-        let place = index < count ? index : (wasListed ? count - 1 : 0)
-        slots.insert(.trashed(trashed), at: place)
-        return Array(slots.prefix(count))
+    /// Where time order puts a strip past the rows on show (older ones would come between): a
+    /// row that was in the list (`listed`: a newer screenshot arrived meanwhile) keeps the
+    /// last places, never jumping; a file that never was (moved from its floating preview)
+    /// gets the top. More strips than places: the latest moves keep theirs.
+    static func slots(files: [CaptureFile], trashed: [Moved] = [], count: Int = count) -> [RecentSlot] {
+        guard count > 0 else { return [] }
+        let moved = Array(trashed.suffix(count))
+        let names = Set(trashed.map(\.file.url.lastPathComponent))
+        let rows = files.filter { !names.contains($0.url.lastPathComponent) }
+        let shown = Array(rows.prefix(count - moved.count))
+        var top: [Moved] = [], bottom: [Moved] = [], inPlace: [Moved] = []
+        for strip in moved {
+            // Rows newer than it, among all the rows: more than are on show is past them.
+            let index = rows.firstIndex { $0.created < strip.file.created } ?? rows.count
+            if index <= shown.count {
+                inPlace.append(strip)
+            } else if strip.listed {
+                bottom.append(strip)
+            } else {
+                top.append(strip)
+            }
+        }
+        let newestFirst = { (a: Moved, b: Moved) in a.file.created > b.file.created }
+        var slots = shown.map(RecentSlot.screenshot)
+        // Newest first, each before the first row older than it, so strips side by side keep
+        // their time order too.
+        for strip in inPlace.sorted(by: newestFirst) {
+            let index = slots.firstIndex { slot in
+                if case .screenshot(let row) = slot { row.created < strip.file.created } else { false }
+            } ?? slots.count
+            slots.insert(.trashed(strip.file), at: index)
+        }
+        return top.sorted(by: newestFirst).map { .trashed($0.file) } + slots
+            + bottom.sorted(by: newestFirst).map { .trashed($0.file) }
     }
 
     /// `file` back among `files` in time order, at most `count`: an Undo puts its row back

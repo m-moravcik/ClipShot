@@ -174,12 +174,13 @@ Reduce Motion on, Peg changes without moving.
 ### Move to Trash, and Undo
 
 Move to Trash on the preview or on a row in the popover moves the file to the Trash,
-with no dialog. For five seconds its row in the popover turns into **Moved to the
-Trash** with **Undo** (⌘Z), which puts it back in the same place; after that the rows
-below move up and an older screenshot fills the last row. Moved from the floating
-preview, the preview itself turns into **Moved to the Trash** with Undo too, so there
-is no need to open the popover. If a move or an Undo cannot happen, ClipShot says why
-where you clicked.
+with no dialog. Its row in the popover turns into **Moved to the Trash** with **Undo**,
+which puts it back in the same place. Move several in a row and each keeps its own
+strip and its own Undo; they all stay until five seconds after the last move, then the
+rows below move up and older screenshots fill the list. ⌘Z puts back the last one
+moved, and pressed again the one before. Moved from the floating preview, the preview
+itself turns into **Moved to the Trash** with Undo too, so there is no need to open the
+popover. If a move or an Undo cannot happen, ClipShot says why where you clicked.
 
 <p align="center">
   <picture>

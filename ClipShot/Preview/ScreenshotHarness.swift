@@ -81,6 +81,7 @@ enum ScreenshotHarness {
             try renderOne(shots, scratch: scratch)
             try renderAttentions(shots, scratch: scratch)
             try renderFull(shots, scratch: scratch)
+            try renderUndoSeveral(shots, scratch: scratch)
             try renderTour(shots, scratch: scratch)
             try renderPreviews(shots, scratch: scratch)
         } catch {
@@ -360,6 +361,79 @@ enum ScreenshotHarness {
                 scheme: scheme), "popover-full", scheme)
         }
         scene.stop()
+    }
+
+    /// Several screenshots moved to the Trash one after another, for real (into the demo
+    /// home's Trash), within one Undo window (A6): each keeps a strip in its own place, the
+    /// rows between them stay. From the popover's rows: the second, then the top one
+    /// (popover-undo-two), then the last (popover-undo-three, the most places the list has).
+    /// From the floating previews: two of three, each with Undo on the preview
+    /// (preview-undo-several) and a strip in the popover (popover-undo-previews).
+    private static func renderUndoSeveral(_ shots: Shots, scratch: URL) throws {
+        let updater = DemoUpdater()
+        func write(_ scene: DemoScene, _ name: String) throws {
+            measure(name, MenuContent().harnessEnvironment(scene.model, updater: updater), mustFit: true)
+            for scheme in ColorScheme.allCases {
+                try shots.write(popoverWindow(capturePanel(PopoverPanel(scheme: scheme) { MenuContent() }
+                    .harnessEnvironment(scene.model, updater: updater), scheme: scheme), scheme: scheme), name, scheme)
+            }
+        }
+        func settled(_ scene: DemoScene) {
+            DemoScene.wait { scene.model.recentSettled }
+            DemoScene.settle(0.6)
+        }
+
+        let rows = try DemoScene(in: scratch, trashInHome: true, undoLifetime: .seconds(3_600))
+        try awaitTask { try await rows.recentScreenshots() }
+        rows.preferences.totals = Totals(copied: 148, freedBytes: 0, trashed: 412)
+        guard rows.start() else { fail("the demo folder was not watched") }
+        try rows.copyDemoScreenshot()
+        DemoScene.wait { rows.model.recent.count == RecentScreenshots.count }
+        func trashRow(_ index: Int) throws {
+            let shown = rows.model.recentSlots.compactMap { slot -> CaptureFile? in
+                if case .screenshot(let file) = slot { file } else { nil }
+            }
+            guard index < shown.count else { fail("no row \(index + 1) to move to the Trash") }
+            let file = shown[index]
+            try awaitTask { await rows.model.moveToTrash(file) }
+            settled(rows)
+            let places = rows.model.recentSlots.map { slot -> String in
+                if case .trashed(let file) = slot { "undo:" + file.url.lastPathComponent } else { slot.file.url.lastPathComponent }
+            }
+            print("undo-several: \(places)")
+        }
+        try trashRow(1)
+        try trashRow(0)
+        try write(rows, "popover-undo-two")
+        try trashRow(1)
+        try write(rows, "popover-undo-three")
+        rows.stop()
+
+        let previews = try DemoScene(in: scratch, trashInHome: true, undoLifetime: .seconds(3_600))
+        try awaitTask { try await previews.recentScreenshots() }
+        previews.preferences.totals = Totals(copied: 148, freedBytes: 0, trashed: 412)
+        guard previews.start() else { fail("the demo folder was not watched") }
+        DemoScene.wait { previews.model.previewMode == .clipShot }
+        try previews.copyDemoScreenshot()
+        for index in 2...3 {
+            _ = try previews.shoot(DemoContent.screenshotName.replacingOccurrences(of: ".png", with: " \(index).png"),
+                                   image: DemoContent.screenshotPNG(variant: index + 5))
+            DemoScene.wait { previews.model.previews.visible.count == index }
+        }
+        DemoScene.wait { previews.model.recent.count == RecentScreenshots.count }
+        for item in previews.model.previews.visible.prefix(2) {
+            try awaitTask { await previews.model.moveToTrash(item.file, fromPreview: item.id) }
+            settled(previews)
+        }
+        for scheme in ColorScheme.allCases {
+            try shots.write(capture(PreviewDesktop(
+                scheme: scheme,
+                height: PreviewCardMetrics.maxSize.height * 3 + PreviewCardMetrics.spacing * 2 + PreviewCardMetrics.margin * 2 + 20
+            ) { PreviewStack(previews: previews.model.previews, files: .model(previews.model)) }
+                .harnessEnvironment(previews.model), scheme: scheme), "preview-undo-several", scheme)
+        }
+        try write(previews, "popover-undo-previews")
+        previews.stop()
     }
 
     /// The welcome tour, step by step, as a fresh install shows it.
