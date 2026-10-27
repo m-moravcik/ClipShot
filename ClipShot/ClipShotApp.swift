@@ -38,6 +38,8 @@ struct ClipShotApp: App {
             return
         }
         #endif
+        // Before the model: a second ClipShot would copy every screenshot twice.
+        SingleInstance.exitIfAnotherRuns(environment: ProcessInfo.processInfo.environment)
         let model = Self.makeModel(environment: ProcessInfo.processInfo.environment)
         // Resumes watching only when onboarding was already shown; otherwise step 2 starts it.
         model?.launch()

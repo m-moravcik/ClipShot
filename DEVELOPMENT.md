@@ -43,15 +43,27 @@ The rename fires a directory event; setting the marker fires none (F5). So:
    created **and** modified within the last 30 s. A Finder duplicate of an old
    screenshot gets a new creation date but keeps the old modification date and
    the marker, so it is not copied. Files present when watching starts, when the
-   folder changes, or while copying is off, are never copied later.
+   folder changes, or while copying is off, are never copied later, including a
+   capture still under its hidden name then, however soon it is renamed.
+   A capture can appear late: on 2026-10-27 Spotlight held `screencapture` up
+   for 69 s between writing the hidden file and the rename, so the file showed
+   up with a birth time far outside the window. Each pass therefore also `stat`s
+   the dot-files, and `StagedCaptures` remembers the inode and birth time of every
+   fresh one. A file that appears with both, within 10 minutes, is judged from the
+   moment it appeared. A file never seen hidden (put back from the Trash, moved
+   in) is judged by its own times as before, and the log says why it was not copied.
+   Dot-files already there when watching starts, or first seen while copying is
+   off, are never staged, and the file they are renamed to is not copied unless
+   it is then edited in Markup.
 4. The image goes to the pasteboard as PNG data only (`ClipboardWriter`), never
    as a file URL, so chat apps, Mail and browsers paste the picture rather than
    an attachment. Other formats are converted.
 
 Each pass costs one `lstat` per file. The marker (four or five `getxattr` calls)
 is read only for a file that could be copied: fresh by its times, open in Markup,
-or new since the last listing. With 3,000 old screenshots in the folder a pass
-takes about 20 ms instead of about 290 ms.
+new since the last listing, or new in the last few seconds and still without
+the marker. With 3,000 old screenshots in the folder a pass takes about 20 ms
+instead of about 290 ms.
 
 Every read of a screenshot, for the copy, a thumbnail, the preview or a drag,
 goes through `FileTrust`: one descriptor opened with `O_NOFOLLOW`, `fstat` says a
@@ -814,7 +826,7 @@ Swift Testing. Pure logic is tested; views are not, except their layout rules. T
 
 | Area | Why it is tested |
 |---|---|
-| `CopyDeciderTests` | Freshness is created **and** modified within 30 s; a Finder duplicate of an old screenshot is never copied; one copy per file. |
+| `CopyDeciderTests`, `StagedCapturesTests` | Freshness is created **and** modified within 30 s, counted from when a capture macOS renamed into place late appeared; a Finder duplicate of an old screenshot is never copied; one copy per file. |
 | `CopyCoordinatorTests`, `InstantCopyTests` | The rescan schedule catches a marker set after the rename; files present at start are never copied; the second display of a capture is not copied; birth to pasteboard stays fast. |
 | `CaptureMarkerTests` | The screenshot definition above, on files written with the attributes macOS sets; recordings and downloaded files are refused. |
 | `RetentionScannerTests`, `RetentionRunnerTests`, `FolderGuardTests` | Only ledger files move, revalidated just before the move; broad and system folders are refused after resolving symlinks; future dates and unmarked files are skipped; at most 500 per run. |

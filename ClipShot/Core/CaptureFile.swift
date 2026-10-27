@@ -40,6 +40,18 @@ struct CaptureFile: Hashable, Sendable {
         let name = url.lastPathComponent
         guard !name.hasPrefix("."), CopyDecider.copyableExtensions.contains(url.pathExtension.lowercased())
         else { return nil }
+        return regularFile(url, owner: owner)
+    }
+
+    /// A hidden file, such as the temporary name macOS writes a capture under before renaming
+    /// it into place (spike F4: `.Screenshot <ts>.png`, `..Screenshot <ts>.png-XXXXXX`). Any
+    /// extension; never a screenshot. nil for visible names, symlinks and non-regular files.
+    static func statTemporary(_ url: URL, owner: uid_t = getuid()) -> CaptureFile? {
+        guard url.lastPathComponent.hasPrefix(".") else { return nil }
+        return regularFile(url, owner: owner)
+    }
+
+    private static func regularFile(_ url: URL, owner: uid_t) -> CaptureFile? {
         var st = Darwin.stat()
         let rc = url.withUnsafeFileSystemRepresentation { path -> Int32 in
             guard let path else { return -1 }

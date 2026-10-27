@@ -31,6 +31,7 @@ final class CoordinatorHarness {
     let ledger: ScreenshotLedger
     let edits = EditSession()
     let coordinator: CopyCoordinator
+    let logFile: URL
     private(set) var failures = 0
 
     /// `sleepUntil`: how rescans wait; a test can release them by hand.
@@ -38,7 +39,8 @@ final class CoordinatorHarness {
         createFolder: Bool = true, createDesktop: Bool = false,
         sleepUntil: (@Sendable (ContinuousClock.Instant) async throws -> Void)? = nil,
         readMarker: @escaping @Sendable (URL) -> Bool = { CaptureMarker.isScreenshot($0) },
-        trust: FileTrust.Policy = .standard, events: (any FolderEventSource)? = nil
+        trust: FileTrust.Policy = .standard, events: (any FolderEventSource)? = nil,
+        clock: @escaping @Sendable () -> Date = { Date() }
     ) throws {
         let fm = FileManager.default
         home = try Fixtures.makeDir()
@@ -51,9 +53,10 @@ final class CoordinatorHarness {
             prefs: prefs, home: home, backup: PrefsBackup(fileURL: home.appendingPathComponent("backup.plist")),
             log: try RT.testLog())
         ledger = try RT.ledger()
+        logFile = home.appendingPathComponent("clipshot.log")
         coordinator = CopyCoordinator(
             settings: settings, events: events ?? DirectoryEventSource(), pasteboard: pasteboard, ledger: ledger,
-            edits: edits, clock: { Date() }, pollInterval: .milliseconds(100), home: home, log: try RT.testLog(),
+            edits: edits, clock: clock, pollInterval: .milliseconds(100), home: home, log: Log(fileURL: logFile),
             sleepUntil: sleepUntil ?? { try await Task.sleep(until: $0, clock: .continuous) },
             readMarker: readMarker, trust: trust)
         coordinator.onFailure = { [weak self] _ in self?.failures += 1 }
@@ -83,6 +86,19 @@ final class CoordinatorHarness {
     }
 
     var writes: [Data] { pasteboard.writes }
+
+    var logText: String { (try? String(contentsOf: logFile, encoding: .utf8)) ?? "" }
+
+    /// Whether the log reports whole seconds in `expected` right after `prefix`. A range, not a
+    /// value: the real time the passes take adds to the clock's offset, so a loaded machine may
+    /// log a second or two more.
+    func logged(_ prefix: String, seconds expected: Range<Int>) -> Bool {
+        let text = logText
+        guard let range = text.range(of: prefix),
+              let seconds = Int(text[range.upperBound...].prefix(while: \.isNumber))
+        else { return false }
+        return expected.contains(seconds)
+    }
 
     func ledgerNames() async -> [String] {
         await ledger.entries().map { ($0.path as NSString).lastPathComponent }.sorted()
@@ -418,6 +434,177 @@ struct CopyCoordinatorTests {
         #expect(h.writes == [data])
         #expect(await h.ledgerNames() == ["New.png"])
     }
+
+    /// 2026-10-27: Spotlight held `screencapture` up for 69 s between writing the hidden file
+    /// and renaming it into place. Birth and modification time are then 69 s old when the file
+    /// appears; it is still copied once, recorded and shown.
+    @Test func copiesCaptureRenamedIntoPlaceLate() async throws {
+        let clock = OffsetClock()
+        let h = try CoordinatorHarness(clock: clock.now)
+        defer { h.coordinator.stop() }
+        #expect(await h.start())
+        #expect(await h.settled())
+        let passes = h.coordinator.passesFinished
+        let data = CoordinatorHarness.png(50)
+        let temp = h.folder.appendingPathComponent(".Screenshot late.png")
+        try data.write(to: temp)
+        #expect(await eventually { await h.coordinator.passesFinished > passes })
+        clock.advance(by: 69)
+        let url = h.folder.appendingPathComponent("Screenshot late.png")
+        #expect(rename(temp.path, url.path) == 0)
+        Fixtures.mark(url)
+        #expect(await eventually { await h.writes == [data] })
+        #expect(await h.settled())
+        #expect(h.writes == [data])
+        #expect(await h.ledgerNames() == ["Screenshot late.png"])
+        #expect(await eventually { await h.logged("copied late ext=png, macOS held it back ", seconds: 69..<75) })
+    }
+
+    /// A hidden file already there when watching starts is never copied, even when other folder
+    /// activity makes a pass list it while it is still fresh.
+    @Test func doesNotCopyCaptureHiddenWhenWatchingStarts() async throws {
+        let clock = OffsetClock()
+        let h = try CoordinatorHarness(clock: clock.now)
+        defer { h.coordinator.stop() }
+        let temp = h.folder.appendingPathComponent(".Screenshot early.png")
+        try CoordinatorHarness.png(52).write(to: temp)
+        #expect(await h.start())
+        let passes = h.coordinator.passesFinished
+        try Fixtures.write(named: "notes.txt", contents: Data("x".utf8), in: h.folder)
+        #expect(await eventually { await h.coordinator.passesFinished > passes })
+        clock.advance(by: 40)
+        let url = h.folder.appendingPathComponent("Screenshot early.png")
+        #expect(rename(temp.path, url.path) == 0)
+        Fixtures.mark(url)
+        #expect(await eventually { await h.logged("not copied, created ", seconds: 40..<46) })
+        #expect(await h.settled())
+        #expect(h.writes.isEmpty)
+        #expect(await h.ledgerNames().isEmpty)
+    }
+
+    /// A capture taken while copying is off is never copied, even when macOS renames it into place
+    /// after copying is back on and a pass saw the hidden file while it was still fresh.
+    @Test func doesNotCopyCaptureHiddenWhileCopyingIsOff() async throws {
+        let clock = OffsetClock()
+        let h = try CoordinatorHarness(clock: clock.now)
+        defer { h.coordinator.stop() }
+        #expect(await h.start())
+        h.coordinator.isEnabled = false
+        let paused = h.coordinator.passesFinished
+        let temp = h.folder.appendingPathComponent(".Screenshot paused.png")
+        try CoordinatorHarness.png(54).write(to: temp)
+        #expect(await eventually { await h.coordinator.passesFinished > paused })
+        h.coordinator.isEnabled = true
+        let resumed = h.coordinator.passesFinished
+        try Fixtures.write(named: "notes.txt", contents: Data("x".utf8), in: h.folder)
+        #expect(await eventually { await h.coordinator.passesFinished > resumed })
+        clock.advance(by: 40)
+        let url = h.folder.appendingPathComponent("Screenshot paused.png")
+        #expect(rename(temp.path, url.path) == 0)
+        Fixtures.mark(url)
+        #expect(await eventually { await h.logged("not copied, created ", seconds: 40..<46) })
+        #expect(await h.settled())
+        #expect(h.writes.isEmpty)
+        #expect(await h.ledgerNames().isEmpty)
+    }
+
+    /// A short hold, inside the copy window: the final file is fresh by its own times and still
+    /// not copied, because its hidden file was first seen while copying was off.
+    @Test func doesNotCopyCaptureHiddenWhileCopyingIsOffRenamedSoon() async throws {
+        let clock = OffsetClock()
+        let h = try CoordinatorHarness(clock: clock.now)
+        defer { h.coordinator.stop() }
+        #expect(await h.start())
+        h.coordinator.isEnabled = false
+        let paused = h.coordinator.passesFinished
+        let temp = h.folder.appendingPathComponent(".Screenshot short.png")
+        try CoordinatorHarness.png(55).write(to: temp)
+        #expect(await eventually { await h.coordinator.passesFinished > paused })
+        h.coordinator.isEnabled = true
+        clock.advance(by: 20)
+        let url = h.folder.appendingPathComponent("Screenshot short.png")
+        #expect(rename(temp.path, url.path) == 0)
+        Fixtures.mark(url)
+        #expect(await eventually {
+            await h.logText.contains("not copied, saved while ClipShot was not copying ext=png")
+        })
+        #expect(await h.settled())
+        #expect(h.writes.isEmpty)
+        #expect(await h.ledgerNames() == ["Screenshot short.png"])
+        // Edited in Markup while copying is on: the edit is copied, the capture still was not.
+        h.edits.begin(try #require(CaptureFile.inspect(url)))
+        let edited = CoordinatorHarness.png(57)
+        try rewriteInPlace(url, with: edited)
+        #expect(await eventually { await h.writes == [edited] })
+    }
+
+    /// A capture in flight when watching starts is not copied, however soon macOS renames it.
+    @Test func doesNotCopyCaptureHiddenWhenWatchingStartsRenamedSoon() async throws {
+        let clock = OffsetClock()
+        let h = try CoordinatorHarness(clock: clock.now)
+        defer { h.coordinator.stop() }
+        let temp = h.folder.appendingPathComponent(".Screenshot launch.png")
+        try CoordinatorHarness.png(56).write(to: temp)
+        #expect(await h.start())
+        #expect(await h.settled())
+        clock.advance(by: 20)
+        let url = h.folder.appendingPathComponent("Screenshot launch.png")
+        #expect(rename(temp.path, url.path) == 0)
+        Fixtures.mark(url)
+        #expect(await eventually {
+            await h.logText.contains("not copied, saved while ClipShot was not copying ext=png")
+        })
+        #expect(await h.settled())
+        #expect(h.writes.isEmpty)
+        #expect(await h.ledgerNames() == ["Screenshot launch.png"])
+        #expect(h.logText.components(separatedBy: "not copied, saved while").count == 2)
+    }
+
+    /// The same late birth time without a hidden file ClipShot saw: an old screenshot put back
+    /// from the Trash or moved in. Not copied, and the log says why.
+    @Test func doesNotCopyOldScreenshotThatWasNeverHidden() async throws {
+        let clock = OffsetClock()
+        let h = try CoordinatorHarness(clock: clock.now)
+        defer { h.coordinator.stop() }
+        #expect(await h.start())
+        clock.advance(by: 69)
+        try Fixtures.write(named: "Put back.png", contents: CoordinatorHarness.png(51), in: h.folder)
+        #expect(await eventually { await h.logged("not copied, created ", seconds: 69..<75) })
+        #expect(await h.settled())
+        #expect(h.writes.isEmpty)
+        #expect(await h.ledgerNames().isEmpty)
+    }
+
+    /// The marker lands after the rename and fires no event (spike F5). An old screenshot whose
+    /// marker is set only after the first pass listed it is still logged, once, and not copied.
+    @Test func logsOldScreenshotMarkedAfterTheFirstPass() async throws {
+        let clock = OffsetClock()
+        let h = try CoordinatorHarness(clock: clock.now)
+        defer { h.coordinator.stop() }
+        #expect(await h.start())
+        #expect(await h.settled())
+        clock.advance(by: 69)
+        let passes = h.coordinator.passesFinished
+        let url = try Fixtures.write(
+            named: "Marked late.png", contents: CoordinatorHarness.png(53), in: h.folder,
+            marker: .none, captureType: false)
+        #expect(await eventually { await h.coordinator.passesFinished > passes })
+        Fixtures.mark(url)
+        #expect(await eventually { await h.logged("not copied, created ", seconds: 69..<75) })
+        #expect(await h.settled())
+        #expect(h.writes.isEmpty)
+        #expect(await h.ledgerNames().isEmpty)
+        #expect(h.logText.components(separatedBy: "not copied, created ").count == 2)
+    }
+}
+
+/// Wall time moved forward by hand, for a capture macOS holds back longer than a test should wait.
+final class OffsetClock: Sendable {
+    private let offset = Mutex<TimeInterval>(0)
+
+    func advance(by seconds: TimeInterval) { offset.withLock { $0 += seconds } }
+
+    @Sendable func now() -> Date { Date().addingTimeInterval(offset.withLock { $0 }) }
 }
 
 /// A real kqueue watch that says whether it is running and counts the events it delivers.

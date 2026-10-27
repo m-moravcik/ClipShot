@@ -62,7 +62,7 @@ struct CopyDeciderTests {
     @Test func seededFilesAreNeverCopied() {
         var d = CopyDecider()
         let f = file(created: -1, modified: -1)
-        d.seed([f])
+        d.seed([f], now: now)
         let r11 = d.shouldCopy(f, now: now)
         #expect(!r11)
     }
@@ -74,6 +74,36 @@ struct CopyDeciderTests {
         d.prune(now: now.addingTimeInterval(61))
         let r13 = d.shouldCopy(f, now: now)
         #expect(r13)
+    }
+
+    /// Spotlight held `screencapture` up for 69 s between writing the hidden file and the
+    /// rename (2026-10-27): the window counts from when the file appeared.
+    @Test func lateCaptureIsJudgedFromWhenItAppeared() {
+        var d = CopyDecider()
+        let late = file(created: -69, modified: -69)
+        #expect(!d.wouldCopy(late, now: now))
+        let copied = d.shouldCopy(late, now: now, hiddenFor: 69)
+        #expect(copied)
+        #expect(!d.wouldCopy(late, now: now, hiddenFor: 69))
+        #expect(CopyDecider.isFresh(late, now: now.addingTimeInterval(30), hiddenFor: 69))
+        #expect(!CopyDecider.isFresh(late, now: now.addingTimeInterval(31), hiddenFor: 69))
+    }
+    /// A sync tool writes a hidden file, sets the original's old modification date, renames it.
+    @Test func lateFileWithOldModificationIsNotCopied() {
+        var d = CopyDecider()
+        let synced = d.shouldCopy(file(created: -69, modified: -2 * 86400), now: now, hiddenFor: 69)
+        #expect(!synced)
+    }
+    /// A late copy is remembered for `memory` after it was copied, not after it was written:
+    /// the rescans after it must not copy it again.
+    @Test func pruneKeepsLateCopyForItsMemory() {
+        var d = CopyDecider()
+        let late = file(created: -69, modified: -69)
+        let first = d.shouldCopy(late, now: now, hiddenFor: 69)
+        #expect(first)
+        d.prune(now: now.addingTimeInterval(3))
+        let again = d.shouldCopy(late, now: now.addingTimeInterval(3), hiddenFor: 69)
+        #expect(!again)
     }
 
     @Test func skipsMovSymlinkHidden() throws {
