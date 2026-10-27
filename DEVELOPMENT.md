@@ -725,7 +725,8 @@ scripts/release.sh
 
 `scripts/release.sh` in order:
 
-1. Preflight: on `main`, clean tree, same commit as `origin/main`, tag and
+1. Preflight: on `main`, clean tree, same commit as `origin/main`, `gh` logged
+   in as the owner `m-moravcik`, tag and
    release absent, notes present, repository public, tap working copy clean,
    `CURRENT_PROJECT_VERSION` above the highest `sparkle:version` already in
    `appcast.xml` (Sparkle offers an update only for a higher build number),
@@ -759,8 +760,13 @@ scripts/release.sh
    signature, and check the length and the enclosure signature against the
    asset.
 9. Copy `Casks/clipshot.rb` into the tap (the local tap clone, `TAP_DIR`) with this
-   release's version and sha256, `brew audit --cask --strict --online`, `brew style`,
-   push.
+   release's version and sha256, `brew trust --tap` (Homebrew 7 loads a cask
+   from a third-party tap only once the tap is trusted), `brew audit --cask
+   --strict --online`, `brew style`, push.
+
+Every `gh` call and push runs with the owner's token (`gh auth token --user
+m-moravcik`), passed to just those commands, not as whichever account `gh` has
+active: during 0.9.3 another session switched it and the appcast push was refused.
 
 It is interactive: `sign_update` and `generate_keys` ask for access to the EdDSA
 key in the keychain (set `SPARKLE_EDDSA_PRIVATE_KEY_PATH` to use a key file
