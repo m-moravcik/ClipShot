@@ -31,6 +31,7 @@ final class CoordinatorHarness {
     let ledger: ScreenshotLedger
     let edits = EditSession()
     let coordinator: CopyCoordinator
+    let logFile: URL
     private(set) var failures = 0
 
     /// `sleepUntil`: how rescans wait; a test can release them by hand.
@@ -38,7 +39,8 @@ final class CoordinatorHarness {
         createFolder: Bool = true, createDesktop: Bool = false,
         sleepUntil: (@Sendable (ContinuousClock.Instant) async throws -> Void)? = nil,
         readMarker: @escaping @Sendable (URL) -> Bool = { CaptureMarker.isScreenshot($0) },
-        trust: FileTrust.Policy = .standard, events: (any FolderEventSource)? = nil
+        trust: FileTrust.Policy = .standard, events: (any FolderEventSource)? = nil,
+        clock: @escaping @Sendable () -> Date = { Date() }
     ) throws {
         let fm = FileManager.default
         home = try Fixtures.makeDir()
@@ -51,9 +53,10 @@ final class CoordinatorHarness {
             prefs: prefs, home: home, backup: PrefsBackup(fileURL: home.appendingPathComponent("backup.plist")),
             log: try RT.testLog())
         ledger = try RT.ledger()
+        logFile = home.appendingPathComponent("clipshot.log")
         coordinator = CopyCoordinator(
             settings: settings, events: events ?? DirectoryEventSource(), pasteboard: pasteboard, ledger: ledger,
-            edits: edits, clock: { Date() }, pollInterval: .milliseconds(100), home: home, log: try RT.testLog(),
+            edits: edits, clock: clock, pollInterval: .milliseconds(100), home: home, log: Log(fileURL: logFile),
             sleepUntil: sleepUntil ?? { try await Task.sleep(until: $0, clock: .continuous) },
             readMarker: readMarker, trust: trust)
         coordinator.onFailure = { [weak self] _ in self?.failures += 1 }
@@ -83,6 +86,8 @@ final class CoordinatorHarness {
     }
 
     var writes: [Data] { pasteboard.writes }
+
+    var logText: String { (try? String(contentsOf: logFile, encoding: .utf8)) ?? "" }
 
     func ledgerNames() async -> [String] {
         await ledger.entries().map { ($0.path as NSString).lastPathComponent }.sorted()
@@ -418,6 +423,55 @@ struct CopyCoordinatorTests {
         #expect(h.writes == [data])
         #expect(await h.ledgerNames() == ["New.png"])
     }
+
+    /// 2026-10-27: Spotlight held `screencapture` up for 69 s between writing the hidden file
+    /// and renaming it into place. Birth and modification time are then 69 s old when the file
+    /// appears; it is still copied once, recorded and shown.
+    @Test func copiesCaptureRenamedIntoPlaceLate() async throws {
+        let clock = OffsetClock()
+        let h = try CoordinatorHarness(clock: clock.now)
+        defer { h.coordinator.stop() }
+        #expect(await h.start())
+        #expect(await h.settled())
+        let passes = h.coordinator.passesFinished
+        let data = CoordinatorHarness.png(50)
+        let temp = h.folder.appendingPathComponent(".Screenshot late.png")
+        try data.write(to: temp)
+        #expect(await eventually { await h.coordinator.passesFinished > passes })
+        clock.advance(by: 69)
+        let url = h.folder.appendingPathComponent("Screenshot late.png")
+        #expect(rename(temp.path, url.path) == 0)
+        Fixtures.mark(url)
+        #expect(await eventually { await h.writes == [data] })
+        #expect(await h.settled())
+        #expect(h.writes == [data])
+        #expect(await h.ledgerNames() == ["Screenshot late.png"])
+        #expect(await eventually { await h.logText.contains("macOS held it back 69 s") })
+    }
+
+    /// The same late birth time without a hidden file ClipShot saw: an old screenshot put back
+    /// from the Trash or moved in. Not copied, and the log says why.
+    @Test func doesNotCopyOldScreenshotThatWasNeverHidden() async throws {
+        let clock = OffsetClock()
+        let h = try CoordinatorHarness(clock: clock.now)
+        defer { h.coordinator.stop() }
+        #expect(await h.start())
+        clock.advance(by: 69)
+        try Fixtures.write(named: "Put back.png", contents: CoordinatorHarness.png(51), in: h.folder)
+        #expect(await eventually { await h.logText.contains("not copied, created 69 s before it appeared") })
+        #expect(await h.settled())
+        #expect(h.writes.isEmpty)
+        #expect(await h.ledgerNames().isEmpty)
+    }
+}
+
+/// Wall time moved forward by hand, for a capture macOS holds back longer than a test should wait.
+final class OffsetClock: Sendable {
+    private let offset = Mutex<TimeInterval>(0)
+
+    func advance(by seconds: TimeInterval) { offset.withLock { $0 += seconds } }
+
+    @Sendable func now() -> Date { Date().addingTimeInterval(offset.withLock { $0 }) }
 }
 
 /// A real kqueue watch that says whether it is running and counts the events it delivers.

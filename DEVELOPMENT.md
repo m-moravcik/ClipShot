@@ -44,6 +44,13 @@ The rename fires a directory event; setting the marker fires none (F5). So:
    screenshot gets a new creation date but keeps the old modification date and
    the marker, so it is not copied. Files present when watching starts, when the
    folder changes, or while copying is off, are never copied later.
+   A capture can appear late: on 2026-10-27 Spotlight held `screencapture` up
+   for 69 s between writing the hidden file and the rename, so the file showed
+   up with a birth time far outside the window. Each pass therefore also `stat`s
+   the dot-files, and `StagedCaptures` remembers the inode and birth time of every
+   fresh one. A file that appears with both, within 10 minutes, is judged from the
+   moment it appeared. A file never seen hidden (put back from the Trash, moved
+   in) is judged by its own times as before, and the log says why it was not copied.
 4. The image goes to the pasteboard as PNG data only (`ClipboardWriter`), never
    as a file URL, so chat apps, Mail and browsers paste the picture rather than
    an attachment. Other formats are converted.
