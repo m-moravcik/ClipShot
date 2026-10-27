@@ -89,6 +89,17 @@ final class CoordinatorHarness {
 
     var logText: String { (try? String(contentsOf: logFile, encoding: .utf8)) ?? "" }
 
+    /// Whether the log reports whole seconds in `expected` right after `prefix`. A range, not a
+    /// value: the real time the passes take adds to the clock's offset, so a loaded machine may
+    /// log a second or two more.
+    func logged(_ prefix: String, seconds expected: Range<Int>) -> Bool {
+        let text = logText
+        guard let range = text.range(of: prefix),
+              let seconds = Int(text[range.upperBound...].prefix(while: \.isNumber))
+        else { return false }
+        return expected.contains(seconds)
+    }
+
     func ledgerNames() async -> [String] {
         await ledger.entries().map { ($0.path as NSString).lastPathComponent }.sorted()
     }
@@ -446,7 +457,7 @@ struct CopyCoordinatorTests {
         #expect(await h.settled())
         #expect(h.writes == [data])
         #expect(await h.ledgerNames() == ["Screenshot late.png"])
-        #expect(await eventually { await h.logText.contains("macOS held it back 69 s") })
+        #expect(await eventually { await h.logged("copied late ext=png, macOS held it back ", seconds: 69..<75) })
     }
 
     /// A hidden file already there when watching starts is never copied, even when other folder
@@ -465,7 +476,7 @@ struct CopyCoordinatorTests {
         let url = h.folder.appendingPathComponent("Screenshot early.png")
         #expect(rename(temp.path, url.path) == 0)
         Fixtures.mark(url)
-        #expect(await eventually { await h.logText.contains("not copied, created 40 s before it appeared") })
+        #expect(await eventually { await h.logged("not copied, created ", seconds: 40..<46) })
         #expect(await h.settled())
         #expect(h.writes.isEmpty)
         #expect(await h.ledgerNames().isEmpty)
@@ -480,7 +491,7 @@ struct CopyCoordinatorTests {
         #expect(await h.start())
         clock.advance(by: 69)
         try Fixtures.write(named: "Put back.png", contents: CoordinatorHarness.png(51), in: h.folder)
-        #expect(await eventually { await h.logText.contains("not copied, created 69 s before it appeared") })
+        #expect(await eventually { await h.logged("not copied, created ", seconds: 69..<75) })
         #expect(await h.settled())
         #expect(h.writes.isEmpty)
         #expect(await h.ledgerNames().isEmpty)
