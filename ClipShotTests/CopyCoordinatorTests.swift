@@ -482,6 +482,32 @@ struct CopyCoordinatorTests {
         #expect(await h.ledgerNames().isEmpty)
     }
 
+    /// A capture taken while copying is off is never copied, even when macOS renames it into place
+    /// after copying is back on and a pass saw the hidden file while it was still fresh.
+    @Test func doesNotCopyCaptureHiddenWhileCopyingIsOff() async throws {
+        let clock = OffsetClock()
+        let h = try CoordinatorHarness(clock: clock.now)
+        defer { h.coordinator.stop() }
+        #expect(await h.start())
+        h.coordinator.isEnabled = false
+        let paused = h.coordinator.passesFinished
+        let temp = h.folder.appendingPathComponent(".Screenshot paused.png")
+        try CoordinatorHarness.png(54).write(to: temp)
+        #expect(await eventually { await h.coordinator.passesFinished > paused })
+        h.coordinator.isEnabled = true
+        let resumed = h.coordinator.passesFinished
+        try Fixtures.write(named: "notes.txt", contents: Data("x".utf8), in: h.folder)
+        #expect(await eventually { await h.coordinator.passesFinished > resumed })
+        clock.advance(by: 40)
+        let url = h.folder.appendingPathComponent("Screenshot paused.png")
+        #expect(rename(temp.path, url.path) == 0)
+        Fixtures.mark(url)
+        #expect(await eventually { await h.logged("not copied, created ", seconds: 40..<46) })
+        #expect(await h.settled())
+        #expect(h.writes.isEmpty)
+        #expect(await h.ledgerNames().isEmpty)
+    }
+
     /// The same late birth time without a hidden file ClipShot saw: an old screenshot put back
     /// from the Trash or moved in. Not copied, and the log says why.
     @Test func doesNotCopyOldScreenshotThatWasNeverHidden() async throws {

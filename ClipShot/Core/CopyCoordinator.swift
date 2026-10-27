@@ -425,7 +425,9 @@ final class CopyCoordinator {
         }
         let now = clock()
         let copying = copying && isEnabled
-        for temporary in listing.temporary { staged.saw(temporary, now: now) }
+        for temporary in listing.temporary {
+            if copying { staged.saw(temporary, now: now) } else { staged.exclude(temporary) }
+        }
         for observation in observations {
             let file = observation.file
             let key = FileKey(file)

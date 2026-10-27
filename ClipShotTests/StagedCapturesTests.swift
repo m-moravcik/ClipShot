@@ -63,6 +63,17 @@ struct StagedCapturesTests {
         #expect(staged.hiddenFor(file("later.png", created: 10, id: 1), now: now.addingTimeInterval(50)) == 40)
     }
 
+    @Test func excludedHiddenFilesAreNotStaged() {
+        var staged = StagedCaptures()
+        staged.exclude(file(".paused.png", id: 1))
+        staged.saw(file(".paused.png", id: 1), now: now.addingTimeInterval(5))
+        #expect(staged.hiddenFor(file("paused.png", id: 1), now: now.addingTimeInterval(40)) == 0)
+        // A file staged before the exclusion stays staged.
+        staged.saw(file(".before.png", id: 2), now: now)
+        staged.exclude(file(".before.png", id: 2))
+        #expect(staged.hiddenFor(file("before.png", id: 2), now: now.addingTimeInterval(40)) == 40)
+    }
+
     @Test func hiddenLongerThanTheLimitIsNotLate() {
         var staged = StagedCaptures()
         staged.saw(file(".a.png"), now: now)

@@ -21,22 +21,27 @@ struct StagedCaptures: Sendable {
     }
 
     private var entries: [Data: Entry] = [:]
-    /// Birth time of each hidden file listed when watching started: never staged, because what
-    /// is already there is never copied.
-    private var present: [Data: Date] = [:]
+    /// Birth time of each hidden file listed when watching started or while copying was off:
+    /// never staged, because what is already there, or taken while copying is off, is never copied.
+    private var excluded: [Data: Date] = [:]
 
     init(present temporaries: [CaptureFile] = []) {
-        for temporary in temporaries { present[temporary.resourceID] = temporary.created }
+        for temporary in temporaries { exclude(temporary) }
     }
 
     /// Records a hidden file the first time it is seen, if it is this user's, fresh and was not
-    /// there when watching started.
+    /// excluded.
     mutating func saw(_ temporary: CaptureFile, now: Date) {
-        guard entries[temporary.resourceID] == nil, present[temporary.resourceID] != temporary.created,
+        guard entries[temporary.resourceID] == nil, excluded[temporary.resourceID] != temporary.created,
               temporary.isOwnedByUser,
               CopyDecider.isFresh(temporary, now: now)
         else { return }
         entries[temporary.resourceID] = Entry(created: temporary.created, seen: now)
+    }
+
+    /// Keeps a hidden file listed while copying is off from being staged later.
+    mutating func exclude(_ temporary: CaptureFile) {
+        excluded[temporary.resourceID] = temporary.created
     }
 
     /// How long `file` was hidden before it appeared under its own name; 0 when it was never
@@ -57,10 +62,10 @@ struct StagedCaptures: Sendable {
     }
 
     /// Forgets a file that never appeared within `limit`, and one that appeared once the copy
-    /// window and the decider's memory of it have passed. A file present at the start is
-    /// forgotten once it is too old to be staged anyway.
+    /// window and the decider's memory of it have passed. An excluded file is forgotten once it
+    /// is too old to be staged anyway.
     mutating func prune(now: Date) {
-        present = present.filter { now.timeIntervalSince($0.value) <= CopyDecider.window }
+        excluded = excluded.filter { now.timeIntervalSince($0.value) <= CopyDecider.window }
         entries = entries.filter { _, entry in
             guard let hidden = entry.hiddenFor else { return now.timeIntervalSince(entry.seen) <= Self.limit }
             return now.timeIntervalSince(entry.seen) - hidden <= CopyDecider.memory
