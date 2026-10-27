@@ -54,6 +54,15 @@ struct StagedCapturesTests {
         #expect(staged.hiddenFor(file("b.png", id: 2), now: now.addingTimeInterval(5)) == 0)
     }
 
+    @Test func hiddenFilesPresentWhenWatchingStartsAreNotStaged() {
+        var staged = StagedCaptures(present: [file(".early.png", id: 1)])
+        staged.saw(file(".early.png", id: 1), now: now.addingTimeInterval(5))
+        #expect(staged.hiddenFor(file("early.png", id: 1), now: now.addingTimeInterval(40)) == 0)
+        // The inode reused by a later capture is staged as usual.
+        staged.saw(file(".later.png", created: 10, modified: 10, id: 1), now: now.addingTimeInterval(10))
+        #expect(staged.hiddenFor(file("later.png", created: 10, id: 1), now: now.addingTimeInterval(50)) == 40)
+    }
+
     @Test func hiddenLongerThanTheLimitIsNotLate() {
         var staged = StagedCaptures()
         staged.saw(file(".a.png"), now: now)

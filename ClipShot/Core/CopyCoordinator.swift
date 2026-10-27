@@ -261,19 +261,20 @@ final class CopyCoordinator {
         let result = await onIO { () -> Retarget in
             guard let target = plan.target else {
                 events.stop()
-                return Retarget(watched: nil, identity: nil, error: plan.error, files: [])
+                return Retarget(watched: nil, identity: nil, error: plan.error, files: [], temporary: [])
             }
             do throws(WatchError) {
                 try events.start(target, onEvent: onEvent)
             } catch {
                 // A fallback that cannot be watched keeps the configured folder's error.
-                return Retarget(watched: nil, identity: nil, error: plan.error ?? error, files: [])
+                return Retarget(watched: nil, identity: nil, error: plan.error ?? error, files: [], temporary: [])
             }
             // Listed after the watch is up, so nothing lands between the two unseen. The seed
             // needs no markers: what is already there is never copied.
+            let listed = Self.list(target, owner: owner)
             return Retarget(
                 watched: target, identity: FolderState.of(target).identity, error: plan.error,
-                files: Self.list(target, owner: owner)?.files ?? [])
+                files: listed?.files ?? [], temporary: listed?.temporary ?? [])
         }
         guard running, gen == generation else { return }
         seeding = false
@@ -284,7 +285,7 @@ final class CopyCoordinator {
         decider.seed(result.files, now: clock())
         baseline = Set(result.files.map(FileKey.init))
         known = Set(result.files.map(ListingKey.init))
-        staged = StagedCaptures()
+        staged = StagedCaptures(present: result.temporary)
         recorded = [:]
         requestQueuedPass()
     }
@@ -680,6 +681,8 @@ private struct Retarget: Sendable {
     let identity: FolderIdentity?
     let error: WatchError?
     let files: [CaptureFile]
+    /// Hidden files listed at the same time, never staged (`StagedCaptures`).
+    let temporary: [CaptureFile]
 }
 
 /// One file version: same path, same inode, same modification time.
