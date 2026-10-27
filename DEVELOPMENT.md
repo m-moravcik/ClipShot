@@ -822,7 +822,7 @@ Swift Testing. Pure logic is tested; views are not, except their layout rules. T
 
 | Area | Why it is tested |
 |---|---|
-| `CopyDeciderTests` | Freshness is created **and** modified within 30 s; a Finder duplicate of an old screenshot is never copied; one copy per file. |
+| `CopyDeciderTests`, `StagedCapturesTests` | Freshness is created **and** modified within 30 s, counted from when a capture macOS renamed into place late appeared; a Finder duplicate of an old screenshot is never copied; one copy per file. |
 | `CopyCoordinatorTests`, `InstantCopyTests` | The rescan schedule catches a marker set after the rename; files present at start are never copied; the second display of a capture is not copied; birth to pasteboard stays fast. |
 | `CaptureMarkerTests` | The screenshot definition above, on files written with the attributes macOS sets; recordings and downloaded files are refused. |
 | `RetentionScannerTests`, `RetentionRunnerTests`, `FolderGuardTests` | Only ledger files move, revalidated just before the move; broad and system folders are refused after resolving symlinks; future dates and unmarked files are skipped; at most 500 per run. |
