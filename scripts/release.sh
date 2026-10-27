@@ -61,6 +61,9 @@ unset SKIP_NOTARIZE
 
 NOTARY_PROFILE="${NOTARY_PROFILE:-viberes-notary}"
 REPO="m-moravcik/ClipShot"
+# Pushes and GitHub calls run as the owner, not as whichever account `gh` has active:
+# another session can switch it mid-release (0.9.3's appcast push was refused).
+OWNER="${REPO%%/*}"
 TAP_NAME="m-moravcik/clipshot"
 TAP_DIR="${TAP_DIR:-$HOME/Projects/homebrew-clipshot}"
 CASK="$TAP_DIR/Casks/clipshot.rb"
@@ -120,7 +123,7 @@ on_exit() {
     case "$PUBLIC_STATE" in
       "tag $TAG pushed")
         echo "Publish the GitHub release, then finish with --resume-from appcast:" >&2
-        echo "  gh release create $TAG $ZIP --repo $REPO --verify-tag --title \"ClipShot $VERSION\" --notes-file $NOTES" >&2
+        echo "  GH_TOKEN=\"\$(gh auth token --user $OWNER)\" gh release create $TAG $ZIP --repo $REPO --verify-tag --title \"ClipShot $VERSION\" --notes-file $NOTES" >&2
         echo "  scripts/release.sh --resume-from appcast" >&2 ;;
       *)
         echo "Fix the cause, then finish with:" >&2
@@ -232,6 +235,11 @@ for tool in gh git xcodegen brew curl python3 shasum; do
 done
 [[ "$BUILD" =~ ^[0-9]+$ ]] || die "CURRENT_PROJECT_VERSION must be a whole number for Sparkle, not '$BUILD'"
 
+# Kept in this shell only, not exported: just the gh and git calls that need it get it.
+OWNER_TOKEN="$(gh auth token --user "$OWNER" 2>/dev/null)" && [ -n "$OWNER_TOKEN" ] \
+  || die "gh is not logged in as $OWNER; run: gh auth login"
+as_owner() { GH_TOKEN="$OWNER_TOKEN" "$@"; }
+
 [ "$(git rev-parse --abbrev-ref HEAD)" = "main" ] || die "not on main"
 [ -z "$(git status --porcelain)" ] || die "the working tree is not clean"
 git fetch --quiet origin main
@@ -243,7 +251,7 @@ if grep -q $'\xe2\x80\x94' "$NOTES"; then die "$NOTES contains an em dash"; fi
 
 # Sparkle carries no GitHub credentials: on a private repository the feed and the
 # asset answer 404 and every update check fails quietly.
-[ "$(gh repo view "$REPO" --json visibility --jq .visibility)" = "PUBLIC" ] \
+[ "$(as_owner gh repo view "$REPO" --json visibility --jq .visibility)" = "PUBLIC" ] \
   || die "$REPO is not public; updates cannot reach the feed or the asset"
 
 [ -f "$CASK" ] || die "no cask at $CASK (TAP_DIR=$TAP_DIR)"
@@ -256,7 +264,7 @@ PUBLISHED_BUILD=""
 if [ -z "$RESUME" ]; then
   if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then die "tag $TAG exists locally"; fi
   if [ -n "$(git ls-remote --tags origin "refs/tags/$TAG")" ]; then die "tag $TAG exists on origin"; fi
-  if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then die "GitHub release $TAG exists"; fi
+  if as_owner gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then die "GitHub release $TAG exists"; fi
 
   # Sparkle offers an update only when its build number is higher than the one
   # installed. A build number that did not go up publishes an update nobody gets.
@@ -271,7 +279,7 @@ if [ -z "$RESUME" ]; then
 else
   # Resuming: the tag and the release must already be public, with the asset.
   [ -n "$(git ls-remote --tags origin "refs/tags/$TAG")" ] || die "tag $TAG is not on origin; run a full release"
-  ASSETS="$(gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name' 2>/dev/null || true)"
+  ASSETS="$(as_owner gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name' 2>/dev/null || true)"
   grep -qx "$ASSET" <<<"$ASSETS" || die "GitHub release $TAG has no $ASSET; publish it first"
   if [ -n "$PUBLISHED_BUILD" ] && [ "$BUILD" -lt "$PUBLISHED_BUILD" ]; then
     die "appcast.xml already has build $PUBLISHED_BUILD, above this release's $BUILD"
@@ -327,7 +335,7 @@ if [ -z "$RESUME" ]; then
   git tag -a "$TAG" -m "ClipShot $VERSION"
   LOCAL_TAG="tag"
   # Atomic: the release commit lands on main together with its tag, or neither does.
-  git push --atomic origin main "refs/tags/$TAG"
+  as_owner git push --atomic origin main "refs/tags/$TAG"
   PUBLIC_STATE="tag $TAG pushed"
 
   # -------------------------------------------------------------------------
@@ -335,7 +343,7 @@ if [ -z "$RESUME" ]; then
   # -------------------------------------------------------------------------
   step "GitHub release"
 
-  gh release create "$TAG" "$ZIP" --repo "$REPO" --verify-tag \
+  as_owner gh release create "$TAG" "$ZIP" --repo "$REPO" --verify-tag \
     --title "ClipShot $VERSION" --notes-file "$NOTES"
   PUBLIC_STATE="GitHub release $TAG published"
 fi
@@ -346,7 +354,7 @@ fi
 step "Appcast"
 
 DOWNLOAD="$(mktemp -d "${TMPDIR:-/tmp}/clipshot-asset.XXXXXX")"
-gh release download "$TAG" --repo "$REPO" --pattern "$ASSET" --dir "$DOWNLOAD"
+as_owner gh release download "$TAG" --repo "$REPO" --pattern "$ASSET" --dir "$DOWNLOAD"
 PUBLISHED="$DOWNLOAD/$ASSET"
 # Nothing is signed into the feed unverified. In every mode the asset GitHub
 # serves is unpacked and checked in full (verify_archive). When the local ZIP is
@@ -370,7 +378,7 @@ if git diff --cached --quiet; then
 else
   git commit -m "Publish appcast for $VERSION"
 fi
-git push origin main
+as_owner git push origin main
 PUBLIC_STATE="appcast for $VERSION pushed to main"
 
 # ---------------------------------------------------------------------------
@@ -440,13 +448,16 @@ if [ -d "$TAPPED" ]; then
 else
   brew tap "$TAP_NAME" "$TAP_DIR"
 fi
+# Homebrew 7 loads a cask from a third-party tap only once the tap is trusted; an older
+# Homebrew has no `brew trust` and loads it anyway.
+if brew trust --help >/dev/null 2>&1; then brew trust --tap "$TAP_NAME"; fi
 # Not --new: that adds homebrew/cask's notability rule (75 stars and the like),
 # which a personal tap fails by design. --online still downloads the asset and
 # checks it against the sha256 just written.
 brew audit --cask --strict --online "$TAP_NAME/clipshot"
 brew style --cask "$TAP_NAME/clipshot"
 
-git -C "$TAP_DIR" push origin main
+as_owner git -C "$TAP_DIR" push origin main
 git -C "$TAPPED" remote set-url origin "https://github.com/m-moravcik/homebrew-clipshot"
 PUBLIC_STATE="cask clipshot ${VERSION} pushed"
 
