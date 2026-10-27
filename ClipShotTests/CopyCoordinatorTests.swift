@@ -531,6 +531,11 @@ struct CopyCoordinatorTests {
         #expect(await h.settled())
         #expect(h.writes.isEmpty)
         #expect(await h.ledgerNames() == ["Screenshot short.png"])
+        // Edited in Markup while copying is on: the edit is copied, the capture still was not.
+        h.edits.begin(try #require(CaptureFile.inspect(url)))
+        let edited = CoordinatorHarness.png(57)
+        try rewriteInPlace(url, with: edited)
+        #expect(await eventually { await h.writes == [edited] })
     }
 
     /// A capture in flight when watching starts is not copied, however soon macOS renames it.

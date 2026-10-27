@@ -468,7 +468,7 @@ final class CopyCoordinator {
                 }
                 continue
             }
-            if staged.isExcluded(file) {
+            if !editing, staged.isExcluded(file) {
                 decider.seed([file], now: now)
                 let ext = file.url.pathExtension.lowercased()
                 let log = log

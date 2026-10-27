@@ -53,7 +53,8 @@ The rename fires a directory event; setting the marker fires none (F5). So:
    moment it appeared. A file never seen hidden (put back from the Trash, moved
    in) is judged by its own times as before, and the log says why it was not copied.
    Dot-files already there when watching starts, or first seen while copying is
-   off, are never staged, and the file they are renamed to is never copied.
+   off, are never staged, and the file they are renamed to is not copied unless
+   it is then edited in Markup.
 4. The image goes to the pasteboard as PNG data only (`ClipboardWriter`), never
    as a file URL, so chat apps, Mail and browsers paste the picture rather than
    an attachment. Other formats are converted.
