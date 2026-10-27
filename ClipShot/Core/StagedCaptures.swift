@@ -22,7 +22,8 @@ struct StagedCaptures: Sendable {
 
     private var entries: [Data: Entry] = [:]
     /// Birth time of each hidden file listed when watching started or while copying was off:
-    /// never staged, because what is already there, or taken while copying is off, is never copied.
+    /// never staged, and never copied under its final name, because what is already there, or
+    /// taken while copying is off, is never copied.
     private var excluded: [Data: Date] = [:]
 
     init(present temporaries: [CaptureFile] = []) {
@@ -39,9 +40,16 @@ struct StagedCaptures: Sendable {
         entries[temporary.resourceID] = Entry(created: temporary.created, seen: now)
     }
 
-    /// Keeps a hidden file listed while copying is off from being staged later.
+    /// Keeps a hidden file listed while copying is off from being staged or copied later, unless
+    /// it was already staged while copying was on.
     mutating func exclude(_ temporary: CaptureFile) {
+        guard entries[temporary.resourceID]?.created != temporary.created else { return }
         excluded[temporary.resourceID] = temporary.created
+    }
+
+    /// Whether `file` was hidden when watching started or while copying was off.
+    func isExcluded(_ file: CaptureFile) -> Bool {
+        excluded[file.resourceID] == file.created
     }
 
     /// How long `file` was hidden before it appeared under its own name; 0 when it was never

@@ -508,6 +508,53 @@ struct CopyCoordinatorTests {
         #expect(await h.ledgerNames().isEmpty)
     }
 
+    /// A short hold, inside the copy window: the final file is fresh by its own times and still
+    /// not copied, because its hidden file was first seen while copying was off.
+    @Test func doesNotCopyCaptureHiddenWhileCopyingIsOffRenamedSoon() async throws {
+        let clock = OffsetClock()
+        let h = try CoordinatorHarness(clock: clock.now)
+        defer { h.coordinator.stop() }
+        #expect(await h.start())
+        h.coordinator.isEnabled = false
+        let paused = h.coordinator.passesFinished
+        let temp = h.folder.appendingPathComponent(".Screenshot short.png")
+        try CoordinatorHarness.png(55).write(to: temp)
+        #expect(await eventually { await h.coordinator.passesFinished > paused })
+        h.coordinator.isEnabled = true
+        clock.advance(by: 20)
+        let url = h.folder.appendingPathComponent("Screenshot short.png")
+        #expect(rename(temp.path, url.path) == 0)
+        Fixtures.mark(url)
+        #expect(await eventually {
+            await h.logText.contains("not copied, saved while ClipShot was not copying ext=png")
+        })
+        #expect(await h.settled())
+        #expect(h.writes.isEmpty)
+        #expect(await h.ledgerNames() == ["Screenshot short.png"])
+    }
+
+    /// A capture in flight when watching starts is not copied, however soon macOS renames it.
+    @Test func doesNotCopyCaptureHiddenWhenWatchingStartsRenamedSoon() async throws {
+        let clock = OffsetClock()
+        let h = try CoordinatorHarness(clock: clock.now)
+        defer { h.coordinator.stop() }
+        let temp = h.folder.appendingPathComponent(".Screenshot launch.png")
+        try CoordinatorHarness.png(56).write(to: temp)
+        #expect(await h.start())
+        #expect(await h.settled())
+        clock.advance(by: 20)
+        let url = h.folder.appendingPathComponent("Screenshot launch.png")
+        #expect(rename(temp.path, url.path) == 0)
+        Fixtures.mark(url)
+        #expect(await eventually {
+            await h.logText.contains("not copied, saved while ClipShot was not copying ext=png")
+        })
+        #expect(await h.settled())
+        #expect(h.writes.isEmpty)
+        #expect(await h.ledgerNames() == ["Screenshot launch.png"])
+        #expect(h.logText.components(separatedBy: "not copied, saved while").count == 2)
+    }
+
     /// The same late birth time without a hidden file ClipShot saw: an old screenshot put back
     /// from the Trash or moved in. Not copied, and the log says why.
     @Test func doesNotCopyOldScreenshotThatWasNeverHidden() async throws {

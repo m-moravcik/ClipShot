@@ -461,11 +461,18 @@ final class CopyCoordinator {
                 if observation.isNew, file.isScreenshot, !editing,
                    !CopyDecider.isFresh(file, now: now, hiddenFor: hidden) {
                     // Put back from the Trash, moved in, or written long before it appeared.
-                    let age = Int(now.timeIntervalSince(file.created) - hidden)
+                    let age = Int(now.timeIntervalSince(min(file.created, file.modified)) - hidden)
                     let ext = file.url.pathExtension.lowercased()
                     let log = log
                     Task { await log.info("not copied, created \(age) s before it appeared ext=\(ext)") }
                 }
+                continue
+            }
+            if staged.isExcluded(file) {
+                decider.seed([file], now: now)
+                let ext = file.url.pathExtension.lowercased()
+                let log = log
+                Task { await log.info("not copied, saved while ClipShot was not copying ext=\(ext)") }
                 continue
             }
             // Waiting for an earlier file of the same capture to get its marker.
