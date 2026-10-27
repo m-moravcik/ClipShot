@@ -58,8 +58,9 @@ The rename fires a directory event; setting the marker fires none (F5). So:
 
 Each pass costs one `lstat` per file. The marker (four or five `getxattr` calls)
 is read only for a file that could be copied: fresh by its times, open in Markup,
-or new since the last listing. With 3,000 old screenshots in the folder a pass
-takes about 20 ms instead of about 290 ms.
+new since the last listing, or new in the last few seconds and still without
+the marker. With 3,000 old screenshots in the folder a pass takes about 20 ms
+instead of about 290 ms.
 
 Every read of a screenshot, for the copy, a thumbnail, the preview or a drag,
 goes through `FileTrust`: one descriptor opened with `O_NOFOLLOW`, `fstat` says a

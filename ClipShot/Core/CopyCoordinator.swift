@@ -20,6 +20,9 @@ final class CopyCoordinator {
     ]
     /// `Cmd+Shift+3` writes one file per display about 10 ms apart, main display first (spike F3).
     nonisolated static let displayGroupWindow: TimeInterval = 1
+    /// How long the marker of a file that appeared without it is still read: past the last
+    /// rescan, 3 s after the event.
+    nonisolated static let markerWait: TimeInterval = 5
     /// How late the 1 s poll may fire, so macOS can coalesce its wake-ups with others.
     nonisolated static let pollTolerance = 0.25
 
@@ -81,6 +84,10 @@ final class CopyCoordinator {
     /// Markup, or not in this set (P1: a folder of thousands of old screenshots costs one
     /// `lstat` each per pass, not four or five `getxattr`).
     private var known: Set<ListingKey> = []
+    /// Files that appeared without the marker, with when they first did. Setting it fires no
+    /// event (F5), so the rescans keep reading it for `markerWait`: a screenshot that is not
+    /// copied is still logged once.
+    private var awaitingMarker: [ListingKey: Date] = [:]
     /// Hidden files seen while fresh: a capture macOS renames into place late is still copied.
     private var staged = StagedCaptures()
     /// Passes and polls finished; tests wait on them instead of sleeping.
@@ -286,6 +293,7 @@ final class CopyCoordinator {
         baseline = Set(result.files.map(FileKey.init))
         known = Set(result.files.map(ListingKey.init))
         staged = StagedCaptures(present: result.temporary)
+        awaitingMarker = [:]
         recorded = [:]
         requestQueuedPass()
     }
@@ -373,14 +381,16 @@ final class CopyCoordinator {
         let clock = clock
         let edits = edits
         let known = known
+        let awaitingMarker = awaitingMarker
         let staged = staged
         let readMarker = readMarker
         let trust = trust
         Task {
             let outcome = await onIO {
                 Self.scan(
-                    folder, decider: decider, edits: edits, known: known, staged: staged, readMarker: readMarker,
-                    trust: trust, copying: copying, lastRescan: lastRescan, now: clock())
+                    folder, decider: decider, edits: edits, known: known, awaitingMarker: awaitingMarker,
+                    staged: staged, readMarker: readMarker, trust: trust, copying: copying, lastRescan: lastRescan,
+                    now: clock())
             }
             passInFlight = false
             if running, gen == generation {
@@ -421,6 +431,14 @@ final class CopyCoordinator {
             let key = FileKey(file)
             let hidden = observation.hiddenFor
             if hidden > 0 { staged.appeared(file, hiddenFor: hidden) }
+            if observation.isNew {
+                let listed = ListingKey(file)
+                if file.isScreenshot {
+                    awaitingMarker[listed] = nil
+                } else if awaitingMarker[listed] == nil {
+                    awaitingMarker[listed] = now
+                }
+            }
             if file.isScreenshot, CopyDecider.isFresh(file, now: now, hiddenFor: hidden),
                !baseline.contains(key), recorded[key] == nil {
                 recorded[key] = now
@@ -520,6 +538,7 @@ final class CopyCoordinator {
         let now = clock()
         decider.prune(now: now)
         staged.prune(now: now)
+        awaitingMarker = awaitingMarker.filter { now.timeIntervalSince($0.value) <= Self.markerWait }
         recorded = recorded.filter { now.timeIntervalSince($0.value) <= CopyDecider.memory }
         followed = followed.filter { now.timeIntervalSince($0.value) <= CopyDecider.memory }
     }
@@ -534,10 +553,11 @@ final class CopyCoordinator {
     }
 
     /// Lists, inspects, applies the multi-display rule and converts what may be copied.
-    /// Every file costs one `lstat`; the marker is read only for a file that could be copied
-    /// or is new since the last listing (`known`).
+    /// Every file costs one `lstat`; the marker is read only for a file that could be copied,
+    /// is new since the last listing (`known`) or is still awaiting its marker.
     nonisolated static func scan(
-        _ folder: URL, decider: CopyDecider, edits: EditSession, known: Set<ListingKey>, staged: StagedCaptures,
+        _ folder: URL, decider: CopyDecider, edits: EditSession, known: Set<ListingKey>,
+        awaitingMarker: [ListingKey: Date], staged: StagedCaptures,
         readMarker: (URL) -> Bool, trust: FileTrust.Policy = .standard, copying: Bool, lastRescan: Bool, now: Date
     ) -> PassOutcome {
         guard let (files, temporary) = list(folder, owner: trust.owner) else { return .unreadable }
@@ -558,7 +578,8 @@ final class CopyCoordinator {
             let hidden = staged.hiddenFor(listed, now: now)
             let fresh = CopyDecider.isFresh(listed, now: now, hiddenFor: hidden)
             let new = !known.contains(key)
-            guard fresh || editing || new else {
+            let recent = new || awaitingMarker[key] != nil
+            guard fresh || editing || recent else {
                 rest.append(FileObservation(file: listed, editing: false, isDisplay: false))
                 continue
             }
@@ -567,7 +588,7 @@ final class CopyCoordinator {
             candidates.append(FileObservation(
                 file: file, editing: editing,
                 isDisplay: !editing && file.isScreenshot && CaptureMarker.captureType(of: file.url) == "display",
-                hiddenFor: hidden, isNew: new))
+                hiddenFor: hidden, isNew: recent))
         }
         var observations = candidates.sorted {
             ($0.file.created, $0.file.url.path) < ($1.file.created, $1.file.url.path)
@@ -718,7 +739,8 @@ struct FileObservation: Sendable {
     let isDisplay: Bool
     /// How long the file sat under a hidden name before it appeared (`StagedCaptures`).
     let hiddenFor: TimeInterval
-    /// Not in the previous listing: put there, renamed or rewritten since.
+    /// Not in the previous listing (put there, renamed or rewritten since), or still awaiting
+    /// the marker it lacked when it appeared.
     let isNew: Bool
     /// A later display of a multi-display capture: recorded, never copied.
     var secondaryDisplay = false

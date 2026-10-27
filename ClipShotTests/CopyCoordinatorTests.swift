@@ -496,6 +496,28 @@ struct CopyCoordinatorTests {
         #expect(h.writes.isEmpty)
         #expect(await h.ledgerNames().isEmpty)
     }
+
+    /// The marker lands after the rename and fires no event (spike F5). An old screenshot whose
+    /// marker is set only after the first pass listed it is still logged, once, and not copied.
+    @Test func logsOldScreenshotMarkedAfterTheFirstPass() async throws {
+        let clock = OffsetClock()
+        let h = try CoordinatorHarness(clock: clock.now)
+        defer { h.coordinator.stop() }
+        #expect(await h.start())
+        #expect(await h.settled())
+        clock.advance(by: 69)
+        let passes = h.coordinator.passesFinished
+        let url = try Fixtures.write(
+            named: "Marked late.png", contents: CoordinatorHarness.png(53), in: h.folder,
+            marker: .none, captureType: false)
+        #expect(await eventually { await h.coordinator.passesFinished > passes })
+        Fixtures.mark(url)
+        #expect(await eventually { await h.logged("not copied, created ", seconds: 69..<75) })
+        #expect(await h.settled())
+        #expect(h.writes.isEmpty)
+        #expect(await h.ledgerNames().isEmpty)
+        #expect(h.logText.components(separatedBy: "not copied, created ").count == 2)
+    }
 }
 
 /// Wall time moved forward by hand, for a capture macOS holds back longer than a test should wait.
