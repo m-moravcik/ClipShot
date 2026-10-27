@@ -66,7 +66,7 @@ kept piling up. ClipShot is that script done properly.
   running app (see [Command line](#command-line)).
 
 It works in English, Slovak, Czech, German, Spanish and French. A downloaded copy
-updates itself; a Homebrew copy updates with `brew upgrade`.
+updates itself; a Homebrew copy updates through [Homebrew](#homebrew).
 
 ## Install
 
@@ -76,9 +76,9 @@ updates itself; a Homebrew copy updates with `brew upgrade`.
 brew install --cask m-moravcik/clipshot/clipshot
 ```
 
-Upgrade with `brew upgrade --cask clipshot`. A copy installed by Homebrew leaves
-updates to Homebrew and does not update itself. The cask also puts the `clipshot`
-command on your PATH.
+Upgrade with `brew upgrade --cask m-moravcik/clipshot/clipshot`. A copy installed
+by Homebrew leaves updates to Homebrew and does not update itself. The cask also
+puts the `clipshot` command on your PATH.
 
 ### Manual
 
