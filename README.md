@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/tests-505%20passing-brightgreen" alt="Tests: 505 passing">
+  <img src="https://img.shields.io/badge/tests-563%20passing-brightgreen" alt="Tests: 563 passing">
   <img src="https://img.shields.io/badge/macOS-26%2B-blue" alt="macOS 26 or newer">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT"></a>
 </p>
