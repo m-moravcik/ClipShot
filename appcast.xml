@@ -7,7 +7,7 @@
     <language>en</language>
     <item>
       <title>Version 0.9.3</title>
-      <pubDate>Tue, 27 Oct 2026 16:07:57 +0000</pubDate>
+      <pubDate>Tue, 27 Oct 2026 16:09:04 +0000</pubDate>
       <sparkle:version>4</sparkle:version>
       <sparkle:shortVersionString>0.9.3</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
@@ -29,6 +29,6 @@
   </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: aCEzXU37MgdLz0MQGTOeyKBhRVR2xwwaxQMr7BqhjsF2dTX3DMVN+v0O4NVmlLjOX9SjVgpWmknbWnATGgEJAA==
+edSignature: q7fGrcq195zCCt1jv2y4kzIAastyMR5UymzCW0QT4vXTdVFWixIbJS4Mtr11cA5q5wDQrxmIFhnCzAKfBk9rDQ==
 length: 1858
 -->
