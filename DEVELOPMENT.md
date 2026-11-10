@@ -148,8 +148,11 @@ Copy or a second edit sees it: written to a temporary file on the same volume,
 given the original's extended attributes (the screenshot marker), permissions and
 creation date, re-encoded when the screenshot is not a PNG, then renamed over it.
 The watcher copies the saved file within the edit session like a save in place.
-Only when the file cannot take the edit (a PDF capture, or a file replaced while
-the editor was open) does the image go to the clipboard on its own. A save that
+Done without a change still hands back the image, re-encoded: when it has the
+file's pixels (`EditedImageWriter.samePixels`), the file and the clipboard are
+left as they were and the log says `markup edit unchanged`. Only when the file
+cannot take the edit (a PDF capture, or a file replaced while the editor was
+open) does the image go to the clipboard on its own. A save that
 replaces the file keeps it in the ledger (`ScreenshotLedger.followEdit`).
 
 ### Motion

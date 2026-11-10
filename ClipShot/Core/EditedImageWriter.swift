@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import ImageIO
 import UniformTypeIdentifiers
@@ -22,21 +23,61 @@ enum EditedImageWriter {
         case writeFailed = "write failed"
     }
 
-    /// Writes `data` (any image ImageIO reads) over `url`, encoded in the format `url` has.
-    /// `expectedResourceID` is the original's device and inode when the edit began: a file
-    /// put at that path since then is not overwritten.
+    /// What a save did.
+    enum Outcome: Equatable, Sendable {
+        case saved
+        /// The edit has the file's pixels: Done without a change, which on macOS 27 still
+        /// hands back the image, re-encoded and larger. The file is left as it was.
+        case unchanged
+    }
+
+    /// Writes `data` (any image ImageIO reads) over `url`, encoded in the format `url` has,
+    /// unless it shows the same pixels as `url`. `expectedResourceID` is the original's
+    /// device and inode when the edit began: a file put at that path since then is not
+    /// overwritten.
     static func save(
         _ data: Data, over url: URL, expectedResourceID: Data, policy: FileTrust.Policy = .standard
-    ) -> Result<Void, Failure> {
+    ) -> Result<Outcome, Failure> {
         var trust = policy
         trust.expectedResourceID = expectedResourceID
-        guard case .success = FileTrust.open(url, policy: trust) else { return .failure(.notTheOriginal) }
+        guard case .success(let opened) = FileTrust.open(url, policy: trust) else { return .failure(.notTheOriginal) }
         let encoded: Data
         switch encode(data, like: url, policy: policy) {
         case .success(let bytes): encoded = bytes
         case .failure(let failure): return .failure(failure)
         }
-        return replace(url, with: encoded)
+        if case .success(let original) = opened.read(), samePixels(data, original, policy: policy) {
+            return .success(.unchanged)
+        }
+        return replace(url, with: encoded).map { .saved }
+    }
+
+    /// Whether two encoded images show the same pixels: the same size, and equal once both
+    /// are drawn into the same 8-bit Display P3 bitmap. Off the main actor: it decodes both.
+    static func samePixels(_ a: Data, _ b: Data, policy: FileTrust.Policy = .standard) -> Bool {
+        guard let first = decode(a, policy: policy), let second = decode(b, policy: policy),
+              first.width == second.width, first.height == second.height,
+              let firstPixels = bitmap(first), let secondPixels = bitmap(second)
+        else { return false }
+        return firstPixels == secondPixels
+    }
+
+    private static func decode(_ data: Data, policy: FileTrust.Policy) -> CGImage? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil), CGImageSourceGetCount(source) > 0,
+              FileTrust.allowsPixels(of: source, policy: policy)
+        else { return nil }
+        return CGImageSourceCreateImageAtIndex(source, 0, nil)
+    }
+
+    private static func bitmap(_ image: CGImage) -> Data? {
+        guard let space = CGColorSpace(name: CGColorSpace.displayP3),
+              let context = CGContext(
+                  data: nil, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: image.width * 4,
+                  space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
+              let pixels = context.data
+        else { return nil }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        return Data(bytes: pixels, count: image.width * image.height * 4)
     }
 
     /// `data` in the format of `url`'s extension: as it is when it already has that format,
