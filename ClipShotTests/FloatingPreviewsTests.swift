@@ -236,6 +236,24 @@ struct FloatingPreviewsTests {
         #expect(try Data(contentsOf: url) == again)
     }
 
+    /// Done without a change: Markup still hands back the image, re-encoded. The file and
+    /// the clipboard stay as they were.
+    @Test func markupDoneWithoutAChangeLeavesTheFileAndClipboardAlone() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        #expect(await h.start())
+        let original = Fixtures.pngImage(size: 30)
+        let url = try Fixtures.write(named: "Screenshot 1.png", contents: original, in: h.folder)
+        #expect(await eventually { await h.pasteboard.writes.count == 1 })
+        let file = try #require(CaptureFile.inspect(url))
+        h.markupResult = .savedCopy(Fixtures.image(type: .tiff, size: 30))
+        h.model.markup(file)
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(try Data(contentsOf: url) == original)
+        #expect(CaptureFile.inspect(url) == file)
+        #expect(h.pasteboard.writes.count == 1, "nothing new to copy")
+    }
+
     /// Markup left open past the 30-minute session: Done still saves, copies and keeps the
     /// file tracked.
     @Test func anEditDoneAfterTheSessionExpiredIsStillCopiedAndTracked() async throws {

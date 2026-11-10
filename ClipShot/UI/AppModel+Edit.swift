@@ -46,7 +46,8 @@ extension AppModel {
 
     /// The editor handed back the edited image instead of writing the file: save it over the
     /// file, as Markup in Quick Look and Preview do, so a later Copy or edit sees it. The
-    /// watcher copies the saved file like a save in place. Only when the file cannot be
+    /// watcher copies the saved file like a save in place. An image with the file's pixels
+    /// (Done without a change) is neither saved nor copied. Only when the file cannot be
     /// written is the image copied on its own.
     private func saveEdited(_ data: Data, over file: CaptureFile) {
         let log = log
@@ -59,7 +60,13 @@ extension AppModel {
                 EditedImageWriter.save(data, over: file.url, expectedResourceID: file.resourceID)
             }.value
             guard let self else { return }
-            if case .failure(let failure) = saved {
+            switch saved {
+            case .success(.saved):
+                break
+            case .success(.unchanged):
+                // Done without a change: the file and the clipboard stay as they are.
+                Task { await log.info("markup edit unchanged") }
+            case .failure(let failure):
                 let ext = file.url.pathExtension.lowercased()
                 Task { await log.info("markup edit not saved, \(failure.rawValue) ext=\(ext)") }
                 self.copyEdited(data)

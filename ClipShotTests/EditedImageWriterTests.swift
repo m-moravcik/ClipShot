@@ -19,7 +19,7 @@ struct EditedImageWriterTests {
 
         let result = EditedImageWriter.save(edited, over: url, expectedResourceID: before.resourceID)
 
-        #expect(failure(of: result) == nil)
+        #expect(outcome(of: result) == .saved)
         #expect(try Data(contentsOf: url) == edited)
         let after = try #require(CaptureFile.inspect(url))
         #expect(after.isScreenshot, "the marker the ledger needs is kept")
@@ -27,6 +27,37 @@ struct EditedImageWriterTests {
         #expect(after.created == created)
         #expect(after.modified > created)
         #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path) == ["Screenshot.png"])
+    }
+
+    /// Done without a change: macOS 27 still hands back the image, re-encoded (2.3 times the
+    /// bytes, the same pixels). The file is left as it was, so nothing is copied.
+    @Test func anEditWithTheSamePixelsLeavesTheFileAlone() throws {
+        let dir = try Fixtures.makeDir()
+        let created = Date(timeIntervalSince1970: 1_700_000_000)
+        let original = Fixtures.pngImage(size: 30)
+        let url = try Fixtures.write(named: "Screenshot.png", contents: original, in: dir, created: created, modified: created)
+        let before = try #require(CaptureFile.inspect(url))
+        let reencoded = Fixtures.image(type: .tiff, size: 30)
+        #expect(reencoded != original)
+
+        let result = EditedImageWriter.save(reencoded, over: url, expectedResourceID: before.resourceID)
+
+        #expect(outcome(of: result) == .unchanged)
+        #expect(try Data(contentsOf: url) == original)
+        #expect(CaptureFile.inspect(url) == before, "same inode, same modification time")
+    }
+
+    /// One changed pixel is an edit.
+    @Test func anEditOfOnePixelIsSaved() throws {
+        let dir = try Fixtures.makeDir()
+        let url = try Fixtures.write(named: "Screenshot.png", contents: Fixtures.pngImage(size: 30), in: dir)
+        let before = try #require(CaptureFile.inspect(url))
+        let edited = Fixtures.pngImage(size: 30, mark: CGPoint(x: 7, y: 11))
+
+        let result = EditedImageWriter.save(edited, over: url, expectedResourceID: before.resourceID)
+
+        #expect(outcome(of: result) == .saved)
+        #expect(try Data(contentsOf: url) == edited)
     }
 
     /// A file put at the path while the editor was open is not overwritten.
@@ -82,7 +113,11 @@ struct EditedImageWriterTests {
         #expect(try Data(contentsOf: url) == original)
     }
 
-    private func failure(of result: Result<Void, EditedImageWriter.Failure>) -> EditedImageWriter.Failure? {
+    private func failure(of result: Result<EditedImageWriter.Outcome, EditedImageWriter.Failure>) -> EditedImageWriter.Failure? {
         if case .failure(let failure) = result { failure } else { nil }
+    }
+
+    private func outcome(of result: Result<EditedImageWriter.Outcome, EditedImageWriter.Failure>) -> EditedImageWriter.Outcome? {
+        if case .success(let outcome) = result { outcome } else { nil }
     }
 }

@@ -68,13 +68,18 @@ enum Fixtures {
         setxattr(CaptureMarker.captureType, bplist(kind), on: url)
     }
 
-    static func image(type: UTType, size: Int = 16) -> Data {
+    /// A square of one colour; `mark`, when given, is one pixel of another.
+    static func image(type: UTType, size: Int = 16, mark: CGPoint? = nil) -> Data {
         let ctx = CGContext(
             data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0,
             space: CGColorSpace(name: CGColorSpace.sRGB)!,
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
         ctx.setFillColor(CGColor(red: 0.2, green: 0.5, blue: 0.9, alpha: 1))
         ctx.fill(CGRect(x: 0, y: 0, width: size, height: size))
+        if let mark {
+            ctx.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1))
+            ctx.fill(CGRect(origin: mark, size: CGSize(width: 1, height: 1)))
+        }
         let data = NSMutableData()
         let dest = CGImageDestinationCreateWithData(data, type.identifier as CFString, 1, nil)!
         CGImageDestinationAddImage(dest, ctx.makeImage()!, nil)
@@ -82,5 +87,5 @@ enum Fixtures {
         return data as Data
     }
 
-    static func pngImage(size: Int = 16) -> Data { image(type: .png, size: size) }
+    static func pngImage(size: Int = 16, mark: CGPoint? = nil) -> Data { image(type: .png, size: size, mark: mark) }
 }
