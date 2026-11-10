@@ -161,7 +161,8 @@ final class MarkupOpener: NSObject, NSSharingServiceDelegate {
             let completion = edit.completion
             // The provider loads on a queue of its own, off the main actor.
             _ = provider.loadDataRepresentation(forTypeIdentifier: UTType.png.identifier) { data, _ in
-                Task { @MainActor in completion(data.map { .savedCopy($0) } ?? .closed) }
+                // No data is a hand-back that failed, not a Cancel: the log tells them apart.
+                Task { @MainActor in completion(data.map { .savedCopy($0) } ?? .failed) }
             }
         } else {
             finish(.closed)

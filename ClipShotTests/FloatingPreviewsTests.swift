@@ -223,7 +223,10 @@ struct FloatingPreviewsTests {
         #expect(CaptureFile.inspect(url)?.isScreenshot == true)
         try await Task.sleep(for: .milliseconds(300))
         #expect(h.pasteboard.writes.count == 2, "copied once, by the watcher")
-        #expect(await h.model.isTracked(try #require(CaptureFile.inspect(url))))
+        // The ledger itself follows the new file (isTracked would also pass on `lastCopied`).
+        await h.model.ledgerSettled()
+        let saved = try #require(CaptureFile.inspect(url))
+        #expect(await h.ledger.contains(path: FolderGuard.canonicalPath(url), resourceID: saved.resourceID))
 
         // A second edit opens the file as it is now and saves over it again.
         let again = Fixtures.pngImage(size: 32)
@@ -231,6 +234,32 @@ struct FloatingPreviewsTests {
         h.model.markup(file)
         #expect(await eventually { await h.pasteboard.writes.last == again })
         #expect(try Data(contentsOf: url) == again)
+    }
+
+    /// Markup left open past the 30-minute session: Done still saves, copies and keeps the
+    /// file tracked.
+    @Test func anEditDoneAfterTheSessionExpiredIsStillCopiedAndTracked() async throws {
+        let clock = ManualClock()
+        let h = try ModelHarness(editClock: { clock.date })
+        defer { h.tearDown() }
+        #expect(await h.start())
+        let url = try Fixtures.write(
+            named: "Screenshot 1.png", contents: Fixtures.pngImage(size: 30), in: h.folder,
+            created: Date().addingTimeInterval(-3_600), modified: Date().addingTimeInterval(-3_600))
+        let file = try #require(CaptureFile.inspect(url))
+        await h.ledger.record(file)
+        h.markupStaysOpen = true
+        h.model.markup(file)
+        clock.advance(EditSession.lifetime + 60)
+        #expect(!h.edits.isEditing(file), "the editor's session is over")
+
+        let edited = Fixtures.pngImage(size: 31)
+        h.closeMarkup(.savedCopy(edited))
+        #expect(await eventually { await h.pasteboard.writes.last == edited })
+        #expect(try Data(contentsOf: url) == edited)
+        await h.model.ledgerSettled()
+        let saved = try #require(CaptureFile.inspect(url))
+        #expect(await h.ledger.contains(path: FolderGuard.canonicalPath(url), resourceID: saved.resourceID))
     }
 
     /// A file that cannot take the edit (a PDF capture) still gets it on the clipboard.

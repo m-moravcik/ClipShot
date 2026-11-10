@@ -98,6 +98,9 @@ final class ModelHarness {
     /// Files opened in Markup, and how the fake editor ends each edit.
     private(set) var markups: [URL] = []
     var markupResult: MarkupResult = .closed
+    /// When true the fake editor stays open: `closeMarkup` ends it later.
+    var markupStaysOpen = false
+    private var openEditor: (@MainActor (MarkupResult) -> Void)?
     let edits: EditSession
     let backupURL: URL
     let model: AppModel
@@ -111,7 +114,8 @@ final class ModelHarness {
         hasTrash: Bool = true, undoLifetime: Duration = AppModel.defaultUndoLifetime,
         relaunching previous: ModelHarness? = nil,
         locateTrash: @escaping AppDependencies.LocateTrash = AppDependencies.systemTrash,
-        timerClock: (any TimerClock)? = nil
+        timerClock: (any TimerClock)? = nil,
+        editClock: (@Sendable () -> Date)? = nil
     ) throws {
         let fm = FileManager.default
         home = try previous?.home ?? Fixtures.makeDir()
@@ -121,7 +125,7 @@ final class ModelHarness {
         preferences = Preferences(store: InMemoryPreferenceStore())
         preferences.onboardingShown = onboardingShown
         preferences.previewModeApplied = previewModeApplied
-        edits = EditSession()
+        edits = editClock.map { EditSession(clock: $0) } ?? EditSession()
         backupURL = home.appendingPathComponent("prefs-backup.plist")
         ledgerURL = try previous?.ledgerURL ?? Fixtures.makeDir().appendingPathComponent("ledger.json")
         ledger = ScreenshotLedger(fileURL: ledgerURL, log: try RT.testLog())
@@ -172,11 +176,19 @@ final class ModelHarness {
         deps.locateTrash = locateTrash
         if let timerClock { deps.timerClock = timerClock }
         deps.openMarkup = { url, done in
-            box.harness?.markups.append(url)
-            done(box.harness?.markupResult ?? .closed)
+            guard let harness = box.harness else { return done(.closed) }
+            harness.markups.append(url)
+            if harness.markupStaysOpen { harness.openEditor = done } else { done(harness.markupResult) }
         }
         model = AppModel(dependencies: deps)
         box.harness = self
+    }
+
+    /// Ends the edit the fake editor kept open (`markupStaysOpen`).
+    func closeMarkup(_ result: MarkupResult) {
+        let done = openEditor
+        openEditor = nil
+        done?(result)
     }
 
     private final class Box {

@@ -25,7 +25,7 @@ extension AppModel {
             guard let self else { return }
             switch result {
             case .savedCopy(let data):
-                self.saveEdited(data, over: file, session: session)
+                self.saveEdited(data, over: file)
             case .savedInPlace, .closed, .failed:
                 self.endEdit(session)
             case .openedInPreview:
@@ -46,10 +46,14 @@ extension AppModel {
 
     /// The editor handed back the edited image instead of writing the file: save it over the
     /// file, as Markup in Quick Look and Preview do, so a later Copy or edit sees it. The
-    /// session is still open, so the watcher copies the saved file like a save in place.
-    /// Only when the file cannot be written is the image copied on its own.
-    private func saveEdited(_ data: Data, over file: CaptureFile, session: EditSession.Token) {
+    /// watcher copies the saved file like a save in place. Only when the file cannot be
+    /// written is the image copied on its own.
+    private func saveEdited(_ data: Data, over file: CaptureFile) {
         let log = log
+        // The editor may have been open longer than a session lasts (30 minutes): a fresh
+        // session, which replaces the editor's, covers the save, so the watcher still copies
+        // it and the ledger follows the new file.
+        let saving = edits.begin(file)
         Task { [weak self] in
             let saved = await Task.detached(priority: .userInitiated) {
                 EditedImageWriter.save(data, over: file.url, expectedResourceID: file.resourceID)
@@ -60,7 +64,7 @@ extension AppModel {
                 Task { await log.info("markup edit not saved, \(failure.rawValue) ext=\(ext)") }
                 self.copyEdited(data)
             }
-            self.endEdit(session)
+            self.endEdit(saving)
         }
     }
 
