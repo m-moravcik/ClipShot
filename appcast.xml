@@ -6,29 +6,28 @@
     <description>Updates for ClipShot</description>
     <language>en</language>
     <item>
-      <title>Version 0.9.3</title>
-      <pubDate>Tue, 27 Oct 2026 16:09:04 +0000</pubDate>
-      <sparkle:version>4</sparkle:version>
-      <sparkle:shortVersionString>0.9.3</sparkle:shortVersionString>
+      <title>Version 0.9.4</title>
+      <pubDate>Tue, 10 Nov 2026 20:28:04 +0000</pubDate>
+      <sparkle:version>5</sparkle:version>
+      <sparkle:shortVersionString>0.9.4</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<p>ClipShot no longer misses a screenshot that macOS saves late.</p>
+<p>Markup edits now stick.</p>
 <ul>
-<li>When Spotlight is busy, macOS can hold a new screenshot back for a minute or more before it shows up in the folder. ClipShot used to skip such a screenshot as too old, so nothing reached the clipboard. Now it is copied as soon as it appears.</li>
-<li>A screenshot put back from the Trash or moved into the folder is still never copied, as before.</li>
-<li>A second copy of ClipShot, for example one opened from a disk image while the installed one runs, now quits on its own instead of adding a second menu bar icon that copies every screenshot twice.</li>
+<li>After you annotate a screenshot in Markup and click Done, the edited image is on the clipboard. On macOS 27 the edit used to be lost: the clipboard kept nothing new, Copy in ClipShot gave the original, and editing again showed the clean screenshot.</li>
+<li>Done now saves the edit over the screenshot, as Markup in Quick Look and Preview do, so a later Copy or a second edit shows your annotations. The file keeps its name, format and creation date, and stays a screenshot ClipShot tracks.</li>
 </ul>
 <p>Signed with Developer ID, notarized and stapled. Requires macOS 26.</p>
       ]]></description>
       <sparkle:fullReleaseNotesLink>https://github.com/m-moravcik/ClipShot/releases</sparkle:fullReleaseNotesLink>
-      <enclosure url="https://github.com/m-moravcik/ClipShot/releases/download/v0.9.3/ClipShot-0.9.3.zip"
-                 sparkle:edSignature="Arz30wmeTMO0mTSJp9f07KQ/kGjXtMUA4kJiDRpX9CaUvwXxXNf7aSblVBHlFa4qOMLG1rR9OS1KjXlFpaj3DQ=="
-                 length="6189588"
+      <enclosure url="https://github.com/m-moravcik/ClipShot/releases/download/v0.9.4/ClipShot-0.9.4.zip"
+                 sparkle:edSignature="SrdjoeHNmP/ar0Zyyaw2S9D5X0Z/+O38zfYiKxjHz/1AYVMB59iNdpsmWdVo/pblXf5h4Rd1rottcgZcizAwBQ=="
+                 length="6218151"
                  type="application/octet-stream" />
     </item>
   </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: q7fGrcq195zCCt1jv2y4kzIAastyMR5UymzCW0QT4vXTdVFWixIbJS4Mtr11cA5q5wDQrxmIFhnCzAKfBk9rDQ==
-length: 1858
+edSignature: rOwkc4F2+yiG0D5TTxeWPVd6CjTJCkvCHBu14vri8tO50F+piZI0Fk20Q5KIQd+hNMhWfCjbtBBYtISmlqI2CA==
+length: 1759
 -->
