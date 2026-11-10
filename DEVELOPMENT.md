@@ -142,7 +142,8 @@ The file opened for editing gets an `EditSession`: for 30 minutes, or until the
 editor closes plus 5 s, it is exempt from the "created within 30 s" rule (not from
 "modified within 30 s"), so a long edit still lands on the clipboard. On macOS 27
 Done does not write the file: it hands back an `NSItemProvider` holding the edited
-PNG (an edited copy's file URL is handled the same way). `EditedImageWriter` saves
+image in the file's own format (`public.png`, `public.jpeg`, `public.heic`,
+`public.tiff`; an edited copy's file URL is handled the same way). `EditedImageWriter` saves
 that image over the screenshot, as Markup in Quick Look and Preview do, so a later
 Copy or a second edit sees it: written to a temporary file on the same volume,
 given the original's extended attributes (the screenshot marker), permissions and

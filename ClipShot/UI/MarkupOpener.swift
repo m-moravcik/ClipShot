@@ -6,8 +6,8 @@ enum MarkupResult: Equatable, Sendable {
     /// The editor wrote the file in place; the watcher copies it (it is in an edit session).
     case savedInPlace
     /// The editor handed back the edited image instead (on macOS 27 Done hands back an
-    /// `NSItemProvider` with a PNG and leaves the file as it was); ClipShot saves it over
-    /// the file.
+    /// `NSItemProvider` with the image in the file's format and leaves the file as it was);
+    /// ClipShot saves it over the file.
     case savedCopy(Data)
     /// Done or Cancel without a change.
     case closed
@@ -156,17 +156,26 @@ final class MarkupOpener: NSObject, NSSharingServiceDelegate {
                 edit.completion(.savedCopy(data))
             }
         } else if let provider = items.lazy.compactMap({ $0 as? NSItemProvider }).first,
-                  provider.registeredTypeIdentifiers.contains(UTType.png.identifier) {
+                  let type = Self.imageType(in: provider) {
             guard let edit = end() else { return }
             let completion = edit.completion
             // The provider loads on a queue of its own, off the main actor.
-            _ = provider.loadDataRepresentation(forTypeIdentifier: UTType.png.identifier) { data, _ in
+            _ = provider.loadDataRepresentation(forTypeIdentifier: type) { data, _ in
                 // No data is a hand-back that failed, not a Cancel: the log tells them apart.
                 Task { @MainActor in completion(data.map { .savedCopy($0) } ?? .failed) }
             }
         } else {
             finish(.closed)
         }
+    }
+
+    /// The image type a provider offers, PNG first. Markup hands the edit back in the
+    /// file's own format (macOS 27: `public.jpeg` for a JPEG screenshot, `public.heic`,
+    /// `public.tiff`); `EditedImageWriter` decodes any of them, bounded by `FileTrust`.
+    nonisolated static func imageType(in provider: NSItemProvider) -> String? {
+        let types = provider.registeredTypeIdentifiers
+        if types.contains(UTType.png.identifier) { return UTType.png.identifier }
+        return types.first { UTType($0)?.conforms(to: .image) == true }
     }
 
     #if DEBUG
