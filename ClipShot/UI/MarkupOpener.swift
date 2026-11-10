@@ -156,23 +156,16 @@ final class MarkupOpener: NSObject, NSSharingServiceDelegate {
                 edit.completion(.savedCopy(data))
             }
         } else if let provider = items.lazy.compactMap({ $0 as? NSItemProvider }).first,
-                  let type = Self.imageType(in: provider) {
+                  provider.registeredTypeIdentifiers.contains(UTType.png.identifier) {
             guard let edit = end() else { return }
             let completion = edit.completion
             // The provider loads on a queue of its own, off the main actor.
-            _ = provider.loadDataRepresentation(forTypeIdentifier: type) { data, _ in
+            _ = provider.loadDataRepresentation(forTypeIdentifier: UTType.png.identifier) { data, _ in
                 Task { @MainActor in completion(data.map { .savedCopy($0) } ?? .closed) }
             }
         } else {
             finish(.closed)
         }
-    }
-
-    /// The image type a provider offers, PNG first (what Markup hands back).
-    nonisolated static func imageType(in provider: NSItemProvider) -> String? {
-        let types = provider.registeredTypeIdentifiers
-        if types.contains(UTType.png.identifier) { return UTType.png.identifier }
-        return types.first { UTType($0)?.conforms(to: .image) == true }
     }
 
     #if DEBUG

@@ -223,6 +223,7 @@ struct FloatingPreviewsTests {
         #expect(CaptureFile.inspect(url)?.isScreenshot == true)
         try await Task.sleep(for: .milliseconds(300))
         #expect(h.pasteboard.writes.count == 2, "copied once, by the watcher")
+        #expect(await h.model.isTracked(try #require(CaptureFile.inspect(url))))
 
         // A second edit opens the file as it is now and saves over it again.
         let again = Fixtures.pngImage(size: 32)
