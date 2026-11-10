@@ -60,6 +60,38 @@ struct EditedImageWriterTests {
         #expect(try Data(contentsOf: url) == edited)
     }
 
+    /// Markup's Rotate only sets the orientation tag (8, rotated 90° left in EXIF/TIFF terms)
+    /// and keeps the stored pixels: that is an edit, and the file then shows it rotated.
+    @Test func aRotationThatOnlySetsTheOrientationIsSaved() throws {
+        let dir = try Fixtures.makeDir()
+        let original = Fixtures.image(type: .tiff, size: 30)
+        let url = try Fixtures.write(named: "Screenshot.tiff", contents: original, in: dir)
+        let before = try #require(CaptureFile.inspect(url))
+        let rotated = try withOrientation(8, original)
+
+        let result = EditedImageWriter.save(rotated, over: url, expectedResourceID: before.resourceID)
+
+        #expect(outcome(of: result) == .saved)
+        let source = try #require(CGImageSourceCreateWithURL(url as CFURL, nil))
+        let properties = try #require(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any])
+        #expect(properties[kCGImagePropertyOrientation] as? Int == 8)
+    }
+
+    /// An image without an orientation tag shows the same as one tagged 1 (up), so Done
+    /// without a change that only adds the default tag leaves the file alone.
+    @Test func theDefaultOrientationTagIsNotAnEdit() throws {
+        let dir = try Fixtures.makeDir()
+        let original = Fixtures.pngImage(size: 30)
+        let url = try Fixtures.write(named: "Screenshot.png", contents: original, in: dir)
+        let before = try #require(CaptureFile.inspect(url))
+
+        let result = EditedImageWriter.save(
+            try withOrientation(1, Fixtures.image(type: .tiff, size: 30)), over: url, expectedResourceID: before.resourceID)
+
+        #expect(outcome(of: result) == .unchanged)
+        #expect(try Data(contentsOf: url) == original)
+    }
+
     /// A file put at the path while the editor was open is not overwritten.
     @Test func aFileReplacedDuringTheEditIsLeftAlone() throws {
         let dir = try Fixtures.makeDir()
@@ -111,6 +143,19 @@ struct EditedImageWriterTests {
 
         #expect(failure(of: result) == .undecodable)
         #expect(try Data(contentsOf: url) == original)
+    }
+
+    /// `data` re-encoded in its own format with the pixels as they are and the orientation
+    /// tag set, as Markup's Rotate hands it back.
+    private func withOrientation(_ orientation: Int, _ data: Data) throws -> Data {
+        let source = try #require(CGImageSourceCreateWithData(data as CFData, nil))
+        let type = try #require(CGImageSourceGetType(source))
+        let out = NSMutableData()
+        let destination = try #require(CGImageDestinationCreateWithData(out, type, 1, nil))
+        CGImageDestinationAddImageFromSource(
+            destination, source, 0, [kCGImagePropertyOrientation: orientation] as CFDictionary)
+        #expect(CGImageDestinationFinalize(destination))
+        return out as Data
     }
 
     private func failure(of result: Result<EditedImageWriter.Outcome, EditedImageWriter.Failure>) -> EditedImageWriter.Failure? {

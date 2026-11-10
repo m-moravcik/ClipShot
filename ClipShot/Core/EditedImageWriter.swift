@@ -52,21 +52,27 @@ enum EditedImageWriter {
         return replace(url, with: encoded).map { .saved }
     }
 
-    /// Whether two encoded images show the same pixels: the same size, and equal once both
-    /// are drawn into the same 8-bit Display P3 bitmap. Off the main actor: it decodes both.
+    /// Whether two encoded images show the same pixels: the same orientation and size, and
+    /// equal once both are drawn into the same 8-bit Display P3 bitmap. The orientation
+    /// counts because Markup's Rotate only sets that tag and keeps the stored pixels. Off the
+    /// main actor: it decodes both.
     static func samePixels(_ a: Data, _ b: Data, policy: FileTrust.Policy = .standard) -> Bool {
         guard let first = decode(a, policy: policy), let second = decode(b, policy: policy),
-              first.width == second.width, first.height == second.height,
-              let firstPixels = bitmap(first), let secondPixels = bitmap(second)
+              first.orientation == second.orientation,
+              first.image.width == second.image.width, first.image.height == second.image.height,
+              let firstPixels = bitmap(first.image), let secondPixels = bitmap(second.image)
         else { return false }
         return firstPixels == secondPixels
     }
 
-    private static func decode(_ data: Data, policy: FileTrust.Policy) -> CGImage? {
+    /// The stored pixels and the orientation they are shown in (1, up, when untagged).
+    private static func decode(_ data: Data, policy: FileTrust.Policy) -> (image: CGImage, orientation: Int)? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil), CGImageSourceGetCount(source) > 0,
-              FileTrust.allowsPixels(of: source, policy: policy)
+              FileTrust.allowsPixels(of: source, policy: policy),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
         else { return nil }
-        return CGImageSourceCreateImageAtIndex(source, 0, nil)
+        let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+        return (image, properties?[kCGImagePropertyOrientation] as? Int ?? 1)
     }
 
     private static func bitmap(_ image: CGImage) -> Data? {
