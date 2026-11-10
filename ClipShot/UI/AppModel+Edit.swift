@@ -16,6 +16,8 @@ extension AppModel {
     /// Opens `file` for annotation in Markup. While it is open, a save copies the edited image
     /// even when the file is older than the 30 s copy window.
     func markup(_ file: CaptureFile) {
+        // The file as it is now: an earlier edit may have replaced it since `file` was listed.
+        let file = CaptureFile.inspect(file.url) ?? file
         let session = edits.begin(file)
         let log = log
         openMarkup(file.url) { [weak self] result in
@@ -23,8 +25,7 @@ extension AppModel {
             guard let self else { return }
             switch result {
             case .savedCopy(let data):
-                self.copyEdited(data)
-                self.endEdit(session)
+                self.saveEdited(data, over: file)
             case .savedInPlace, .closed, .failed:
                 self.endEdit(session)
             case .openedInPreview:
@@ -43,8 +44,32 @@ extension AppModel {
         }
     }
 
-    /// The editor returned an edited copy instead of writing the file: copy that image, as a
-    /// save in place would be copied, so not while copying is paused (`CopyOrigin.edited`).
+    /// The editor handed back the edited image instead of writing the file: save it over the
+    /// file, as Markup in Quick Look and Preview do, so a later Copy or edit sees it. The
+    /// watcher copies the saved file like a save in place. Only when the file cannot be
+    /// written is the image copied on its own.
+    private func saveEdited(_ data: Data, over file: CaptureFile) {
+        let log = log
+        // The editor may have been open longer than a session lasts (30 minutes): a fresh
+        // session, which replaces the editor's, covers the save, so the watcher still copies
+        // it and the ledger follows the new file.
+        let saving = edits.begin(file)
+        Task { [weak self] in
+            let saved = await Task.detached(priority: .userInitiated) {
+                EditedImageWriter.save(data, over: file.url, expectedResourceID: file.resourceID)
+            }.value
+            guard let self else { return }
+            if case .failure(let failure) = saved {
+                let ext = file.url.pathExtension.lowercased()
+                Task { await log.info("markup edit not saved, \(failure.rawValue) ext=\(ext)") }
+                self.copyEdited(data)
+            }
+            self.endEdit(saving)
+        }
+    }
+
+    /// An edit that could not be saved: copy that image, as a save would be copied, so not
+    /// while copying is paused (`CopyOrigin.edited`).
     private func copyEdited(_ data: Data) {
         guard preferences.copyEnabled else { return }
         Task { [weak self] in

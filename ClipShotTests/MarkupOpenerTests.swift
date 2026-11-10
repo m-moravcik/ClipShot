@@ -1,5 +1,6 @@
 import AppKit
 import Testing
+import UniformTypeIdentifiers
 @testable import ClipShot
 
 @MainActor
@@ -36,6 +37,29 @@ struct MarkupOpenerTests {
         // The extension cleans up its temporary copy.
         try FileManager.default.moveItem(at: copy, to: dir.appendingPathComponent("elsewhere.png"))
         #expect(await eventually { await results.all == [.savedCopy(edited)] })
+    }
+
+    /// macOS 27: Done hands back an `NSItemProvider` with the edited PNG and leaves the file
+    /// as it was. That image is the edit, not a Cancel.
+    @Test func anItemProviderIsTheEditedImage() async throws {
+        let original = try Fixtures.write(named: "Screenshot.png", in: try Fixtures.makeDir())
+        let edited = Fixtures.pngImage(size: 31)
+        let opener = MarkupOpener(makeService: { _ in nil }, openPreview: { _ in false })
+        let results = Results()
+        opener.beginForTesting(original) { results.all.append($0) }
+
+        opener.returned([NSItemProvider(item: edited as NSData, typeIdentifier: UTType.png.identifier)])
+
+        #expect(await eventually { await results.all == [.savedCopy(edited)] })
+    }
+
+    @Test func anItemProviderWithoutAnImageIsClosed() throws {
+        let original = try Fixtures.write(named: "Screenshot.png", in: try Fixtures.makeDir())
+        let opener = MarkupOpener(makeService: { _ in nil }, openPreview: { _ in false })
+        var results: [MarkupResult] = []
+        opener.beginForTesting(original) { results.append($0) }
+        opener.returned([NSItemProvider(item: "text" as NSString, typeIdentifier: UTType.plainText.identifier)])
+        #expect(results == [.closed])
     }
 
     @Test func aReturnedCopyThatIsALinkIsNotRead() throws {

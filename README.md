@@ -134,9 +134,9 @@ Several screenshots in a row stack up, three at most. On the preview:
 ### Marking up
 
 Click the preview, or any screenshot picture in the popover, and it opens in macOS
-Markup. Draw, add text, crop, then click Done: ClipShot copies the edited image,
-even if the edit took a while. If Markup is not available, the screenshot opens in
-Preview instead.
+Markup. Draw, add text, crop, then click Done: the edit is saved over the
+screenshot and ClipShot copies the edited image, even if the edit took a while. If
+Markup is not available, the screenshot opens in Preview instead.
 
 ### The popover
 
