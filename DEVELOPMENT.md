@@ -140,10 +140,17 @@ is unavailable, Preview.app opens the file.
 
 The file opened for editing gets an `EditSession`: for 30 minutes, or until the
 editor closes plus 5 s, it is exempt from the "created within 30 s" rule (not from
-"modified within 30 s"), so a long edit still lands on the clipboard. If Done
-returns an edited copy instead of saving in place, that copy goes to the
-clipboard and the original file is left alone. A save that replaces the file
-keeps it in the ledger (`ScreenshotLedger.followEdit`).
+"modified within 30 s"), so a long edit still lands on the clipboard. On macOS 27
+Done does not write the file: it hands back an `NSItemProvider` holding the edited
+PNG (an edited copy's file URL is handled the same way). `EditedImageWriter` saves
+that image over the screenshot, as Markup in Quick Look and Preview do, so a later
+Copy or a second edit sees it: written to a temporary file on the same volume,
+given the original's extended attributes (the screenshot marker), permissions and
+creation date, re-encoded when the screenshot is not a PNG, then renamed over it.
+The watcher copies the saved file within the edit session like a save in place.
+Only when the file cannot take the edit (a PDF capture, or a file replaced while
+the editor was open) does the image go to the clipboard on its own. A save that
+replaces the file keeps it in the ledger (`ScreenshotLedger.followEdit`).
 
 ### Motion
 

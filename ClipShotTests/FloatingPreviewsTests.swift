@@ -205,13 +205,40 @@ struct FloatingPreviewsTests {
         #expect(h.edits.isEditing(file), "Preview never says when it closes: the session stays")
     }
 
-    @Test func markupCopyIsCopiedAndTheOriginalLeftAlone() async throws {
+    /// The owner's report: after Done the clipboard held the old image, Copy copied the old
+    /// one, and a second edit opened the clean original. The edit Markup hands back is saved
+    /// over the file, copied once, and the file stays the same tracked screenshot.
+    @Test func markupEditIsSavedOverTheFileAndCopied() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }
         #expect(await h.start())
-        let original = Fixtures.pngImage(size: 30)
-        let url = try Fixtures.write(named: "Screenshot 1.png", contents: original, in: h.folder)
+        let url = try Fixtures.write(named: "Screenshot 1.png", contents: Fixtures.pngImage(size: 30), in: h.folder)
         #expect(await eventually { await h.pasteboard.writes.count == 1 })
+        let file = try #require(CaptureFile.inspect(url))
+        let edited = Fixtures.pngImage(size: 31)
+        h.markupResult = .savedCopy(edited)
+        h.model.markup(file)
+        #expect(await eventually { await h.pasteboard.writes.last == edited })
+        #expect(try Data(contentsOf: url) == edited, "the file holds the edit")
+        #expect(CaptureFile.inspect(url)?.isScreenshot == true)
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(h.pasteboard.writes.count == 2, "copied once, by the watcher")
+
+        // A second edit opens the file as it is now and saves over it again.
+        let again = Fixtures.pngImage(size: 32)
+        h.markupResult = .savedCopy(again)
+        h.model.markup(file)
+        #expect(await eventually { await h.pasteboard.writes.last == again })
+        #expect(try Data(contentsOf: url) == again)
+    }
+
+    /// A file that cannot take the edit (a PDF capture) still gets it on the clipboard.
+    @Test func anEditThatCannotBeSavedIsStillCopied() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        #expect(await h.start())
+        let original = Data("%PDF-1.4\n".utf8)
+        let url = try Fixtures.write(named: "Screenshot 1.pdf", contents: original, in: h.folder)
         let file = try #require(CaptureFile.inspect(url))
         let edited = Fixtures.pngImage(size: 31)
         h.markupResult = .savedCopy(edited)
@@ -220,15 +247,17 @@ struct FloatingPreviewsTests {
         #expect(try Data(contentsOf: url) == original)
     }
 
-    @Test func editedCopyIsNotWrittenWhilePaused() async throws {
+    @Test func editedCopyIsSavedButNotCopiedWhilePaused() async throws {
         let h = try ModelHarness()
         defer { h.tearDown() }
         #expect(await h.start())
         let url = try h.shoot("Screenshot 1.png")
         #expect(await eventually { await h.pasteboard.writes.count == 1 })
         h.preferences.copyEnabled = false
-        h.markupResult = .savedCopy(Fixtures.pngImage(size: 33))
+        let edited = Fixtures.pngImage(size: 33)
+        h.markupResult = .savedCopy(edited)
         h.model.markup(try #require(CaptureFile.inspect(url)))
+        #expect(await eventually { (try? Data(contentsOf: url)) == edited }, "the edit is saved")
         try await Task.sleep(for: .milliseconds(300))
         #expect(h.pasteboard.writes.count == 1, "paused: nothing written on ClipShot's own")
     }

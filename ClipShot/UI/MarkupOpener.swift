@@ -1,11 +1,13 @@
 import AppKit
+import UniformTypeIdentifiers
 
 /// How a Markup edit ended.
 enum MarkupResult: Equatable, Sendable {
     /// The editor wrote the file in place; the watcher copies it (it is in an edit session).
     case savedInPlace
-    /// The editor handed back an edited copy instead; ClipShot copies this image and leaves
-    /// the original file alone.
+    /// The editor handed back the edited image instead (on macOS 27 Done hands back an
+    /// `NSItemProvider` with a PNG and leaves the file as it was); ClipShot saves it over
+    /// the file.
     case savedCopy(Data)
     /// Done or Cancel without a change.
     case closed
@@ -127,16 +129,19 @@ final class MarkupOpener: NSObject, NSSharingServiceDelegate {
     }
 
     nonisolated func sharingService(_ sharingService: NSSharingService, didShareItems items: [Any]) {
-        let urls = items.compactMap(Self.fileURL)
-        MainActor.assumeIsolated { returned(urls) }
+        nonisolated(unsafe) let items = items
+        MainActor.assumeIsolated { returned(items) }
     }
 
-    /// Done in the editor, with the items it handed back. A returned copy may live in a
-    /// temporary place the extension cleans up as soon as this returns, so it is opened
-    /// now (through FileTrust like every screenshot read: this user's, no symlink, bounded
-    /// in size) and read off the main actor, where its size cannot stall the UI.
-    func returned(_ urls: [URL]) {
+    /// Done in the editor, with the items it handed back: nothing (the file was written in
+    /// place), the file URL of an edited copy, or, as macOS 27 does, an `NSItemProvider`
+    /// holding the edited image. A returned copy may live in a temporary place the extension
+    /// cleans up as soon as this returns, so it is opened now (through FileTrust like every
+    /// screenshot read: this user's, no symlink, bounded in size) and read off the main
+    /// actor, where its size cannot stall the UI.
+    func returned(_ items: [Any]) {
         guard let edit else { return }
+        let urls = items.compactMap(Self.fileURL)
         if Self.modified(edit.url) != edit.modified {
             finish(.savedInPlace)
         } else if let copy = urls.first(where: { $0.standardizedFileURL != edit.url.standardizedFileURL }),
@@ -150,9 +155,24 @@ final class MarkupOpener: NSObject, NSSharingServiceDelegate {
                 }
                 edit.completion(.savedCopy(data))
             }
+        } else if let provider = items.lazy.compactMap({ $0 as? NSItemProvider }).first,
+                  let type = Self.imageType(in: provider) {
+            guard let edit = end() else { return }
+            let completion = edit.completion
+            // The provider loads on a queue of its own, off the main actor.
+            _ = provider.loadDataRepresentation(forTypeIdentifier: type) { data, _ in
+                Task { @MainActor in completion(data.map { .savedCopy($0) } ?? .closed) }
+            }
         } else {
             finish(.closed)
         }
+    }
+
+    /// The image type a provider offers, PNG first (what Markup hands back).
+    nonisolated static func imageType(in provider: NSItemProvider) -> String? {
+        let types = provider.registeredTypeIdentifiers
+        if types.contains(UTType.png.identifier) { return UTType.png.identifier }
+        return types.first { UTType($0)?.conforms(to: .image) == true }
     }
 
     #if DEBUG

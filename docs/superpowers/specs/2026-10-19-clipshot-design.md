@@ -414,7 +414,10 @@ a mandate:
   opens it for annotation in native Markup. The builder picks the most native
   path that works on macOS 26 in this order, and records the choice: Quick
   Look panel with Markup, the system Markup extension, then Preview.app.
-- When the user saves the edit, ClipShot copies the edited image. A file that
+- When the user saves the edit, the screenshot file holds the edited image (when
+  the editor hands the image back instead of writing the file, ClipShot saves it
+  over the file), and ClipShot copies it. A later Copy or a second edit sees the
+  edit (owner's report, 2026-11-10). A file that
   ClipShot opened for editing is exempt from the 30 s copy window until the
   editor closes or 30 minutes pass, so a long edit still lands on the
   clipboard. Any other old file still never copies.
