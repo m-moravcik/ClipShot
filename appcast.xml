@@ -6,28 +6,30 @@
     <description>Updates for ClipShot</description>
     <language>en</language>
     <item>
-      <title>Version 0.9.4</title>
-      <pubDate>Tue, 10 Nov 2026 20:28:04 +0000</pubDate>
-      <sparkle:version>5</sparkle:version>
-      <sparkle:shortVersionString>0.9.4</sparkle:shortVersionString>
+      <title>Version 0.9.5</title>
+      <pubDate>Thu, 12 Nov 2026 15:12:45 +0000</pubDate>
+      <sparkle:version>6</sparkle:version>
+      <sparkle:shortVersionString>0.9.5</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-<p>Markup edits now stick.</p>
+<p>Closing Markup without a change no longer touches your PNG (the macOS default) or TIFF screenshot or your clipboard.</p>
 <ul>
-<li>After you annotate a screenshot in Markup and click Done, the edited image is on the clipboard. On macOS 27 the edit used to be lost: the clipboard kept nothing new, Copy in ClipShot gave the original, and editing again showed the clean screenshot.</li>
-<li>Done now saves the edit over the screenshot, as Markup in Quick Look and Preview do, so a later Copy or a second edit shows your annotations. The file keeps its name, format and creation date, and stays a screenshot ClipShot tracks.</li>
+<li>On macOS 27, clicking Done in Markup without drawing anything still hands the image back. ClipShot 0.9.4 saved that copy over the screenshot, which made the file about twice as large, and put it on the clipboard again, replacing whatever you had copied since.</li>
+<li>Now ClipShot compares the image with a PNG or TIFF screenshot. When nothing changed, the file and the clipboard stay as they were. Real edits are saved and copied as before.</li>
+<li>JPEG and HEIC screenshots are not compared. Markup re-encodes them on Done, so the image always comes back with different pixels, and ClipShot saves and copies it as an edit rather than risk losing a faint real one.</li>
+<li>Markup edits of JPEG, HEIC and TIFF screenshots are no longer lost. Markup hands those back in the screenshot&#x27;s own format, and ClipShot only took PNG, so if you set screenshots to JPEG, Done did nothing.</li>
 </ul>
 <p>Signed with Developer ID, notarized and stapled. Requires macOS 26.</p>
       ]]></description>
       <sparkle:fullReleaseNotesLink>https://github.com/m-moravcik/ClipShot/releases</sparkle:fullReleaseNotesLink>
-      <enclosure url="https://github.com/m-moravcik/ClipShot/releases/download/v0.9.4/ClipShot-0.9.4.zip"
-                 sparkle:edSignature="SrdjoeHNmP/ar0Zyyaw2S9D5X0Z/+O38zfYiKxjHz/1AYVMB59iNdpsmWdVo/pblXf5h4Rd1rottcgZcizAwBQ=="
-                 length="6218151"
+      <enclosure url="https://github.com/m-moravcik/ClipShot/releases/download/v0.9.5/ClipShot-0.9.5.zip"
+                 sparkle:edSignature="T2CKW7snPD4ntUdeWvrIaWmaMsp6+4OhjvLSMoBvIr376EDqv7fAPxkSmrSIpO1RQcZVt1Mdz3SH4eWcY3u2Ag=="
+                 length="6223374"
                  type="application/octet-stream" />
     </item>
   </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: rOwkc4F2+yiG0D5TTxeWPVd6CjTJCkvCHBu14vri8tO50F+piZI0Fk20Q5KIQd+hNMhWfCjbtBBYtISmlqI2CA==
-length: 1759
+edSignature: OSfdfYj1+XPLxeUNcXzYN++DCZpcBDSLjtMnB8+LvUDPYyGp1u0OzMXnWhWHSwOaeV6MEroHCoINxBYRBhcWAA==
+length: 2248
 -->
