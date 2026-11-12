@@ -236,6 +236,23 @@ struct FloatingPreviewsTests {
         #expect(try Data(contentsOf: url) == again)
     }
 
+    /// A JPEG screenshot: Markup hands the edit back as JPEG, and it is saved and copied as
+    /// a PNG edit is.
+    @Test func markupEditOfAJPEGScreenshotIsSavedAndCopied() async throws {
+        let h = try ModelHarness()
+        defer { h.tearDown() }
+        #expect(await h.start())
+        let url = try Fixtures.write(named: "Screenshot 1.jpg", contents: Fixtures.image(type: .jpeg, size: 30), in: h.folder)
+        #expect(await eventually { await h.pasteboard.writes.count == 1 })
+        let file = try #require(CaptureFile.inspect(url))
+        let edited = Fixtures.image(type: .jpeg, size: 31)
+        h.markupResult = .savedCopy(edited)
+        h.model.markup(file)
+        #expect(await eventually { await h.pasteboard.writes.count == 2 })
+        #expect(try Data(contentsOf: url) == edited, "the file holds the edit, still JPEG")
+        #expect(CaptureFile.inspect(url)?.isScreenshot == true)
+    }
+
     /// Done without a change: Markup still hands back the image, re-encoded. The file and
     /// the clipboard stay as they were.
     @Test func markupDoneWithoutAChangeLeavesTheFileAndClipboardAlone() async throws {

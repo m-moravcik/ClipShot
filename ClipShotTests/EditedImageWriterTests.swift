@@ -60,6 +60,59 @@ struct EditedImageWriterTests {
         #expect(try Data(contentsOf: url) == edited)
     }
 
+    /// Markup's Rotate only sets the orientation tag (8, rotated 90° left in EXIF/TIFF terms)
+    /// and keeps the stored pixels: that is an edit, and the file then shows it rotated.
+    @Test func aRotationThatOnlySetsTheOrientationIsSaved() throws {
+        let dir = try Fixtures.makeDir()
+        let original = Fixtures.image(type: .tiff, size: 30)
+        let url = try Fixtures.write(named: "Screenshot.tiff", contents: original, in: dir)
+        let before = try #require(CaptureFile.inspect(url))
+        let rotated = try withOrientation(8, original)
+
+        let result = EditedImageWriter.save(rotated, over: url, expectedResourceID: before.resourceID)
+
+        #expect(outcome(of: result) == .saved)
+        let source = try #require(CGImageSourceCreateWithURL(url as CFURL, nil))
+        let properties = try #require(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any])
+        #expect(properties[kCGImagePropertyOrientation] as? Int == 8)
+    }
+
+    /// An image without an orientation tag shows the same as one tagged 1 (up), so Done
+    /// without a change that only adds the default tag leaves the file alone.
+    @Test func theDefaultOrientationTagIsNotAnEdit() throws {
+        let dir = try Fixtures.makeDir()
+        let original = Fixtures.pngImage(size: 30)
+        let url = try Fixtures.write(named: "Screenshot.png", contents: original, in: dir)
+        let before = try #require(CaptureFile.inspect(url))
+
+        let result = EditedImageWriter.save(
+            try withOrientation(1, Fixtures.image(type: .tiff, size: 30)), over: url, expectedResourceID: before.resourceID)
+
+        #expect(outcome(of: result) == .unchanged)
+        #expect(try Data(contentsOf: url) == original)
+    }
+
+    /// Markup re-encodes a JPEG or HEIC screenshot on Done, so its pixels differ even
+    /// without a change, and a threshold that hid that noise could also hide a faint
+    /// stroke. Lossy screenshots are not compared: whatever Markup hands back is saved,
+    /// even the same content at another quality that happens to decode to the same pixels.
+    @Test(arguments: [UTType.jpeg, UTType.heic])
+    func aLossyScreenshotIsAlwaysSaved(type: UTType) throws {
+        let dir = try Fixtures.makeDir()
+        let original = Fixtures.image(type: type, size: 30)
+        let ext = try #require(type.preferredFilenameExtension)
+        let url = try Fixtures.write(named: "Screenshot.\(ext)", contents: original, in: dir)
+        let before = try #require(CaptureFile.inspect(url))
+        let reencoded = try withQuality(0.9, original)
+        #expect(reencoded != original)
+        #expect(EditedImageWriter.samePixels(reencoded, original), "a compare would call this unchanged")
+
+        let result = EditedImageWriter.save(reencoded, over: url, expectedResourceID: before.resourceID)
+
+        #expect(outcome(of: result) == .saved)
+        #expect(try Data(contentsOf: url) == reencoded)
+    }
+
     /// A file put at the path while the editor was open is not overwritten.
     @Test func aFileReplacedDuringTheEditIsLeftAlone() throws {
         let dir = try Fixtures.makeDir()
@@ -111,6 +164,31 @@ struct EditedImageWriterTests {
 
         #expect(failure(of: result) == .undecodable)
         #expect(try Data(contentsOf: url) == original)
+    }
+
+    /// `data` re-encoded in its own format with the pixels as they are and the orientation
+    /// tag set, as Markup's Rotate hands it back.
+    private func withOrientation(_ orientation: Int, _ data: Data) throws -> Data {
+        let source = try #require(CGImageSourceCreateWithData(data as CFData, nil))
+        let type = try #require(CGImageSourceGetType(source))
+        let out = NSMutableData()
+        let destination = try #require(CGImageDestinationCreateWithData(out, type, 1, nil))
+        CGImageDestinationAddImageFromSource(
+            destination, source, 0, [kCGImagePropertyOrientation: orientation] as CFDictionary)
+        #expect(CGImageDestinationFinalize(destination))
+        return out as Data
+    }
+
+    /// `data` re-encoded in its own format at another lossy compression quality.
+    private func withQuality(_ quality: Double, _ data: Data) throws -> Data {
+        let source = try #require(CGImageSourceCreateWithData(data as CFData, nil))
+        let type = try #require(CGImageSourceGetType(source))
+        let out = NSMutableData()
+        let destination = try #require(CGImageDestinationCreateWithData(out, type, 1, nil))
+        CGImageDestinationAddImageFromSource(
+            destination, source, 0, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
+        #expect(CGImageDestinationFinalize(destination))
+        return out as Data
     }
 
     private func failure(of result: Result<EditedImageWriter.Outcome, EditedImageWriter.Failure>) -> EditedImageWriter.Failure? {

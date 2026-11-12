@@ -53,6 +53,23 @@ struct MarkupOpenerTests {
         #expect(await eventually { await results.all == [.savedCopy(edited)] })
     }
 
+    /// Markup hands the edit back in the file's own format (seen on macOS 27: a JPEG
+    /// screenshot comes back as `public.jpeg`, HEIC as `public.heic`, TIFF as `public.tiff`).
+    @Test(arguments: [UTType.jpeg, .heic, .tiff])
+    func anItemProviderInTheFilesFormatIsTheEditedImage(_ type: UTType) async throws {
+        let ext = type.preferredFilenameExtension ?? "img"
+        let original = try Fixtures.write(
+            named: "Screenshot.\(ext)", contents: Fixtures.image(type: type), in: try Fixtures.makeDir())
+        let edited = Fixtures.image(type: type, size: 31)
+        let opener = MarkupOpener(makeService: { _ in nil }, openPreview: { _ in false })
+        let results = Results()
+        opener.beginForTesting(original) { results.all.append($0) }
+
+        opener.returned([NSItemProvider(item: edited as NSData, typeIdentifier: type.identifier)])
+
+        #expect(await eventually { await results.all == [.savedCopy(edited)] })
+    }
+
     @Test func anItemProviderWithoutAnImageIsClosed() throws {
         let original = try Fixtures.write(named: "Screenshot.png", in: try Fixtures.makeDir())
         let opener = MarkupOpener(makeService: { _ in nil }, openPreview: { _ in false })

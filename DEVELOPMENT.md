@@ -142,15 +142,20 @@ The file opened for editing gets an `EditSession`: for 30 minutes, or until the
 editor closes plus 5 s, it is exempt from the "created within 30 s" rule (not from
 "modified within 30 s"), so a long edit still lands on the clipboard. On macOS 27
 Done does not write the file: it hands back an `NSItemProvider` holding the edited
-PNG (an edited copy's file URL is handled the same way). `EditedImageWriter` saves
+image in the file's own format (`public.png`, `public.jpeg`, `public.heic`,
+`public.tiff`; an edited copy's file URL is handled the same way). `EditedImageWriter` saves
 that image over the screenshot, as Markup in Quick Look and Preview do, so a later
 Copy or a second edit sees it: written to a temporary file on the same volume,
 given the original's extended attributes (the screenshot marker), permissions and
 creation date, re-encoded when the screenshot is not a PNG, then renamed over it.
 The watcher copies the saved file within the edit session like a save in place.
-Done without a change still hands back the image, re-encoded: when it has the
-file's pixels (`EditedImageWriter.samePixels`), the file and the clipboard are
-left as they were and the log says `markup edit unchanged`. Only when the file
+Done without a change still hands back the image, re-encoded: for a lossless PNG
+or TIFF screenshot with the same pixels (`EditedImageWriter.samePixels`), the file
+and the clipboard are left as they were and the log says `markup edit unchanged`.
+A JPEG or HEIC comes back re-encoded with different pixels (lossy, max per-channel
+difference up to 127), so it is not compared: any tolerance for that noise could
+also swallow a faint real edit, so the hand-back is always saved and copied, as in
+0.9.4. Only when the file
 cannot take the edit (a PDF capture, or a file replaced while the editor was
 open) does the image go to the clipboard on its own. A save that
 replaces the file keeps it in the ledger (`ScreenshotLedger.followEdit`).
