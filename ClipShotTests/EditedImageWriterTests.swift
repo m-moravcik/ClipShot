@@ -92,6 +92,27 @@ struct EditedImageWriterTests {
         #expect(try Data(contentsOf: url) == original)
     }
 
+    /// Markup re-encodes a JPEG or HEIC screenshot on Done, so its pixels differ even
+    /// without a change, and a threshold that hid that noise could also hide a faint
+    /// stroke. Lossy screenshots are not compared: whatever Markup hands back is saved,
+    /// even the same content at another quality that happens to decode to the same pixels.
+    @Test(arguments: [UTType.jpeg, UTType.heic])
+    func aLossyScreenshotIsAlwaysSaved(type: UTType) throws {
+        let dir = try Fixtures.makeDir()
+        let original = Fixtures.image(type: type, size: 30)
+        let ext = try #require(type.preferredFilenameExtension)
+        let url = try Fixtures.write(named: "Screenshot.\(ext)", contents: original, in: dir)
+        let before = try #require(CaptureFile.inspect(url))
+        let reencoded = try withQuality(0.9, original)
+        #expect(reencoded != original)
+        #expect(EditedImageWriter.samePixels(reencoded, original), "a compare would call this unchanged")
+
+        let result = EditedImageWriter.save(reencoded, over: url, expectedResourceID: before.resourceID)
+
+        #expect(outcome(of: result) == .saved)
+        #expect(try Data(contentsOf: url) == reencoded)
+    }
+
     /// A file put at the path while the editor was open is not overwritten.
     @Test func aFileReplacedDuringTheEditIsLeftAlone() throws {
         let dir = try Fixtures.makeDir()
@@ -154,6 +175,18 @@ struct EditedImageWriterTests {
         let destination = try #require(CGImageDestinationCreateWithData(out, type, 1, nil))
         CGImageDestinationAddImageFromSource(
             destination, source, 0, [kCGImagePropertyOrientation: orientation] as CFDictionary)
+        #expect(CGImageDestinationFinalize(destination))
+        return out as Data
+    }
+
+    /// `data` re-encoded in its own format at another lossy compression quality.
+    private func withQuality(_ quality: Double, _ data: Data) throws -> Data {
+        let source = try #require(CGImageSourceCreateWithData(data as CFData, nil))
+        let type = try #require(CGImageSourceGetType(source))
+        let out = NSMutableData()
+        let destination = try #require(CGImageDestinationCreateWithData(out, type, 1, nil))
+        CGImageDestinationAddImageFromSource(
+            destination, source, 0, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
         #expect(CGImageDestinationFinalize(destination))
         return out as Data
     }

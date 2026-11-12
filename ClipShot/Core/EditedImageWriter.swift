@@ -26,13 +26,17 @@ enum EditedImageWriter {
     /// What a save did.
     enum Outcome: Equatable, Sendable {
         case saved
-        /// The edit has the file's pixels: Done without a change, which on macOS 27 still
-        /// hands back the image, re-encoded and larger. The file is left as it was.
+        /// The edit has the pixels of a PNG or TIFF file: Done without a change, which on
+        /// macOS 27 still hands back the image, re-encoded and larger. The file is left as
+        /// it was.
         case unchanged
     }
 
     /// Writes `data` (any image ImageIO reads) over `url`, encoded in the format `url` has,
-    /// unless it shows the same pixels as `url`. `expectedResourceID` is the original's
+    /// unless `url` is a lossless PNG or TIFF and `data` shows its pixels. A JPEG or HEIC is
+    /// not compared: Markup re-encodes it on Done, so its pixels differ even without a
+    /// change, and a tolerance for that noise could also swallow a faint real edit; it is
+    /// always saved. `expectedResourceID` is the original's
     /// device and inode when the edit began: a file put at that path since then is not
     /// overwritten.
     static func save(
@@ -46,10 +50,16 @@ enum EditedImageWriter {
         case .success(let bytes): encoded = bytes
         case .failure(let failure): return .failure(failure)
         }
-        if case .success(let original) = opened.read(), samePixels(data, original, policy: policy) {
+        if isLossless(url), case .success(let original) = opened.read(), samePixels(data, original, policy: policy) {
             return .success(.unchanged)
         }
         return replace(url, with: encoded).map { .saved }
+    }
+
+    /// Whether `url`'s format keeps pixels exactly through Markup's re-encode.
+    private static func isLossless(_ url: URL) -> Bool {
+        guard let type = UTType(filenameExtension: url.pathExtension) else { return false }
+        return type.conforms(to: .png) || type.conforms(to: .tiff)
     }
 
     /// Whether two encoded images show the same pixels: the same orientation and size, and
