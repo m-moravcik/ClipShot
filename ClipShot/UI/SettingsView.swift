@@ -880,7 +880,7 @@ struct AboutSettings: View {
     @Environment(\.updater) private var updater
 
     private static let repository = URL(string: "https://github.com/m-moravcik/ClipShot")!
-    private static let portfolio = URL(string: "https://web.pexelo.com/portfolio")!
+    private static let portfolio = URL(string: "https://build.pexelo.com/portfolio")!
 
     private var version: LocalizedStringResource {
         let info = Bundle.main.infoDictionary
