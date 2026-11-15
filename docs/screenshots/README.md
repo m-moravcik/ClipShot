@@ -26,7 +26,7 @@ committing; the names stay the same, so nothing else needs editing.
 
 ```sh
 scripts/screenshots.sh          # English, into build/screenshots/en
-scripts/screenshots.sh sk       # one language (sk cs de es fr), e.g. for the web.pexelo portfolio
+scripts/screenshots.sh sk       # one language (sk cs de es fr), e.g. for the build.pexelo portfolio
 scripts/screenshots.sh all      # all six, one build
 ```
 

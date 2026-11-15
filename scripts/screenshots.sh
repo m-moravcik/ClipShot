@@ -3,7 +3,7 @@
 # banner from the app itself. See ClipShot/Preview/ScreenshotHarness.swift.
 #
 #   scripts/screenshots.sh        # English, into build/screenshots/en
-#   scripts/screenshots.sh sk     # Slovak, for the web.pexelo portfolio
+#   scripts/screenshots.sh sk     # Slovak, for the build.pexelo portfolio
 #   scripts/screenshots.sh all    # every language, one build; also the margin check below
 #
 # The README pictures are copied from build/screenshots/en into docs/screenshots by
