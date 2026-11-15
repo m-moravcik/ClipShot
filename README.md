@@ -464,4 +464,4 @@ Developer account that keeps releases signed and notarized.
 
 [MIT](LICENSE)
 
-Built by [Michal Moravčík](https://github.com/m-moravcik). [More projects](https://web.pexelo.com/portfolio).
+Built by [Michal Moravčík](https://github.com/m-moravcik). [More projects](https://build.pexelo.com/portfolio).

@@ -5,7 +5,7 @@ import SwiftUI
 
 /// Development harness: renders the popover, its attention rows, the welcome tour, the
 /// Settings panes, the menu bar icon in every state and the app icon to PNG, for the README
-/// and the web.pexelo portfolio. Debug builds only; `scripts/screenshots.sh` drives it.
+/// and the build.pexelo portfolio. Debug builds only; `scripts/screenshots.sh` drives it.
 ///
 /// A MenuBarExtra popover cannot be opened programmatically, and a hand-taken screenshot
 /// drifts from the app and carries whatever the author's Mac has. This renders the real views
